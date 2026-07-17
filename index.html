@@ -3,91 +3,742 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIPEX - Sistema Completo</title>
-    <!-- Tus estilos originales -->
+    <title>SIPEX - Sistema de Inventario de Paquetes de Expedientes</title>
+    <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        :root { --sipa-primary: #800000; --sipa-bg-sidebar: #1e293b; --sipa-body-bg: #f8fafc; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--sipa-body-bg); }
-        .view-section { display: none; } .view-section.active { display: block; }
-        #sidebar { width: 260px; background-color: var(--sipa-bg-sidebar); min-height: 100vh; color: white; }
-        .nav-link { color: #cbd5e1 !important; cursor: pointer; }
+        :root {
+            --sipa-bg-sidebar: #1e293b;
+            --sipa-bg-sidebar-hover: #334155;
+            --sipa-primary: #800000; /* Granate institucional */
+            --sipa-primary-dark: #600000;
+            --sipa-accent: #3b82f6;
+            --sipa-text-dark: #333333;
+            --sipa-body-bg: #f8fafc;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--sipa-body-bg);
+            overflow-x: hidden;
+        }
+
+        .btn-primary {
+            background-color: var(--sipa-primary);
+            border-color: var(--sipa-primary);
+        }
+        .btn-primary:hover {
+            background-color: var(--sipa-primary-dark);
+            border-color: var(--sipa-primary-dark);
+        }
+        .text-primary {
+            color: var(--sipa-primary) !important;
+        }
+        .border-primary {
+            border-color: var(--sipa-primary) !important;
+        }
+
+        #login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%);
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 420px;
+            padding: 2.5rem;
+        }
+
+        #app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        #sidebar {
+            width: 260px;
+            background-color: var(--sipa-bg-sidebar);
+            color: #f1f5f9;
+            transition: all 0.3s;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #sidebar .nav-link {
+            color: #cbd5e1;
+            padding: 0.8rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 6px;
+            margin: 0.2rem 0.8rem;
+            transition: all 0.2s;
+        }
+
+        #sidebar .nav-link:hover, #sidebar .nav-link.active {
+            background-color: var(--sipa-bg-sidebar-hover);
+            color: #ffffff;
+        }
+
+        #main-content {
+            flex-grow: 1;
+            padding: 2rem;
+            background-color: var(--sipa-body-bg);
+        }
+
+        .navbar-top {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            padding: 0.75rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 8px;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: transform 0.2s;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .form-section-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--sipa-text-dark);
+            letter-spacing: 0.5px;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: #475569;
+            font-size: 0.9rem;
+        }
+
+        .total-display {
+            background-color: #f1f5f9;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+        .total-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: #64748b;
+        }
+        .total-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--sipa-text-dark);
+        }
+
+        .view-section {
+            display: none;
+        }
+        .view-section.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="login-container" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #333;">
-    <div class="card p-4" style="width: 400px;">
-        <h3 class="text-center">SIPEX - Login</h3>
-        <input type="email" id="login-email" class="form-control mb-2" placeholder="Correo">
-        <input type="password" id="login-password" class="form-control mb-3" placeholder="Contraseña">
-        <button id="btn-login" class="btn btn-primary w-100">Ingresar</button>
-    </div>
-</div>
-
-<!-- APP -->
-<div id="app-container" style="display: none; display: flex;">
-    <aside id="sidebar">
-        <div class="p-4 text-center"><h5>SIPEX</h5></div>
-        <nav class="nav flex-column mt-3">
-            <a class="nav-link" onclick="switchView('view-dashboard')">Dashboard</a>
-            <a class="nav-link" onclick="switchView('view-inventario')">Cargar Inventario</a>
-            <a class="nav-link" onclick="switchView('view-reingresos')">Registrar Reingreso</a>
-            <a class="nav-link" onclick="switchView('view-consultas-reingresos')">Consultar Reingresos</a>
-            <a class="nav-link" onclick="location.reload()">Cerrar Sesión</a>
-        </nav>
-    </aside>
-
-    <main id="main-content" class="p-4 flex-grow-1">
-        <!-- Dashboard y otras secciones originales -->
-        <section id="view-dashboard" class="view-section active"><h3>Dashboard</h3></section>
-        
-        <!-- MÓDULO REINGRESOS (COMPLETO) -->
-        <section id="view-reingresos" class="view-section">
-            <div class="card p-4">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-3"><input type="date" id="re-fecha" class="form-control"></div>
-                    <div class="col-md-3"><select id="re-solicitante" class="form-select"></select></div>
-                    <div class="col-md-3"><select id="re-local" class="form-select"></select></div>
-                    <div class="col-md-3"><select id="re-entregado" class="form-select"></select></div>
+    <!-- INTERFAZ DE LOGIN -->
+    <div id="login-container">
+        <div class="login-card">
+            <div class="text-center mb-4">
+                <i class="bi bi-folder-fill text-primary" style="font-size: 3.5rem;"></i>
+                <h1 class="fw-bold mt-2 text-dark" style="letter-spacing: -1.5px;">SIPEX</h1>
+                <p class="text-muted small fw-medium mb-1">Sistema de Inventario de Paquetes de Expedientes</p>
+                <p class="small fw-bold text-uppercase" style="color: var(--sipa-primary); font-size: 0.75rem;">Corte Superior de Justicia del Santa</p>
+            </div>
+            <form id="login-form">
+                <div class="mb-3">
+                    <label class="form-label text-secondary small fw-medium">Correo Institucional</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope text-muted"></i></span>
+                        <input type="email" id="login-email" class="form-control bg-light border-start-0" required placeholder="usuario@pj.gob.pe">
+                    </div>
                 </div>
-                <table class="table" id="tabla-reingresos">
-                    <thead><tr><th>Paquete</th><th>Expediente</th><th>Folios</th><th>Juzgado</th><th>Tipo</th><th>Acomp.</th><th>Acción</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-                <button class="btn btn-dark" onclick="agregarFilaReingreso()">+ Agregar Fila</button>
-                <button class="btn btn-primary" onclick="guardarReingreso()">Guardar Registro</button>
+                <div class="mb-4">
+                    <label class="form-label text-secondary small fw-medium">Contraseña</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-muted"></i></span>
+                        <input type="password" id="login-password" class="form-control bg-light border-start-0" 
+       required placeholder="••••••••" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2.5 fw-medium">Ingresar al Sistema</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL -->
+    <div id="app-container" style="display: none;">
+        <aside id="sidebar">
+            <div class="p-4 text-center border-bottom border-secondary border-opacity-25">
+                <h4 class="fw-bold m-0 text-white" style="letter-spacing: 1px;"><i class="bi bi-folder-symlink-fill me-2"></i>SIPEX</h4>
+                <span class="badge bg-secondary mt-1 px-2.5 py-1" style="font-size: 0.7rem;">Archivo Desconcentrado</span>
             </div>
-        </section>
+            
+            <nav class="nav flex-column mt-3 flex-grow-1">
+                <a class="nav-link active" href="#" onclick="switchView('view-dashboard', 'Dashboard Principal')">
+                    <i class="bi bi-grid-1x2-fill"></i> Dashboard Global
+                </a>
+                <a class="nav-link" href="#" onclick="switchView('view-inventario', 'Carga de Inventario de Existencias')">
+                    <i class="bi bi-journal-plus"></i> Cargar Inventario
+                </a>
+                <a class="nav-link" href="#" onclick="switchView('view-consultas', 'Consultar Consolidados por Repositorio')">
+                    <i class="bi bi-search"></i> Consultar Lotes
+                </a>
 
-        <!-- CONSULTA REINGRESOS -->
-        <section id="view-consultas-reingresos" class="view-section">
-            <div class="card p-4">
-                <h5>Historial de Reingresos</h5>
-                <table class="table">
-                    <thead><tr><th>Fecha</th><th>Solicitante</th><th>Local</th><th>Expedientes</th><th>PDF</th></tr></thead>
-                    <tbody id="tabla-historial-reingresos"></tbody>
-                </table>
+<a class="nav-link" href="#" onclick="switchView('view-reingresos', 'Módulo Reingresos')">
+    <i class="bi bi-arrow-return-left"></i> Reingresos
+</a>
+
+
+<a class="nav-link" onclick="switchView('view-consultas-reingresos')"><i class="bi bi-search"></i> Consultar Reingresos</a>
+
+                <a class="nav-link" href="#" onclick="switchView('view-perfil', 'Mi Perfil de Usuario')">
+                    <i class="bi bi-person-gear"></i> Mi Perfil / Cuenta
+                </a>
+                <a class="nav-link" href="#" onclick="switchView('view-configuracion', 'Consola de Configuración')">
+                    <i class="bi bi-gear-fill"></i> Configuración
+                </a>
+            </nav>
+
+            <div class="p-3 border-top border-secondary border-opacity-25">
+                <button id="btn-logout" class="btn btn-outline-danger w-100 btn-sm d-flex align-items-center justify-content-center gap-2">
+    <i class="bi bi-box-arrow-left"></i> Cerrar Sesión
+</button>
             </div>
-        </section>
-    </main>
-</div>
+        </aside>
 
-<!-- SCRIPTS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+        <main id="main-content">
+            <div class="navbar-top d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="m-0 fw-semibold text-secondary" id="page-title">Dashboard Principal</h5>
+                </div>
+                <div class="d-flex align-items-center gap-3" style="cursor: pointer;" onclick="switchView('view-perfil', 'Mi Perfil de Usuario')">
+                    <div class="text-end d-none d-sm-block">
+                        <p class="m-0 small fw-bold text-dark" id="user-display-name">Cargando...</p>
+                        <p class="m-0 text-muted" style="font-size: 0.75rem;" id="user-display-role">Operador de Archivo</p>
+                    </div>
+                    <div class="bg-light p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                        <i class="bi bi-person-fill text-secondary fs-5"></i>
+                    </div>
+                </div>
+            </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // 🚨 CONFIGURACIÓN FIREBASE (Mantén la tuya aquí)
-    const firebaseConfig = {
+
+<section id="view-consultas-reingresos" class="view-section">
+    <div class="card p-4 border-0 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="fw-bold m-0 text-dark">
+                <i class="bi bi-search me-2"></i>Consulta de Historial de Reingresos
+            </h6>
+            <button class="btn btn-primary btn-sm" onclick="cargarHistorialReingresos()">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle border" style="font-size: 0.85rem;">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Solicitante</th>
+                        <th>Local</th>
+                        <th>Cantidad</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-historial-reingresos">
+                    <!-- Los datos se cargarán aquí -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+
+
+            <!-- DASHBOARD GLOBAL -->
+            <section id="view-dashboard" class="view-section active">
+                <div class="row g-3 mb-4">
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="card dashboard-card p-3 border-start border-primary border-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="text-muted small text-uppercase fw-bold mb-1">Total Teórico General</p>
+                                    <h3 class="fw-bold m-0" id="dash-total-teorico">0</h3>
+                                </div>
+                                <div class="text-primary fs-3"><i class="bi bi-calculator"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="card dashboard-card p-3 border-start border-danger border-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="text-muted small text-uppercase fw-bold mb-1">Total Faltantes Excluidos</p>
+                                    <h3 class="fw-bold m-0" id="dash-total-faltantes">0</h3>
+                                </div>
+                                <div class="text-danger fs-3"><i class="bi bi-exclamation-triangle"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="card dashboard-card p-3 border-start border-success border-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="text-muted small text-uppercase fw-bold mb-1">Total Real en Custodia</p>
+                                    <h3 class="fw-bold m-0" id="dash-total-real">0</h3>
+                                </div>
+                                <div class="text-success fs-3"><i class="bi bi-box-seam"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="card dashboard-card p-3 border-start border-info border-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="text-muted small text-uppercase fw-bold mb-1">Porcentaje de Integridad</p>
+                                    <h3 class="fw-bold m-0" id="dash-porcentaje">100%</h3>
+                                </div>
+                                <div class="text-info fs-3"><i class="bi bi-percent"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-4 border-0 shadow-sm">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-clock-history me-2"></i>Últimos Lotes Consolidados Registrados</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" style="font-size: 0.9rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Fecha Registro</th>
+                                    <th>Repositorio / Sede</th>
+                                    <th>Cantidad de Rangos</th>
+                                    <th class="text-center">Suma Teórica</th>
+                                    <th class="text-center">Suma Faltantes</th>
+                                    <th class="text-center">Total Físico Real</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-recent-table">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">Sin registros cargados.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FORMULARIO DE INVENTARIO MULTI-RANGO (INVENTARIO DE EXISTENCIAS) -->
+            <section id="view-inventario" class="view-section">
+                <form id="form-inventario">
+                    <div class="row g-4">
+                        <div class="col-md-8">
+                            <div class="card p-4 border-0 shadow-sm mb-4">
+                                <h6 class="form-section-title"><i class="bi bi-file-earmark-text me-2"></i>Datos de Control Institucional</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Repositorio</label>
+                                        <select class="form-select bg-light" id="inv-repositorio" required></select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Fecha de Ejecución</label>
+                                        <input type="date" class="form-control bg-light" id="inv-fecha" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Usuario que Registra (Autenticado)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light text-muted"><i class="bi bi-shield-lock-fill"></i></span>
+                                            <input type="text" class="form-control bg-light fw-bold text-dark" id="inv-registra" readonly style="cursor: not-allowed;">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Usuario que Recibe</label>
+                                        <select class="form-select bg-light" id="inv-recibe" required></select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card p-4 border-0 shadow-sm mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                                    <h6 class="m-0 fw-bold text-dark"><i class="bi bi-list-ol me-2"></i>Matriz de Rangos y Expedientes Incluidos</h6>
+                                    <button type="button" class="btn btn-dark btn-sm fw-medium d-flex align-items-center gap-1" onclick="abrirModalRango()">
+                                        <i class="bi bi-plus-circle"></i> + Agregar Rango al Lote
+                                    </button>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover align-middle" style="font-size: 0.85rem;">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Rango Inicial</th>
+                                                <th>Rango Final</th>
+                                                <th>Archivamiento</th>
+                                                <th class="text-center">Teórico</th>
+                                                <th class="text-center">Faltantes</th>
+                                                <th class="text-center">Real Físico</th>
+                                                <th class="text-end">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tabla-censo-rangos-body">
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted py-4">Ningún rango cargado al lote. Use el botón superior.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="mb-3 mt-3">
+                                    <label class="form-label">Observaciones Generales de la Sede/Repositorio</label>
+                                    <textarea class="form-control" id="inv-observaciones" rows="2" placeholder="Notas sobre el estado de la infraestructura o archivamiento global..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BARRA LATERAL CONSOLIDADA -->
+                        <div class="col-md-4">
+                            <div class="card p-4 border-0 shadow-sm sticky-top" style="top: 100px; z-index: 10;">
+                                <h6 class="form-section-title text-center"><i class="bi bi-calculator me-2"></i>Consolidado del Lote</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-6 col-md-12">
+                                        <div class="total-display border-start border-primary border-4">
+                                            <div class="total-label">Suma Teórica Total</div>
+                                            <div class="total-value text-primary" id="calc-total-teorico">0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-12">
+                                        <div class="total-display border-start border-danger border-4">
+                                            <div class="total-label">Suma Faltantes</div>
+                                            <div class="total-value text-danger" id="calc-total-faltantes">0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="total-display border-start border-success border-4 bg-success bg-opacity-10">
+                                            <div class="total-label">Total Real Físico</div>
+                                            <div class="total-value text-success" id="calc-total-real">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold">Cerrar y Guardar Consolidado</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+
+<!-- 1. AGREGA ESTA SECCIÓN DENTRO DE TU <main id="main-content">, JUNTO A LAS OTRAS <section> -->
+<section id="view-reingresos" class="view-section">
+    <div class="card p-4 mb-4">
+        <h6 class="form-section-title"><i class="bi bi-person-badge me-2"></i>Datos de Registro</h6>
+        <div class="row g-3">
+            <div class="col-md-3"><label class="form-label small fw-bold">Fecha</label><input type="date" class="form-control bg-light" id="re-fecha"></div>
+            <div class="col-md-3"><label class="form-label small fw-bold">Solicitante</label><select id="re-solicitante" class="form-select bg-light"></select></div>
+            <div class="col-md-3"><label class="form-label small fw-bold">Local Reingreso</label><select id="re-local" class="form-select bg-light"></select></div>
+            <div class="col-md-3"><label class="form-label small fw-bold">Entregado por</label><select id="re-entregado" class="form-select bg-light"></select></div>
+        </div>
+    </div>
+
+    <div class="card p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="form-section-title m-0"><i class="bi bi-journal-plus me-2"></i>Detalle de Expedientes</h6>
+            <button class="btn btn-dark btn-sm" onclick="agregarFilaReingreso()">+ Agregar Expediente</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle" id="tabla-reingresos">
+                <thead class="table-light">
+                    <tr><th>Paquete</th><th>Expediente</th><th>Folios</th><th>Juzgado</th><th>Tipo</th><th>Acomp.</th><th>Acción</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end mt-4 gap-2">
+        <button class="btn btn-danger px-4" onclick="generarReporteReingresoPDF()"><i class="bi bi-file-pdf me-2"></i>Generar PDF</button>
+        <button class="btn btn-primary px-4 fw-bold" onclick="guardarReingreso()"><i class="bi bi-cloud-upload me-2"></i>Guardar Registro</button>
+    </div>
+</section>
+
+<!-- 2. AGREGA ESTE SCRIPT ANTES DEL CIERRE DE </body> -->
+<script>
+    function agregarFilaReingreso() {
+        const tbody = document.querySelector('#tabla-reingresos tbody');
+        tbody.insertAdjacentHTML('beforeend', `<tr>
+            <td><input type="text" class="form-control form-control-sm"></td>
+            <td><input type="text" class="form-control form-control-sm"></td>
+            <td><input type="number" class="form-control form-control-sm"></td>
+            <td><input type="text" class="form-control form-control-sm"></td>
+            <td><select class="form-select form-select-sm"><option>Transitorio</option><option>Definitivo</option></select></td>
+            <td><input type="number" class="form-control form-control-sm"></td>
+            <td><button class="btn btn-outline-danger btn-sm" onclick="this.parentElement.parentElement.remove()"><i class="bi bi-trash"></i></button></td>
+        </tr>`);
+    }
+
+    async function guardarReingreso() {
+        const datos = {
+            fecha: document.getElementById('re-fecha').value,
+            solicitante: document.getElementById('re-solicitante').value,
+            local: document.getElementById('re-local').value,
+            entregado: document.getElementById('re-entregado').value,
+            expedientes: Array.from(document.querySelectorAll("#tabla-reingresos tbody tr")).map(tr => {
+                const inputs = tr.querySelectorAll('input, select');
+                return { paquete: inputs[0].value, exp: inputs[1].value, folios: inputs[2].value, juzgado: inputs[3].value, tipo: inputs[4].value, acomp: inputs[5].value };
+            })
+        };
+        try {
+            await firebase.firestore().collection('reingresos').add({...datos, createdAt: new Date()});
+            alert("Registro guardado con éxito");
+        } catch (e) { alert("Error: " + e.message); }
+    }
+
+    async function generarReporteReingresoPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text("REGISTRO DE REINGRESOS", 105, 15, { align: "center" });
+        const datos = Array.from(document.querySelectorAll("#tabla-reingresos tbody tr")).map(tr => 
+            Array.from(tr.querySelectorAll('input, select')).map(i => i.value));
+        doc.autoTable({ startY: 25, head: [['Paquete', 'Exp', 'Folios', 'Juzgado', 'Tipo', 'Acomp']], body: datos });
+        doc.save('Reingreso_CSJSA.pdf');
+    }
+</script>
+
+
+
+
+            <!-- CONSULTAS -->
+            <section id="view-consultas" class="view-section">
+                <div class="card p-4 border-0 shadow-sm mb-4">
+                    <h6 class="form-section-title"><i class="bi bi-funnel me-2"></i>Filtros de Auditoría Histórica</h6>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label small">Repositorio Evaluado</label>
+                            <select class="form-select form-select-sm" id="filtro-repo" onchange="filtrarRegistros()"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small">Término de Búsqueda (Operador/Fechas)</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" class="form-control" id="filtro-texto" oninput="filtrarRegistros()" placeholder="Buscar...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-4 border-0 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold m-0 text-dark"><i class="bi bi-table me-2"></i>Consolidados en la Base de Datos Cloud</h6>
+                        <span class="badge bg-secondary p-2" id="contador-registros">0 Lotes</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle border" style="font-size: 0.85rem;">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Fecha Ejecución</th>
+                                    <th>Repositorio Sede</th>
+                                    <th class="text-center">Número de Rangos</th>
+                                    <th class="text-center">Suma Teórica</th>
+                                    <th class="text-center">Suma Faltantes</th>
+                                    <th class="text-center">Total Real Físico</th>
+                                    <th>Registró</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-consultas-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- EDITAR PERFIL / CONFIGURACIÓN DE LA CUENTA -->
+            <section id="view-perfil" class="view-section">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card p-4 border-0 shadow-sm">
+                            <h6 class="form-section-title"><i class="bi bi-person-vcard me-2"></i>Actualizar Datos de Perfil</h6>
+                            <form id="form-perfil-datos">
+                                <div class="mb-3">
+                                    <label class="form-label">Correo Institucional</label>
+                                    <input type="text" class="form-control bg-light" id="perf-email" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Nombre Completo del Operador (Debe coincidir con la lista oficial)</label>
+                                    <input type="text" class="form-control" id="perf-nombre" required placeholder="Ej: ALFREDO CRUZADO">
+                                </div>
+                                <button type="submit" class="btn btn-primary fw-medium btn-sm"><i class="bi bi-check2-circle me-1"></i> Guardar Cambios</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card p-4 border-0 shadow-sm">
+                            <h6 class="form-section-title text-danger"><i class="bi bi-shield-lock me-2"></i>Modificar Clave de Acceso</h6>
+                            <form id="form-perfil-clave">
+                                <div class="mb-3">
+                                    <label class="form-label">Nueva Contraseña</label>
+                                    <input type="password" class="form-control" id="perf-new-password" required minlength="6" placeholder="Mínimo 6 caracteres">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Confirmar Nueva Contraseña</label>
+                                    <input type="password" class="form-control" id="perf-confirm-password" required minlength="6" placeholder="Repita la contraseña">
+                                </div>
+                                <button type="submit" class="btn btn-danger fw-medium btn-sm"><i class="bi bi-key me-1"></i> Actualizar Contraseña</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CONFIGURACIÓN -->
+            <section id="view-configuracion" class="view-section">
+                <div class="card p-4 border-0 shadow-sm">
+                    <h6 class="form-section-title"><i class="bi bi-shield-lock-fill me-2"></i>Consola de Administración del Sistema</h6>
+                    <p class="text-muted small">Los parámetros de repositorios, personal y roles del Archivo Desconcentrado de la CSJSA están centralizados en esta versión base.</p>
+                </div>
+            </section>
+
+
+
+
+<section id="view-reingresos" class="view-section">
+    <div class="card p-4 border-0 shadow-sm">
+        <h6 class="form-section-title">Registro de Reingresos</h6>
+        <button class="btn btn-dark btn-sm mb-3" onclick="agregarFilaReingreso()">+ Agregar Fila</button>
+        <table class="table" id="tabla-reingresos">
+            <thead><tr><th>Paquete</th><th>Expediente</th><th>Acción</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        <button class="btn btn-danger" onclick="generarReporteReingresoPDF()">Generar PDF</button>
+    </div>
+</section>
+
+
+
+        </main>
+    </div>
+
+    <!-- MODAL PRINCIPAL: AGREGAR RANGO CON SUS PROPIOS FALTANTES -->
+    <div class="modal fade" id="modalAgregarRango" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white border-0">
+                    <h6 class="modal-title fw-bold"><i class="bi bi-folder-plus me-2"></i>Configurar Rango de Expedientes</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="cerrarModalRango()"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-modal-rango">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Número Inicial (Desde)</label>
+                                <input type="text" class="form-control form-control-sm" id="mod-inicial" required placeholder="Ej: 22-001">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Número Final (Hasta)</label>
+                                <input type="text" class="form-control form-control-sm" id="mod-final" required placeholder="Ej: 22-2852">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Archivamiento</label>
+                                <select class="form-select form-select-sm" id="mod-archivamiento">
+                                    <option value="Transitorio">Transitorio</option>
+                                    <option value="Definitivo">Definitivo</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- SECCIÓN INTERNA PARA AGREGAR EXCLUSIONES A ESTE RANGO ESPECÍFICO -->
+                    <div class="card p-3 bg-light border mb-3">
+                        <p class="fw-bold text-danger mb-2" style="font-size: 0.8rem;"><i class="bi bi-exclamation-triangle"></i> Registro de Faltantes Internos del Rango</p>
+                        <form id="form-mod-add-faltante">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-5">
+                                    <label class="form-label text-muted" style="font-size: 0.75rem;">Faltante Desde</label>
+                                    <input type="text" class="form-control form-control-sm" id="mod-falt-desde" placeholder="Ej: 22-35">
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label text-muted" style="font-size: 0.75rem;">Faltante Hasta (Vacío si es único)</label>
+                                    <input type="text" class="form-control form-control-sm" id="mod-falt-hasta" placeholder="Ej: 22-142">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm w-100 fw-bold">Insertar</button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div class="table-responsive mt-2">
+                            <table class="table table-sm table-bordered bg-white m-0" style="font-size: 0.75rem;">
+                                <thead class="table-secondary">
+                                    <tr>
+                                        <th>Desde</th>
+                                        <th>Hasta</th>
+                                        <th class="text-center">Cant.</th>
+                                        <th class="text-end">Borrar</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mod-tabla-faltantes-body">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted">No se registran faltantes en este tramo.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                        <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal" onclick="cerrarModalRango()">Cancelar</button>
+                        <button type="button" class="btn btn-primary btn-sm px-4 fw-bold" onclick="inyectarRangoAGrilla()">Agregar a Inventario</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS EXTERNOS OBLIGATORIOS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- INICIO DEL MOTOR LOGICO ASOCIADO A FIREBASE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        // ==========================================
+        // 🚨 CONFIGURACIÓN FIREBASE (PEGA TUS CREDENCIALES AQUÍ)
+        // ==========================================
+        const firebaseConfig = {
   apiKey: "AIzaSyDaVsm4cs9O-R0plj1hk62Iy1uU2IYZLfc",
   authDomain: "sipa-d4ec9.firebaseapp.com",
   projectId: "sipa-d4ec9",
@@ -96,77 +747,733 @@
   appId: "1:560354492263:web:653ac26f811153537c79c2"
 };
 
-    // Funciones
-    window.switchView = (id) => {
-        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        if(id === 'view-consultas-reingresos') cargarHistorial();
-    };
+        // Inicializar servicios
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-    window.agregarFilaReingreso = () => {
-        document.querySelector('#tabla-reingresos tbody').insertAdjacentHTML('beforeend', `<tr>
-            <td><input type="text" class="form-control form-control-sm pac"></td>
-            <td><input type="text" class="form-control form-control-sm exp"></td>
-            <td><input type="number" class="form-control form-control-sm fol"></td>
-            <td><input type="text" class="form-control form-control-sm juz"></td>
-            <td><select class="form-select form-select-sm tip"><option>Transitorio</option><option>Definitivo</option></select></td>
-            <td><input type="number" class="form-control form-control-sm aco"></td>
-            <td><button class="btn btn-danger btn-sm" onclick="this.parentElement.parentElement.remove()">X</button></td>
-        </tr>`);
-    };
-
-    window.guardarReingreso = async () => {
-        const datos = {
-            fecha: document.getElementById('re-fecha').value,
-            solicitante: document.getElementById('re-solicitante').value,
-            local: document.getElementById('re-local').value,
-            entregado: document.getElementById('re-entregado').value,
-            expedientes: Array.from(document.querySelectorAll("#tabla-reingresos tbody tr")).map(tr => ({
-                paquete: tr.querySelector('.pac').value,
-                exp: tr.querySelector('.exp').value,
-                folios: tr.querySelector('.fol').value,
-                juzgado: tr.querySelector('.juz').value,
-                tipo: tr.querySelector('.tip').value,
-                acomp: tr.querySelector('.aco').value
-            }))
+        // Parámetros fijos institucionales
+        const repositorios = ["SÓTANO NCPP", "SAENZ PEÑA", "PADILLA", "DUNAS", "DOMUS"];
+        const listaPersonalRoles = {
+            "JORGE DESPOSORIO": "Responsable de Archivo",
+            "ROBERTO DÁVILA": "Personal de Archivo",
+            "ALFREDO CRUZADO": "Personal de Archivo",
+            "LUIS EPIFANÍA": "Personal de Archivo",
+            "JORGE IZQUIERDO": "Personal de Archivo",
+            "MANUEL BARANDIARAN": "Personal de Archivo",
+            "RAÚL RODRIGUEZ": "Personal de Archivo",
+            "TEÓFILO GABINO": "Personal de Archivo",
+            "IVÁN ROCHA": "Personal de Archivo",
+            "ROSA CHUMBES": "Personal de Archivo"
         };
-        await addDoc(collection(db, 'reingresos'), datos);
-        Swal.fire('Éxito', 'Guardado correctamente', 'success');
-    };
 
-    async function cargarHistorial() {
-        const querySnapshot = await getDocs(collection(db, "reingresos"));
-        const tbody = document.getElementById('tabla-historial-reingresos');
-        tbody.innerHTML = '';
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            tbody.innerHTML += `<tr>
-                <td>${data.fecha}</td><td>${data.solicitante}</td><td>${data.local}</td><td>${data.expedientes.length}</td>
-                <td><button class="btn btn-sm btn-primary" onclick='generarPDF(${JSON.stringify(data)})'>PDF</button></td>
-            </tr>`;
+
+const dataMaestra = {
+    personal: [
+        "ALFREDO CRUZADO", "RAÚL RODRIGUEZ", "JORGE DESPOSORIO", 
+        "JORGE IZQUIERDO", "LUIS EPIFANÍA", "MANUEL BARANDIARAN", 
+        "ROBERTO DÁVILA", "TEÓFILO GABINO", "IVÁN ROCHA"
+    ],
+    repositorios: [
+        "SÓTANO NCPP", "SAENZ PEÑA", "PADILLA", "DUNAS", "DOMUS"
+    ]
+};
+
+
+        // Matrices de almacenamiento dinámico en memoria
+        let baseDatosInventario = []; 
+        let listaRangosCenso = [];    
+        let listaFaltantesModal = []; 
+        let modalInstance = null;
+
+        function cargarDataMaestra(usuarioActivoNombre = "") {
+            const selectRepo = document.getElementById('inv-repositorio');
+            const selectFiltroRepo = document.getElementById('filtro-repo');
+            const selectRec = document.getElementById('inv-recibe');
+
+            selectRepo.innerHTML = '<option value="" selected disabled>Seleccione repositorio...</option>';
+            selectFiltroRepo.innerHTML = '<option value="">Todos los Repositorios</option>';
+
+            repositorios.forEach(r => {
+                selectRepo.options.add(new Option(r, r));
+                selectFiltroRepo.options.add(new Option(r, r));
+            });
+            
+            selectRec.innerHTML = '<option value="" selected disabled>Seleccione personal...</option>';
+            
+            Object.keys(listaPersonalRoles).forEach(p => {
+                if (p !== usuarioActivoNombre) {
+                    selectRec.options.add(new Option(p, p));
+                }
+            });
+        }
+
+
+
+function inicializarSelectsReingresos() {
+    const sSolicitante = document.getElementById('re-solicitante');
+    const sEntregado = document.getElementById('re-entregado');
+    const sLocal = document.getElementById('re-local');
+
+    // Limpiar previos
+    sSolicitante.innerHTML = sEntregado.innerHTML = sLocal.innerHTML = '<option value="">Seleccione...</option>';
+
+    // Cargar Personal
+    dataMaestra.personal.forEach(p => {
+        sSolicitante.innerHTML += `<option value="${p}">${p}</option>`;
+        sEntregado.innerHTML += `<option value="${p}">${p}</option>`;
+    });
+
+    // Cargar Repositorios
+    dataMaestra.repositorios.forEach(r => {
+        sLocal.innerHTML += `<option value="${r}">${r}</option>`;
+    });
+}
+
+
+
+
+        function switchView(viewId, titleText = "Dashboard Principal") {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('#sidebar .nav-link').forEach(l => l.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            document.getElementById('page-title').innerText = titleText;
+            
+            const link = Array.from(document.querySelectorAll('#sidebar .nav-link')).find(l => l.getAttribute('onclick').includes(viewId));
+            if(link) link.classList.add('active');
+        }
+
+        // Autenticación base
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Acceso Autorizado', showConfirmButton: false, timer: 2000 });
+            } catch (error) {
+                Swal.fire('Error', 'Credenciales incorrectas.', 'error');
+            }
         });
+
+        // Observador de la Sesión
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                document.getElementById('login-container').style.setProperty('display', 'none', 'important');
+                document.getElementById('app-container').style.display = 'flex';
+                
+                const userTitle = user.displayName ? user.displayName.toUpperCase() : user.email.split('@')[0].toUpperCase();
+                
+                document.getElementById('user-display-name').innerText = userTitle;
+                document.getElementById('user-display-role').innerText = listaPersonalRoles[userTitle] || "Personal de Archivo";
+                document.getElementById('inv-registra').value = userTitle;
+
+                document.getElementById('perf-email').value = user.email;
+                document.getElementById('perf-nombre').value = user.displayName || '';
+                document.getElementById('inv-fecha').valueAsDate = new Date();
+                
+                cargarDataMaestra(userTitle);
+                await cargarInventariosDesdeCloud();
+            } else {
+                document.getElementById('app-container').style.setProperty('display', 'none', 'important');
+                document.getElementById('login-container').style.display = 'flex';
+            }
+        });
+
+        document.getElementById('btn-logout').addEventListener('click', () => {
+    signOut(auth);
+    document.getElementById('login-password').value = '';
+});
+
+        // Control de perfil
+        document.getElementById('form-perfil-datos').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            const nuevoNombre = document.getElementById('perf-nombre').value.trim().toUpperCase();
+            if (!user) return;
+            try {
+                await updateProfile(user, { displayName: nuevoNombre });
+                document.getElementById('user-display-name').innerText = nuevoNombre;
+                document.getElementById('user-display-role').innerText = listaPersonalRoles[nuevoNombre] || "Personal de Archivo";
+                document.getElementById('inv-registra').value = nuevoNombre;
+                
+                cargarDataMaestra(nuevoNombre);
+                Swal.fire('Éxito', 'Perfil actualizado de forma interna.', 'success');
+            } catch (error) { Swal.fire('Error', error.message, 'error'); }
+        });
+
+        document.getElementById('form-perfil-clave').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            const nuevaClave = document.getElementById('perf-new-password').value;
+            const confirmaClave = document.getElementById('perf-confirm-password').value;
+            if (!user) return;
+            if (nuevaClave !== confirmaClave) { Swal.fire('Aviso', 'Las claves no coinciden.', 'warning'); return; }
+            try {
+                await updatePassword(user, nuevaClave);
+                document.getElementById('form-perfil-clave').reset();
+                Swal.fire('Éxito', 'Contraseña modificada de forma segura.', 'success');
+            } catch (error) {
+                if (error.code === 'auth/requires-recent-login') {
+                    const { value: pass } = await Swal.fire({ title: 'Seguridad', text: 'Escriba su clave actual:', input: 'password', showCancelButton: true });
+                    if (pass) {
+                        try {
+                            const cred = EmailAuthProvider.credential(user.email, pass);
+                            await reauthenticateWithCredential(user, cred);
+                            await updatePassword(user, nuevaClave);
+                            document.getElementById('form-perfil-clave').reset();
+                            Swal.fire('Éxito', 'Contraseña cambiada.', 'success');
+                        } catch(err) { Swal.fire('Error', 'Clave incorrecta.', 'error'); }
+                    }
+                } else { Swal.fire('Error', error.message, 'error'); }
+            }
+        });
+
+        // Lógica de modal interna
+        function abrirModalRango() {
+            listaFaltantesModal = [];
+            document.getElementById('form-modal-rango').reset();
+            document.getElementById('form-mod-add-faltante').reset();
+            renderTablaFaltantesModal();
+            modalInstance = new bootstrap.Modal(document.getElementById('modalAgregarRango'));
+            modalInstance.show();
+        }
+
+        function cerrarModalRango() {
+            if(modalInstance) modalInstance.hide();
+        }
+
+        function extraerNumero(cadena) {
+            if (!cadena) return 0;
+            const match = cadena.match(/(\d+)(?!.*\d)/);
+            return match ? parseInt(match[0], 10) : 0;
+        }
+
+        document.getElementById('form-mod-add-faltante').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const desdeStr = document.getElementById('mod-falt-desde').value.trim();
+            let hastaStr = document.getElementById('mod-falt-hasta').value.trim();
+            let cant = 1;
+
+            if(!desdeStr) return;
+
+            if (!hastaStr || hastaStr === desdeStr) {
+                hastaStr = "Único";
+                cant = 1;
+            } else {
+                const nD = extraerNumero(desdeStr);
+                const nH = extraerNumero(hastaStr);
+                if(nH < nD) { Swal.fire('Error', 'Rango de faltante al revés.', 'error'); return; }
+                cant = (nH - nD) + 1;
+            }
+
+            listaFaltantesModal.push({ desde: desdeStr, hasta: hastaStr, cantidad: cant });
+            document.getElementById('form-mod-add-faltante').reset();
+            renderTablaFaltantesModal();
+        });
+
+        function renderTablaFaltantesModal() {
+            const tbody = document.getElementById('mod-tabla-faltantes-body');
+            tbody.innerHTML = '';
+            if(listaFaltantesModal.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No se registran faltantes en este tramo.</td></tr>`;
+                return;
+            }
+            listaFaltantesModal.forEach((f, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${f.desde}</td><td><span class="badge bg-secondary">${f.hasta}</span></td><td class="text-center fw-bold text-danger">${f.cantidad}</td><td class="text-end"><button type="button" class="btn btn-xs btn-outline-danger py-0 px-1" onclick="window.eliminarFaltanteInterno(${idx})"><i class="bi bi-x"></i></button></td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.eliminarFaltanteInterno = function(index) {
+            listaFaltantesModal.splice(index, 1);
+            renderTablaFaltantesModal();
+        };
+
+        window.inyectarRangoAGrilla = function() {
+            const ini = document.getElementById('mod-inicial').value.trim();
+            const fin = document.getElementById('mod-final').value.trim();
+            const arch = document.getElementById('mod-archivamiento').value;
+
+            if(!ini || !fin) { Swal.fire('Atención', 'Defina los números del rango principal.', 'warning'); return; }
+
+            const nIni = extraerNumero(ini);
+            const nFin = extraerNumero(fin);
+            if(nFin < nIni) { Swal.fire('Error', 'Rango inválido.', 'error'); return; }
+
+            const totalTeorico = (nFin - nIni) + 1;
+            const totalFaltantes = listaFaltantesModal.reduce((sum, f) => sum + f.cantidad, 0);
+            const totalReal = Math.max(0, totalTeorico - totalFaltantes);
+
+            listaRangosCenso.push({
+                inicial: ini,
+                final: fin,
+                archivamiento: arch,
+                teorico: totalTeorico,
+                faltantes: totalFaltantes,
+                real: totalReal,
+                detalleFaltantes: [...listaFaltantesModal]
+            });
+
+            cerrarModalRango();
+            renderGrillaGrandeCenso();
+            calcularConsolidadoGlobal();
+        };
+
+        function renderGrillaGrandeCenso() {
+            const body = document.getElementById('tabla-censo-rangos-body');
+            body.innerHTML = '';
+            if(listaRangosCenso.length === 0) {
+                body.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">Ningún rango cargado al lote. Use el botón superior.</td></tr>`;
+                return;
+            }
+            listaRangosCenso.forEach((r, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><code>${r.inicial}</code></td>
+                    <td><code>${r.final}</code></td>
+                    <td><span class="badge ${r.archivamiento==='Definitivo'?'bg-danger':'bg-warning text-dark'}">${r.archivamiento}</span></td>
+                    <td class="text-center bg-light">${r.teorico}</td>
+                    <td class="text-center text-danger fw-bold">${r.faltantes}</td>
+                    <td class="text-center table-success fw-bold text-success">${r.real}</td>
+                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1.5" onclick="window.quitarRangoDeGrilla(${idx})"><i class="bi bi-trash3"></i></button></td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        window.quitarRangoDeGrilla = function(index) {
+            listaRangosCenso.splice(index, 1);
+            renderGrillaGrandeCenso();
+            calcularConsolidadoGlobal();
+        };
+
+        function calcularConsolidadoGlobal() {
+            let sumT = 0, sumF = 0, sumR = 0;
+            listaRangosCenso.forEach(r => { sumT += r.teorico; sumF += r.faltantes; sumR += r.real; });
+            document.getElementById('calc-total-teorico').innerText = sumT;
+            document.getElementById('calc-total-faltantes').innerText = sumF;
+            document.getElementById('calc-total-real').innerText = sumR;
+        }
+
+        // Operaciones Firestore
+        document.getElementById('form-inventario').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(listaRangosCenso.length === 0) {
+                Swal.fire('Atención', 'Debe inyectar al menos un rango para guardar el consolidado.', 'warning');
+                return;
+            }
+
+            const consolidadoLote = {
+                repositorio: document.getElementById('inv-repositorio').value,
+                fecha: document.getElementById('inv-fecha').value,
+                registra: document.getElementById('inv-registra').value, 
+                recibe: document.getElementById('inv-recibe').value,
+                observaciones: document.getElementById('inv-observaciones').value.trim() || 'Ninguna.',
+                totalTeorico: parseInt(document.getElementById('calc-total-teorico').innerText, 10),
+                totalFaltantes: parseInt(document.getElementById('calc-total-faltantes').innerText, 10),
+                totalReal: parseInt(document.getElementById('calc-total-real').innerText, 10),
+                matrizRangos: [...listaRangosCenso],
+                createdAt: Date.now()
+            };
+
+            try {
+                await addDoc(collection(db, "censo_institucional"), consolidadoLote);
+                
+                document.getElementById('form-inventario').reset();
+                document.getElementById('inv-fecha').valueAsDate = new Date();
+                
+                document.getElementById('inv-registra').value = auth.currentUser.displayName ? auth.currentUser.displayName.toUpperCase() : auth.currentUser.email.split('@')[0].toUpperCase();
+
+                listaRangosCenso = [];
+                renderGrillaGrandeCenso();
+                calcularConsolidadoGlobal();
+
+                await cargarInventariosDesdeCloud();
+                Swal.fire({ icon: 'success', title: 'Inventario Guardado', text:'Los registros se acoplaron de forma segura.' });
+            } catch (error) { Swal.fire('Error', error.message, 'error'); }
+        });
+
+        async function cargarInventariosDesdeCloud() {
+            try {
+                const q = query(collection(db, "censo_institucional"), orderBy("createdAt", "desc"));
+                const querySnapshot = await getDocs(q);
+                baseDatosInventario = [];
+                querySnapshot.forEach((doc) => { baseDatosInventario.push({ id: doc.id, ...doc.data() }); });
+                actualizarDashboardGlobal();
+                filtrarRegistros();
+            } catch (error) { console.error(error); }
+        }
+
+        function actualizarDashboardGlobal() {
+            let sT = 0, sF = 0, sR = 0;
+            baseDatosInventario.forEach(lote => { 
+                sT += lote.totalTeorico; 
+                sF += lote.totalFaltantes; 
+                sR += lote.totalReal; 
+            });
+
+            document.getElementById('dash-total-teorico').innerText = sT;
+            document.getElementById('dash-total-faltantes').innerText = sF;
+            document.getElementById('dash-total-real').innerText = sR;
+
+            // FÓRMULA CORREGIDA: Integridad real basada en lo que falta
+            // FÓRMULA CORREGIDA: Ahora con 2 decimales para precisión absoluta
+            const porcentajeIntegridad = sT > 0 ? ((sR / sT) * 100).toFixed(2) : "100.00";
+            document.getElementById('dash-porcentaje').innerText = porcentajeIntegridad + "%";
+
+            // Opcional: Podrías añadir un cambio de color si la integridad cae bajo cierto nivel
+            const elPorcentaje = document.getElementById('dash-porcentaje');
+            elPorcentaje.style.color = porcentajeIntegridad < 90 ? 'var(--sipa-primary)' : 'inherit';
+
+            const recBody = document.getElementById('dash-recent-table');
+            recBody.innerHTML = '';
+            if(baseDatosInventario.length === 0) {
+                recBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">Sin registros consolidados.</td></tr>`;
+                return;
+            }
+            baseDatosInventario.slice(0, 5).forEach(l => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${l.fecha}</td><td class="fw-bold text-dark">${l.repositorio}</td><td class="text-center"><span class="badge bg-secondary">${l.matrizRangos.length} tramos</span></td><td class="text-center">${l.totalTeorico}</td><td class="text-center text-danger">${l.totalFaltantes}</td><td class="text-center fw-bold text-success">${l.totalReal}</td>`;
+                recBody.appendChild(tr);
+            });
+        }
+
+        function renderizarFiltrosConsultas(datos) {
+            const body = document.getElementById('tabla-consultas-body');
+            document.getElementById('contador-registros').innerText = `${datos.length} Lote(s) Registrado(s)`;
+            body.innerHTML = '';
+            if(datos.length === 0) {
+                body.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No se acoplan lotes.</td></tr>`;
+                return;
+            }
+            datos.forEach(l => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${l.fecha}</td><td class="fw-semibold text-primary">${l.repositorio}</td><td class="text-center fw-bold">${l.matrizRangos.length}</td><td class="text-center">${l.totalTeorico}</td><td class="text-center text-danger fw-bold">${l.totalFaltantes}</td><td class="text-center table-success fw-bold text-success">${l.totalReal}</td><td class="small">${l.registra}</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFInstitucional('${l.id}')"><i class="bi bi-file-pdf"></i> PDF</button>
+                        <button class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="window.eliminarRegistroLocal('${l.id}')"><i class="bi bi-trash3"></i></button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function filtrarRegistros() {
+            const fRepo = document.getElementById('filtro-repo').value;
+            const fTexto = document.getElementById('filtro-texto').value.toLowerCase().trim();
+            const res = baseDatosInventario.filter(l => {
+                const mR = fRepo === "" || l.repositorio === fRepo;
+                const mT = fTexto === "" || l.registra.toLowerCase().includes(fTexto) || l.repositorio.toLowerCase().includes(fTexto) || l.fecha.includes(fTexto);
+                return mR && mT;
+            });
+            renderizarFiltrosConsultas(res);
+        }
+
+        window.eliminarRegistroLocal = function(id) {
+            Swal.fire({
+                title: '¿Expulsar Lote del Inventario?', text: "Se borrará el lote de forma irreversible de la nube.", icon: 'warning', showCancelButton: true, confirmButtonColor: '#800000', confirmButtonText: 'Sí, borrar'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await deleteDoc(doc(db, "censo_institucional", id));
+                    await cargarInventariosDesdeCloud();
+                }
+            });
+        };
+
+        // Impresión en PDF Estructurado y Homologado (SIPEX_fecha)
+        window.generarPDFInstitucional = function(id) {
+            const lote = baseDatosInventario.find(l => l.id === id);
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+            const pageWidth = doc.internal.pageSize.getWidth();
+
+            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(40, 40, 40);
+            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 18, { align: "center" });
+            doc.setFontSize(10); doc.setFont("Inter", "normal");
+            doc.text("ARCHIVO DESCONCENTRADO DE LA CSJSA", pageWidth / 2, 23, { align: "center" });
+            
+            doc.setFont("Inter", "bold"); doc.setFontSize(13); doc.setTextColor(128, 0, 0); 
+            doc.text("SIPEX - SISTEMA DE INVENTARIO DE EXPEDIENTES", pageWidth / 2, 30, { align: "center" });
+
+            doc.setLineWidth(0.4); doc.setDrawColor(128, 0, 0); doc.line(15, 34, pageWidth - 15, 34);
+
+            doc.setFontSize(12); doc.setTextColor(0, 0, 0);
+            doc.text("INFORME CONSOLIDADO DE INVENTARIO DE EXISTENCIAS", pageWidth / 2, 43, { align: "center" });
+
+            doc.setFontSize(9);
+            doc.setFont("Inter", "bold"); doc.text("Repositorio / Sede:", 15, 52); doc.setFont("Inter", "normal"); doc.text(lote.repositorio, 48, 52);
+            doc.setFont("Inter", "bold"); doc.text("Fecha de Ejecución:", 15, 57); doc.setFont("Inter", "normal"); doc.text(lote.fecha, 48, 57);
+
+            const filasTablaAutotable = lote.matrizRangos.map((r, idx) => [
+                (idx + 1).toString(),
+                r.inicial,
+                r.final,
+                r.archivamiento,
+                r.teorico.toString(),
+                r.faltantes.toString(),
+                r.real.toString()
+            ]);
+
+            filasTablaAutotable.push([ 'Σ', 'TOTAL CONSOLIDADO', '-', '-', lote.totalTeorico.toString(), lote.totalFaltantes.toString(), lote.totalReal.toString() ]);
+
+            doc.autoTable({
+                startY: 64,
+                margin: { left: 15, right: 15 },
+                theme: 'grid',
+                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 9 },
+                styles: { fontSize: 8.5, font: 'Inter', cellPadding: 2.5 },
+                columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 33, halign: 'center' }, 2: { cellWidth: 33, halign: 'center' }, 3: { cellWidth: 30, halign: 'center' }, 4: { cellWidth: 24, halign: 'center' }, 5: { cellWidth: 24, halign: 'center' }, 6: { cellWidth: 24, halign: 'center' } },
+                head: [['Item', 'Rango Inicial', 'Rango Final', 'Archivamiento', 'Teórico', 'Faltantes', 'Total Real Físico']],
+                body: filasTablaAutotable,
+                didParseCell: function(data) {
+                    if (data.row.index === filasTablaAutotable.length - 1) {
+                        data.cell.styles.fontStyle = 'bold';
+                        if(data.column.index === 6) data.cell.styles.textColor = [0, 100, 0];
+                    }
+                }
+            });
+
+            let currentY = doc.lastAutoTable.finalY + 8;
+
+            doc.setFont("Inter", "bold"); doc.setFontSize(9);
+            doc.text("DETALLE ESPECÍFICO DE EXPEDIENTES EXCLUIDOS (SALTOS/FALTANTES):", 15, currentY);
+            currentY += 3;
+
+            const subFaltantesBody = [];
+            lote.matrizRangos.forEach(r => {
+                if(r.detalleFaltantes && r.detalleFaltantes.length > 0) {
+                    r.detalleFaltantes.forEach(f => {
+                        subFaltantesBody.push([`Tramo ${r.inicial} - ${r.final}`, f.desde, f.hasta, `${f.cantidad} unidad(es)`]);
+                    });
+                }
+            });
+
+            if(subFaltantesBody.length === 0) {
+                subFaltantesBody.push(['-', 'El lote completo coincide con los rangos correlativos. Sin exclusiones.', '-', '-']);
+            }
+
+            doc.autoTable({
+                startY: currentY,
+                margin: { left: 15, right: 15 },
+                theme: 'striped',
+                headStyles: { fillColor: [40, 40, 40], textColor: [255, 255, 255], halign: 'center', fontSize: 8.5 },
+                styles: { fontSize: 8, cellPadding: 2 },
+                columnStyles: { 0: { cellWidth: 45 }, 1: { halign: 'center', cellWidth: 45 }, 2: { halign: 'center', cellWidth: 45 }, 3: { halign: 'center', cellWidth: 45 } },
+                head: [['Pertenece al Tramo', 'Faltante Desde', 'Faltante Hasta', 'Cantidad Saltada']],
+                body: subFaltantesBody
+            });
+
+            currentY = doc.lastAutoTable.finalY + 8;
+
+            doc.setFont("Inter", "bold"); doc.setFontSize(9); doc.text("OBSERVACIONES GENERALES DEL COMPLEJO ARCHIVÍSTICO:", 15, currentY);
+            currentY += 4; doc.setFont("Inter", "normal"); doc.setFontSize(8.5);
+            doc.text(lote.observaciones, 15, currentY, { maxWidth: pageWidth - 30 });
+
+            currentY = 245; 
+            doc.setLineWidth(0.3); doc.setDrawColor(100, 100, 100);
+            doc.line(25, currentY, 85, currentY);     
+            doc.line(pageWidth - 85, currentY, pageWidth - 25, currentY); 
+
+            doc.setFontSize(8.5); doc.setFont("Inter", "bold");
+            doc.text("USUARIO QUE REGISTRA", 55, currentY + 5, { align: "center" });
+            doc.text("USUARIO QUE RECIBE", pageWidth - 55, currentY + 5, { align: "center" });
+
+            const cargoRegistra = listaPersonalRoles[lote.registra] || "Personal de Archivo";
+            const cargoRecibe = listaPersonalRoles[lote.recibe] || "Personal de Archivo";
+
+            doc.setFont("Inter", "normal"); doc.setFontSize(8);
+            doc.text(lote.registra, 55, currentY + 10, { align: "center", maxWidth: 60 });
+            doc.text(cargoRegistra, 55, currentY + 14, { align: "center", maxWidth: 60 });
+
+            doc.text(lote.recibe, pageWidth - 55, currentY + 10, { align: "center", maxWidth: 60 });
+            doc.text(cargoRecibe, pageWidth - 55, currentY + 14, { align: "center", maxWidth: 60 });
+            
+            doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
+            doc.text("Firma y Sello del Operador", 55, currentY + 18, { align: "center" });
+            doc.text("Firma y Sello de Validación", pageWidth - 55, currentY + 18, { align: "center" });
+
+            // NOMENCLATURA BASE ACTUALIZADA 📂: SIPEX_fecha.pdf
+            doc.save(`SIPEX_${lote.fecha}.pdf`);
+        };
+
+        window.switchView = switchView;
+        window.abrirModalRango = abrirModalRango;
+        window.cerrarModalRango = cerrarModalRango;
+        window.filtrarRegistros = filtrarRegistros;
+    </script>
+
+
+
+
+<script>
+    const emailInput = document.getElementById('login-email');
+    const passInput = document.getElementById('login-password');
+    const loginForm = document.getElementById('login-form');
+    const loginContainer = document.getElementById('login-container');
+    const appContainer = document.getElementById('app-container');
+
+    // 1. CARGA INICIAL: Autocompletar y verificar sesión
+    window.addEventListener('DOMContentLoaded', () => {
+        // Autocompletar correo guardado (persiste siempre)
+        const savedUser = localStorage.getItem('sipex_last_user');
+        if (savedUser) emailInput.value = savedUser;
+
+        // Verificar sesión activa (sessionStorage se destruye al cerrar el navegador)
+        if (sessionStorage.getItem('sipex_session') === 'active') {
+            loginContainer.style.display = 'none';
+            appContainer.style.display = 'flex';
+        }
+    });
+
+    // 2. LÓGICA DE LOGIN (Con Enter y Clic)
+    async function manejarLogin(e) {
+        if (e) e.preventDefault();
+        
+        if (emailInput.value && passInput.value) {
+            // Guardar usuario para futuras visitas
+            localStorage.setItem('sipex_last_user', emailInput.value);
+            // Marcar sesión activa (se borrará al cerrar el navegador)
+            sessionStorage.setItem('sipex_session', 'active');
+            
+            loginContainer.style.display = 'none';
+            appContainer.style.display = 'flex';
+        } else {
+            alert("Por favor, ingresa correo y contraseña.");
+        }
     }
 
-    window.generarPDF = (data) => {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.text("REPORTE DE EXPEDIENTES REINGRESADOS", 105, 15, { align: "center" });
-        doc.setFontSize(9);
-        doc.text(`Solicitante: ${data.solicitante} | Fecha: ${data.fecha}`, 15, 25);
-        doc.autoTable({
-            startY: 40,
-            head: [['Nº', 'PAQUETE', 'EXPEDIENTE', 'FOLIOS', 'JUZGADO', 'TIPO', 'ACOMP.']],
-            body: data.expedientes.map((e, i) => [i+1, e.paquete, e.exp, e.folios, e.juzgado, e.tipo, e.acomp])
-        });
-        doc.save(`REINGRESOS_${data.fecha}.pdf`);
+    // Escuchar el Enter en el formulario
+    loginForm.addEventListener('submit', manejarLogin);
+
+    // 3. CERRAR SESIÓN (Llamado por el botón del Sidebar)
+    // Asegúrate de que tu botón tenga: onclick="cerrarSesion()"
+    window.cerrarSesion = function() {
+        sessionStorage.removeItem('sipex_session'); // Borra la sesión
+        
+        // Limpiar campos de forma agresiva
+        passInput.value = '';
+        passInput.type = 'text'; 
+        passInput.type = 'password'; 
+        
+        loginContainer.style.display = 'flex';
+        appContainer.style.display = 'none';
     };
 
-    document.getElementById('btn-login').onclick = async () => {
-        await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value);
-        document.getElementById('login-container').style.display = 'none';
-        document.getElementById('app-container').style.display = 'flex';
-    };
-    document.getElementById('re-fecha').valueAsDate = new Date();
+    // Vincular botón del sidebar
+    document.getElementById('btn-logout').addEventListener('click', cerrarSesion);
 </script>
+
+
+
+<script>
+    function agregarFilaReingreso() {
+    const tbody = document.querySelector('#tabla-reingresos tbody');
+    const fila = `<tr>
+        <td><input type="text" class="form-control form-control-sm" placeholder="Paquete"></td>
+        <td><input type="text" class="form-control form-control-sm" placeholder="Expediente"></td>
+        <td><input type="number" class="form-control form-control-sm" value="0"></td>
+        <td><input type="text" class="form-control form-control-sm" placeholder="Juzgado"></td>
+        <td>
+            <select class="form-select form-select-sm">
+                <option value="Transitorio">Transitorio</option>
+                <option value="Definitivo">Definitivo</option>
+            </select>
+        </td>
+        <td><input type="number" class="form-control form-control-sm" value="0"></td>
+        <td class="text-center">
+            <button class="btn btn-outline-danger btn-sm" onclick="this.parentElement.parentElement.remove()">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>`;
+    tbody.insertAdjacentHTML('beforeend', fila);
+}
+
+
+// Función para listar reingresos en la tabla de consulta
+async function cargarHistorialReingresos() {
+    try {
+        const q = await getDocs(collection(db, "reingresos"));
+        const tbody = document.getElementById('tabla-historial-reingresos');
+        tbody.innerHTML = ''; // Limpiar tabla
+        
+        q.forEach(doc => {
+            const data = doc.data();
+            const fila = `<tr>
+                <td>${data.fecha || 'N/A'}</td>
+                <td>${data.solicitante || 'N/A'}</td>
+                <td>${data.local || 'N/A'}</td>
+                <td>${data.expedientes ? data.expedientes.length : 0}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger py-1 px-2" onclick="alert('Funcionalidad de detalle en desarrollo')">
+                        <i class="bi bi-eye"></i> Ver
+                    </button>
+                </td>
+            </tr>`;
+            tbody.insertAdjacentHTML('beforeend', fila);
+        });
+    } catch (error) {
+        console.error("Error al cargar historial:", error);
+    }
+}
+
+
+
+    async function generarReporteReingresoPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // 1. Estética institucional (Cabeceras)
+    doc.setFont("Inter", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(128, 0, 0); // Color granate institucional
+    doc.text("REPORTE DE REINGRESOS - CSJSA", pageWidth / 2, 20, { align: "center" });
+    
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Fecha: ${document.getElementById('re-fecha').value}`, 15, 30);
+    doc.text(`Solicitante: ${document.getElementById('re-solicitante').value}`, 15, 35);
+    doc.text(`Local: ${document.getElementById('re-local').value}`, 110, 30);
+    doc.text(`Entregado por: ${document.getElementById('re-entregado').value}`, 110, 35);
+
+    // 2. Extracción de datos de la tabla (7 columnas)
+    const filas = Array.from(document.querySelectorAll("#tabla-reingresos tbody tr"));
+    const datosReporte = filas.map((tr) => {
+        const inputs = tr.querySelectorAll('input, select');
+        return [
+            inputs[0].value, // Paquete
+            inputs[1].value, // Expediente
+            inputs[2].value, // Folios
+            inputs[3].value, // Juzgado
+            inputs[4].value, // Tipo
+            inputs[5].value  // Acomp.
+        ];
+    });
+
+    // 3. Generación de tabla con formato SIPEX
+    doc.autoTable({
+        startY: 45,
+        margin: { left: 15, right: 15 },
+        head: [['Paquete', 'Expediente', 'Folios', 'Juzgado', 'Tipo', 'Acomp.']],
+        body: datosReporte,
+        headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255] },
+        styles: { fontSize: 8, font: 'Inter' }
+    });
+
+    // 4. Firmas finales
+    let finalY = doc.lastAutoTable.finalY + 20;
+    doc.line(30, finalY, 80, finalY);
+    doc.text("ENTREGADO POR", 55, finalY + 5, { align: "center" });
+    doc.line(130, finalY, 180, finalY);
+    doc.text("RECIBIDO POR", 155, finalY + 5, { align: "center" });
+
+    doc.save('Reingreso_SIPEX.pdf');
+}
+</script>
+
 </body>
 </html>
