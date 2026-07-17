@@ -255,6 +255,13 @@
 
 
 <section id="view-consultas-reingresos" class="view-section">
+<div class="row mb-3">
+    <div class="col-md-6">
+        <input type="text" id="busqueda-reingresos" class="form-control" 
+               placeholder="🔍 Buscar por solicitante, local o fecha..." 
+               onkeyup="filtrarTablaReingresos()">
+    </div>
+</div>
     <div class="card p-4 border-0 shadow-sm">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="fw-bold m-0 text-dark">
@@ -1391,6 +1398,28 @@ function inicializarSelectsReingresos() {
     </tr>`;
     tbody.insertAdjacentHTML('beforeend', fila);
 }
+
+
+
+function filtrarTablaReingresos() {
+    // Obtener el valor del buscador y convertirlo a minúsculas
+    const input = document.getElementById('busqueda-reingresos');
+    const filtro = input.value.toLowerCase();
+    const tabla = document.getElementById('tabla-historial-reingresos');
+    const filas = tabla.getElementsByTagName('tr');
+
+    // Recorrer todas las filas de la tabla
+    for (let i = 0; i < filas.length; i++) {
+        const textoFila = filas[i].textContent.toLowerCase();
+        // Mostrar la fila si contiene el texto buscado, sino ocultarla
+        if (textoFila.indexOf(filtro) > -1) {
+            filas[i].style.display = "";
+        } else {
+            filas[i].style.display = "none";
+        }
+    }
+}
+
 
 
 // Función para listar reingresos en la tabla de consulta
