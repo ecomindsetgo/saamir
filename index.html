@@ -952,6 +952,15 @@ function resetFormularioReingreso() {
             return match ? parseInt(match[0], 10) : 0;
         }
 
+        // Extrae la parte "código" de un número de expediente, es decir todo lo que
+        // antecede al último grupo de dígitos. Ej: "22-001" -> "22-", "2022-2852" -> "2022-"
+        function extraerPrefijo(cadena) {
+            if (!cadena) return '';
+            const match = cadena.match(/(\d+)(?!.*\d)/);
+            if (!match) return cadena.trim().toUpperCase();
+            return cadena.slice(0, match.index).trim().toUpperCase();
+        }
+
         document.getElementById('form-mod-add-faltante').addEventListener('submit', function(e) {
             e.preventDefault();
             const desdeStr = document.getElementById('mod-falt-desde').value.trim();
@@ -960,12 +969,46 @@ function resetFormularioReingreso() {
 
             if(!desdeStr) return;
 
+            const rangoInicial = document.getElementById('mod-inicial').value.trim();
+            const rangoFinal = document.getElementById('mod-final').value.trim();
+
+            if (!rangoInicial || !rangoFinal) {
+                Swal.fire('Atención', 'Primero complete el Número Inicial y Final del rango antes de registrar faltantes.', 'warning');
+                return;
+            }
+
+            // El código base del faltante debe coincidir con el código del rango (ej: "22-" en "22-001").
+            const prefijoRango = extraerPrefijo(rangoInicial);
+            const prefijoDesde = extraerPrefijo(desdeStr);
+            if (prefijoDesde !== prefijoRango) {
+                Swal.fire('Código no coincide', `El expediente "${desdeStr}" no pertenece al código del rango (${rangoInicial} - ${rangoFinal}). Verifique el código ingresado.`, 'error');
+                return;
+            }
+
+            // El número también debe caer dentro de los límites numéricos del rango.
+            const nRangoIni = extraerNumero(rangoInicial);
+            const nRangoFin = extraerNumero(rangoFinal);
+            const nDesde = extraerNumero(desdeStr);
+            if (nDesde < nRangoIni || nDesde > nRangoFin) {
+                Swal.fire('Fuera de rango', `El expediente "${desdeStr}" está fuera de los límites del rango (${rangoInicial} - ${rangoFinal}).`, 'error');
+                return;
+            }
+
             if (!hastaStr || hastaStr === desdeStr) {
                 hastaStr = "Único";
                 cant = 1;
             } else {
-                const nD = extraerNumero(desdeStr);
+                const prefijoHasta = extraerPrefijo(hastaStr);
+                if (prefijoHasta !== prefijoRango) {
+                    Swal.fire('Código no coincide', `El expediente "${hastaStr}" no pertenece al código del rango (${rangoInicial} - ${rangoFinal}). Verifique el código ingresado.`, 'error');
+                    return;
+                }
+                const nD = nDesde;
                 const nH = extraerNumero(hastaStr);
+                if (nH < nRangoIni || nH > nRangoFin) {
+                    Swal.fire('Fuera de rango', `El expediente "${hastaStr}" está fuera de los límites del rango (${rangoInicial} - ${rangoFinal}).`, 'error');
+                    return;
+                }
                 if(nH < nD) { Swal.fire('Error', 'Rango de faltante al revés.', 'error'); return; }
                 cant = (nH - nD) + 1;
             }
