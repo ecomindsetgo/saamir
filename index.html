@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIRA - Sistema de Inventario y Reingreso del Archivo</title>
+    <title>SAAMI  - Sistema de Administración de Archivos, Microformas e Inventario</title>
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -171,7 +171,7 @@
             <div class="text-center mb-4">
                 <i class="bi bi-folder-fill text-primary" style="font-size: 3.5rem;"></i>
                 <h1 class="fw-bold mt-2 text-dark" style="letter-spacing: -1.5px;">SIRA</h1>
-                <p class="text-muted small fw-medium mb-1">Sistema de Inventario y Reingreso del Archivo</p>
+                <p class="text-muted small fw-medium mb-1">Sistema de Administración de Archivos, Microformas e Inventario</p>
                 <p class="small fw-bold text-uppercase" style="color: var(--sipa-primary); font-size: 0.75rem;">Corte Superior de Justicia del Santa</p>
             </div>
             <form id="login-form">
@@ -199,7 +199,7 @@
     <div id="app-container" style="display: none;">
         <aside id="sidebar">
             <div class="p-4 text-center border-bottom border-secondary border-opacity-25">
-                <h4 class="fw-bold m-0 text-white" style="letter-spacing: 1px;"><i class="bi bi-folder-symlink-fill me-2"></i>SIRA</h4>
+                <h4 class="fw-bold m-0 text-white" style="letter-spacing: 1px;"><i class="bi bi-folder-symlink-fill me-2"></i>SAAMI</h4>
                 <span class="badge bg-secondary mt-1 px-2.5 py-1" style="font-size: 0.7rem;">Archivo Desconcentrado</span>
             </div>
             
@@ -1333,7 +1333,7 @@ function resetFormularioReingreso() {
             switchView('view-inventario', 'Carga de Inventario de Existencias');
         };
 
-        // Impresión en PDF Estructurado y Homologado (SIRA_fecha)
+        // Impresión en PDF Estructurado y Homologado (SAAMI_fecha)
         window.generarPDFInstitucional = function(id) {
             const lote = baseDatosInventario.find(l => l.id === id);
             const { jsPDF } = window.jspdf;
@@ -1353,7 +1353,7 @@ function resetFormularioReingreso() {
             doc.text("ARCHIVO DESCONCENTRADO DE LA CSJSA", pageWidth / 2, 23, { align: "center" });
             
             doc.setFont("Inter", "bold"); doc.setFontSize(13); doc.setTextColor(128, 0, 0); 
-            doc.text("SIRA - SISTEMA DE INVENTARIO Y REINGRESO DEL ARCHIVO", pageWidth / 2, 30, { align: "center" });
+            doc.text("SAAMI - SISTEMA DE ADMINISTRACIÓN  DE ARCHIVOS, MICROFORMAS E INVENTARIO", pageWidth / 2, 30, { align: "center" });
 
             doc.setLineWidth(0.4); doc.setDrawColor(128, 0, 0); doc.line(15, 34, pageWidth - 15, 34);
 
@@ -1463,8 +1463,8 @@ function resetFormularioReingreso() {
             doc.text("Firma y Sello del Operador", 55, currentY + 18, { align: "center" });
             doc.text("Firma y Sello de Validación", pageWidth - 55, currentY + 18, { align: "center" });
 
-            // NOMENCLATURA BASE ACTUALIZADA 📂: SIRA_fecha.pdf
-            doc.save(`SIRA_${lote.fecha}.pdf`);
+            // NOMENCLATURA BASE ACTUALIZADA 📂: SAAMI_fecha.pdf
+            doc.save(`SAAMI_${lote.fecha}.pdf`);
         };
 
         window.switchView = switchView;
@@ -1674,7 +1674,7 @@ function resetFormularioReingreso() {
             // Pie de página institucional
             const pageHeight = doc.internal.pageSize.getHeight();
             doc.setFont("Inter", "normal"); doc.setFontSize(7); doc.setTextColor(140, 140, 140);
-            doc.text(`Sistema de Registro y Control de Reingresos - v1.0 | © ${new Date().getFullYear()} Alfredo Raul Cruzado Palacios`, pageWidth / 2, pageHeight - 15, { align: "center" });
+            doc.text(`Sistema de Administración de Archivos, Microformas e Inventario | © ${new Date().getFullYear()} Alfredo Raul Cruzado Palacios`, pageWidth / 2, pageHeight - 15, { align: "center" });
             doc.text("Uso exclusivo para el Archivo Desconcentrado de la CSJ Santa.", pageWidth / 2, pageHeight - 11, { align: "center" });
 
             const correlativoStr = String(correlativo).padStart(3, '0');
@@ -1718,10 +1718,6 @@ function resetFormularioReingreso() {
             });
         };
     </script>
-
-
-
-
 
 <script>
     function agregarFilaReingreso() {
