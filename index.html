@@ -1347,23 +1347,90 @@ function resetFormularioReingreso() {
                 console.error("No se pudo insertar el logo en el PDF:", e);
             }
 
-            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(40, 40, 40);
-            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 18, { align: "center" });
-            doc.setFontSize(10); doc.setFont("Inter", "normal");
-            doc.text("ARCHIVO DESCONCENTRADO DE LA CSJSA", pageWidth / 2, 23, { align: "center" });
-            
-            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(128, 0, 0); 
-            doc.text("SAAMIR - SISTEMA DE ADMINISTRACIÓN DE ARCHIVOS, MICROFORMAS, INVENTARIO Y REPORTES", pageWidth / 2, 30, { align: "center" });
+            // ===============================
+// ENCABEZADO DEL INFORME
+// ===============================
 
-            doc.setLineWidth(0.4); doc.setDrawColor(128, 0, 0); doc.line(15, 34, pageWidth - 15, 34);
+// Corte Superior
+doc.setFont("Inter", "bold");
+doc.setFontSize(11);
+doc.setTextColor(40, 40, 40);
+doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 18, {
+    align: "center"
+});
 
-            doc.setFontSize(12); doc.setTextColor(0, 0, 0);
-            doc.text("INFORME CONSOLIDADO DE INVENTARIO DE EXISTENCIAS", pageWidth / 2, 43, { align: "center" });
+// Archivo Desconcentrado
+doc.setFont("Inter", "normal");
+doc.setFontSize(10);
+doc.text("ARCHIVO DESCONCENTRADO DE LA CSJSA", pageWidth / 2, 23, {
+    align: "center"
+});
 
-            doc.setFontSize(9);
-            doc.setFont("Inter", "bold"); doc.text("Repositorio / Sede:", 15, 52); doc.setFont("Inter", "normal"); doc.text(lote.repositorio, 48, 52);
-            doc.setFont("Inter", "bold"); doc.text("Fecha de Ejecución:", 15, 57); doc.setFont("Inter", "normal"); doc.text(lote.fecha, 48, 57);
+// SAAMIR
+doc.setFont("Inter", "bold");
+doc.setFontSize(12);
+doc.setTextColor(128, 0, 0);
+doc.text("SAAMIR", pageWidth / 2, 30, {
+    align: "center"
+});
 
+// Nombre del sistema
+doc.setFontSize(9.5);
+doc.text(
+    "Sistema de Administración de Archivos,",
+    pageWidth / 2,
+    35,
+    {
+        align: "center"
+    }
+);
+
+doc.text(
+    "Microformas, Inventario y Reportes",
+    pageWidth / 2,
+    39,
+    {
+        align: "center"
+    }
+);
+
+// Línea divisoria
+doc.setLineWidth(0.4);
+doc.setDrawColor(128, 0, 0);
+doc.line(15, 43, pageWidth - 15, 43);
+
+// Título del informe
+doc.setFont("Inter", "bold");
+doc.setFontSize(12);
+doc.setTextColor(0, 0, 0);
+doc.text(
+    "INFORME CONSOLIDADO DE INVENTARIO DE EXISTENCIAS",
+    pageWidth / 2,
+    51,
+    {
+        align: "center"
+    }
+);
+
+// ===============================
+// DATOS DEL INFORME
+// ===============================
+
+doc.setFontSize(9);
+
+// Repositorio
+doc.setFont("Inter", "bold");
+doc.text("Repositorio / Sede:", 15, 60);
+
+doc.setFont("Inter", "normal");
+doc.text(lote.repositorio, 48, 60);
+
+// Fecha
+doc.setFont("Inter", "bold");
+doc.text("Fecha de Ejecución:", 15, 65);
+
+doc.setFont("Inter", "normal");
+doc.text(lote.fecha, 48, 65);
             const filasTablaAutotable = lote.matrizRangos.map((r, idx) => [
                 (idx + 1).toString(),
                 r.inicial,
