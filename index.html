@@ -1352,7 +1352,7 @@ function resetFormularioReingreso() {
             doc.setFontSize(10); doc.setFont("Inter", "normal");
             doc.text("ARCHIVO DESCONCENTRADO DE LA CSJSA", pageWidth / 2, 23, { align: "center" });
             
-            doc.setFont("Inter", "bold"); doc.setFontSize(13); doc.setTextColor(128, 0, 0); 
+            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(128, 0, 0); 
             doc.text("SAAMIR - SISTEMA DE ADMINISTRACIÓN DE ARCHIVOS, MICROFORMAS, INVENTARIO Y REPORTES", pageWidth / 2, 30, { align: "center" });
 
             doc.setLineWidth(0.4); doc.setDrawColor(128, 0, 0); doc.line(15, 34, pageWidth - 15, 34);
@@ -1621,6 +1621,9 @@ function resetFormularioReingreso() {
             doc.setFont("Inter", "bold"); doc.setFontSize(14); doc.setTextColor(20, 20, 20);
             doc.text("REPORTE DE EXPEDIENTES REINGRESADOS", pageWidth / 2 + 8, 20, { align: "center" });
 
+            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(128, 0, 0); 
+            doc.text("SAAMIR - SISTEMA DE ADMINISTRACIÓN DE ARCHIVOS, MICROFORMAS, INVENTARIO Y REPORTES", pageWidth / 2, 30, { align: "center" });
+            
             doc.setDrawColor(128, 0, 0); doc.setLineWidth(0.4);
             doc.line(15, 40, pageWidth - 15, 40);
 
