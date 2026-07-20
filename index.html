@@ -863,31 +863,37 @@
             ]
         };
 
-        // Permisos por usuario con Jorge Izquierdo correctamente incluido y comas corregidas
         const PERMISOS = {
             reingresos_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"],
             inventario_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN", "TEFILO GABINO", "TGABINO"]
         };
 
-        // Función estricta para validar si el usuario actual es Alfredo Cruzado
+        // Función robusta para limpiar espacios múltiples y asegurar estandarización de nombres
+        function normalizarTexto(texto) {
+            if (!texto) return '';
+            return texto.trim().toUpperCase().replace(/\s+/g, ' ');
+        }
+
         function esUsuarioAdministradorLog(nombreUsuario) {
-            if (!nombreUsuario) return false;
-            const u = nombreUsuario.trim().toUpperCase();
+            const u = normalizarTexto(nombreUsuario);
             return u === "ALFREDO CRUZADO" || u === "ACRUZADO";
         }
 
         function aplicarPermisos(nombreUsuario) {
-            const puedeReingresos = PERMISOS.reingresos_escritura.includes(nombreUsuario);
-            const puedeInventario = PERMISOS.inventario_escritura.includes(nombreUsuario);
-            const esAdminLog = esUsuarioAdministradorLog(nombreUsuario);
+            const usuarioLimpio = normalizarTexto(nombreUsuario);
+            
+            const reingresosLimpios = PERMISOS.reingresos_escritura.map(n => normalizarTexto(n));
+            const inventarioLimpios = PERMISOS.inventario_escritura.map(n => normalizarTexto(n));
 
-            // Control estricto de visibilidad del menú de Auditoría (Solo para Alfredo / ACRUZADO)
+            const puedeReingresos = reingresosLimpios.includes(usuarioLimpio);
+            const puedeInventario = inventarioLimpios.includes(usuarioLimpio);
+            const esAdminLog = esUsuarioAdministradorLog(usuarioLimpio);
+
             const menuAuditoria = document.getElementById('menu-link-auditoria');
             if (menuAuditoria) {
                 menuAuditoria.style.display = esAdminLog ? 'flex' : 'none';
             }
 
-            // Permisos de Reingresos
             document.getElementById('btn-guardar-reingreso')?.toggleAttribute('disabled', !puedeReingresos);
             
             const btnAgregarExpediente = document.querySelector('button[onclick="agregarFilaReingreso()"]');
@@ -906,7 +912,6 @@
 
             document.querySelectorAll('#view-reingresos input, #view-reingresos select').forEach(el => el.disabled = !puedeReingresos);
 
-            // Permisos de Inventario
             document.getElementById('form-inventario')?.querySelectorAll('input, select, button[type=submit]')
                 .forEach(el => el.disabled = !puedeInventario);
 
@@ -1006,9 +1011,8 @@
         }
 
         function switchView(viewId, titleText = "Dashboard Principal") {
-            // Protección extra en caso intenten entrar por URL o script a auditoría sin ser Alfredo
             if (viewId === 'view-auditoria') {
-                const userTitle = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email.split('@')[0]).toUpperCase() : '';
+                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
                 if (!esUsuarioAdministradorLog(userTitle)) {
                     Swal.fire('Acceso Denegado', 'No cuenta con privilegios para ver el log de auditoría.', 'error');
                     return;
@@ -1041,7 +1045,7 @@
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
                 
-                const userTitle = user.displayName ? user.displayName.toUpperCase() : user.email.split('@')[0].toUpperCase();
+                const userTitle = normalizarTexto(user.displayName ? user.displayName : user.email.split('@')[0]);
                 document.getElementById('user-display-name').innerText = userTitle;
                 document.getElementById('user-display-role').innerText = listaPersonalRoles[userTitle] || "Personal de Archivo";
                 document.getElementById('inv-registra').value = userTitle;
@@ -1078,7 +1082,8 @@
         document.getElementById('form-perfil-datos').addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = auth.currentUser;
-            const nuevoNombre = document.getElementById('perf-nombre').value.trim().toUpperCase();
+            // Normalizar espacios múltiples al actualizar perfil
+            const nuevoNombre = normalizarTexto(document.getElementById('perf-nombre').value);
             if (!user) return;
             try {
                 await updateProfile(user, { displayName: nuevoNombre });
@@ -1349,7 +1354,7 @@
                 matrizRangos: [...listaRangosCenso],
                 auditoria: {
                     uid: auth.currentUser?.uid || null,
-                    nombre: auth.currentUser?.displayName ? auth.currentUser.displayName.toUpperCase() : (auth.currentUser?.email || 'desconocido'),
+                    nombre: auth.currentUser?.displayName ? normalizarTexto(auth.currentUser.displayName) : (auth.currentUser?.email || 'desconocido'),
                     timestamp: Date.now()
                 }
             };
@@ -1369,7 +1374,7 @@
                 document.getElementById('form-inventario').reset();
                 document.getElementById('inv-fecha').valueAsDate = new Date();
                 
-                document.getElementById('inv-registra').value = auth.currentUser.displayName ? auth.currentUser.displayName.toUpperCase() : auth.currentUser.email.split('@')[0].toUpperCase();
+                document.getElementById('inv-registra').value = auth.currentUser.displayName ? normalizarTexto(auth.currentUser.displayName) : normalizarTexto(auth.currentUser.email.split('@')[0]);
                 document.getElementById('btn-guardar-inventario').innerText = 'Cerrar y Guardar Consolidado';
 
                 listaRangosCenso = [];
@@ -1531,7 +1536,7 @@
                         activo: false,
                         auditoriaEliminacion: {
                             uid: auth.currentUser?.uid || null,
-                            nombre: auth.currentUser?.displayName ? auth.currentUser.displayName.toUpperCase() : (auth.currentUser?.email || 'desconocido'),
+                            nombre: auth.currentUser?.displayName ? normalizarTexto(auth.currentUser.displayName) : (auth.currentUser?.email || 'desconocido'),
                             timestamp: Date.now()
                         }
                     });
@@ -1565,7 +1570,7 @@
             document.getElementById('form-inventario').reset();
             document.getElementById('inv-fecha').valueAsDate = new Date();
             if (auth.currentUser) {
-                document.getElementById('inv-registra').value = auth.currentUser.displayName ? auth.currentUser.displayName.toUpperCase() : auth.currentUser.email.split('@')[0].toUpperCase();
+                document.getElementById('inv-registra').value = auth.currentUser.displayName ? normalizarTexto(auth.currentUser.displayName) : normalizarTexto(auth.currentUser.email.split('@')[0]);
             }
             document.getElementById('btn-guardar-inventario').innerText = 'Cerrar y Guardar Consolidado';
             listaRangosCenso = [];
@@ -1665,7 +1670,6 @@
             }
         };
 
-        // Función para imprimir el reporte de auditoría (Exclusivo Alfredo)
         window.imprimirReporteAuditoria = function() {
             const contenido = document.getElementById('tabla-auditoria-container');
             if (!contenido) return;
@@ -1806,7 +1810,7 @@
                     activo: true,
                     auditoria: {
                         uid: auth.currentUser?.uid || null,
-                        nombre: auth.currentUser?.displayName ? auth.currentUser.displayName.toUpperCase() : (auth.currentUser?.email || 'desconocido'),
+                        nombre: auth.currentUser?.displayName ? normalizarTexto(auth.currentUser.displayName) : (auth.currentUser?.email || 'desconocido'),
                         timestamp: Date.now()
                     }
                 };
@@ -1847,7 +1851,7 @@
                     activo: false,
                     auditoriaEliminacion: {
                         uid: auth.currentUser?.uid || null,
-                        nombre: auth.currentUser?.displayName ? auth.currentUser.displayName.toUpperCase() : (auth.currentUser?.email || 'desconocido'),
+                        nombre: auth.currentUser?.displayName ? normalizarTexto(auth.currentUser.displayName) : (auth.currentUser?.email || 'desconocido'),
                         timestamp: Date.now()
                     }
                 });
