@@ -173,15 +173,14 @@
             display: block;
         }
 
-        /* Estilos específicos para impresión limpia del Dashboard */
         @media print {
             body * {
                 visibility: hidden;
             }
-            #view-dashboard, #view-dashboard * {
+            #view-dashboard, #view-dashboard *, #view-microformas, #view-microformas * {
                 visibility: visible;
             }
-            #view-dashboard {
+            #view-dashboard, #view-microformas {
                 position: absolute;
                 left: 0;
                 top: 0;
@@ -249,13 +248,15 @@
                     <i class="bi bi-arrow-return-left"></i> Reingresos
                 </a>
                 <a class="nav-link" data-view="view-consultas-reingresos" onclick="switchView('view-consultas-reingresos', 'Consultar Historial de Reingresos')"><i class="bi bi-search"></i> Consultar Reingresos</a>
+                <a class="nav-link" id="menu-link-microformas" href="#" onclick="switchView('view-microformas', 'Control de Producción de Microformas')" style="display: none;">
+                    <i class="bi bi-file-earmark-spreadsheet-fill"></i> Control Microformas
+                </a>
                 <a class="nav-link" href="#" onclick="switchView('view-perfil', 'Mi Perfil de Usuario')">
                     <i class="bi bi-person-gear"></i> Mi Perfil / Cuenta
                 </a>
                 <a class="nav-link" href="#" onclick="switchView('view-configuracion', 'Consola de Configuración')">
                     <i class="bi bi-gear-fill"></i> Configuración
                 </a>
-                <!-- Menú de auditoría exclusivo (controlado por JS para Alfredo) -->
                 <a class="nav-link" id="menu-link-auditoria" href="#" onclick="switchView('view-auditoria', 'Historial y Trazabilidad del Sistema')" style="display: none;">
                     <i class="bi bi-clock-history"></i> Auditoría de Cambios
                 </a>
@@ -339,7 +340,6 @@
                     </tr>
                 </thead>
                 <tbody id="tabla-historial-reingresos">
-                    <!-- Los datos se cargarán aquí -->
                 </tbody>
             </table>
         </div>
@@ -348,20 +348,16 @@
 
             <!-- DASHBOARD GLOBAL -->
             <section id="view-dashboard" class="view-section active">
-                
-                <!-- Cabecera imprimible del Dashboard -->
                 <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
                     <div>
                         <h4 class="fw-bold text-dark m-0"><i class="bi bi-grid-1x2-fill me-2 text-primary"></i>Dashboard Global Institucional</h4>
                         <p class="text-muted small m-0">Corte Superior de Justicia del Santa - Archivo Desconcentrado</p>
                     </div>
-                    <!-- Botón exclusivo para impresión de Alfredo (oculto por defecto vía inline style y manejado por JS) -->
                     <button class="btn btn-outline-dark btn-sm d-flex align-items-center gap-2 no-print" id="btn-imprimir-dashboard" onclick="window.print()" style="display: none !important;">
                         <i class="bi bi-printer"></i> Imprimir Reporte Global
                     </button>
                 </div>
 
-                <!-- Sección 1: Indicadores de Inventario -->
                 <div class="mb-4">
                     <h6 class="text-uppercase fw-bold text-muted small mb-3 tracking-wider"><i class="bi bi-box-seam me-1 text-primary"></i> Resumen de Inventario Institucional</h6>
                     <div class="row g-3">
@@ -420,7 +416,78 @@
                     </div>
                 </div>
 
-                <!-- Sección 2: Indicadores de Reingresos -->
+                <!-- PRODUCCIÓN DE MICROFORMAS EN EL DASHBOARD GLOBAL -->
+                <div class="mb-4">
+                    <h6 class="text-uppercase fw-bold text-muted small mb-3 tracking-wider"><i class="bi bi-file-earmark-spreadsheet-fill me-1 text-danger"></i> Producción de Microformas Digitales (Acumulado)</h6>
+                    <div class="row g-3">
+                        <div class="col-12 col-sm-6 col-lg">
+                            <div class="card dashboard-card p-3 border-start border-dark border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Bloques</p>
+                                        <h4 class="fw-bold m-0" id="dash-micro-bloques">0</h4>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-dark bg-opacity-10 text-dark">
+                                        <i class="bi bi-collection"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg">
+                            <div class="card dashboard-card p-3 border-start border-primary border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Paquetes</p>
+                                        <h4 class="fw-bold m-0" id="dash-micro-paquetes">0</h4>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-primary bg-opacity-10 text-primary">
+                                        <i class="bi bi-box-seam"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-4 col-lg">
+                            <div class="card dashboard-card p-3 border-start border-success border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Expedientes</p>
+                                        <h4 class="fw-bold m-0 text-success" id="dash-micro-expedientes">0</h4>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-success bg-opacity-10 text-success">
+                                        <i class="bi bi-journal-check"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-4 col-lg">
+                            <div class="card dashboard-card p-3 border-start border-warning border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Imágenes</p>
+                                        <h4 class="fw-bold m-0" id="dash-micro-imagenes">0</h4>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-warning bg-opacity-10 text-warning">
+                                        <i class="bi bi-images"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-4 col-lg">
+                            <div class="card dashboard-card p-3 border-start border-danger border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Folios</p>
+                                        <h4 class="fw-bold m-0 text-danger" id="dash-micro-folios">0</h4>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-danger bg-opacity-10 text-danger">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mb-4">
                     <h6 class="text-uppercase fw-bold text-muted small mb-3 tracking-wider"><i class="bi bi-arrow-return-left me-1 text-warning"></i> Métricas Operativas de Reingresos</h6>
                     <div class="row g-3">
@@ -466,7 +533,6 @@
                     </div>
                 </div>
 
-                <!-- Sección 3: Tablas Recientes Ordenadas -->
                 <div class="row g-4">
                     <div class="col-12">
                         <div class="card p-4 border-0 shadow-sm">
@@ -521,6 +587,63 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MÓDULO DE CONTROL DE MICROFORMAS -->
+            <section id="view-microformas" class="view-section">
+                <div class="card p-4 border-0 shadow-sm mb-4">
+                    <!-- ENCABEZADO INSTITUCIONAL CON LOGO DE MICROFORMAS (LPMD) -->
+                    <div class="text-center mb-4 pb-3 border-bottom">
+                        <div class="d-flex justify-content-center align-items-center mb-2">
+                            <img src="https://ecomindsetgo.github.io/saamir/LOGO%20LPMD.png" alt="Logo LPMD" style="max-height: 70px; object-fit: contain;" id="img-logo-lpmd-render" onerror="this.src='LOGO LPMD.png'">
+                        </div>
+                        <h6 class="fw-bold text-dark m-0">CORTE SUPERIOR DE JUSTICIA DEL SANTA</h6>
+                        <p class="text-muted small m-0">Área de Apoyo Administrativo - Línea de Producción de Microformas Digitales</p>
+                        <h5 class="fw-bold text-primary mt-2" style="letter-spacing: 0.5px;">CONTROL DE PRODUCCIÓN DE MICROFORMAS DIGITALES</h5>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+                        <span class="badge bg-secondary p-2">Registro Oficial de Bloques</span>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-dark btn-sm d-flex align-items-center gap-1" onclick="window.print()">
+                                <i class="bi bi-printer"></i> Imprimir Reporte PDF
+                            </button>
+                            <button class="btn btn-primary btn-sm d-flex align-items-center gap-1" id="btn-nueva-microforma" onclick="abrirModalMicroforma()">
+                                <i class="bi bi-plus-circle"></i> + Agregar Bloque
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle text-center" style="font-size: 0.78rem;" id="tabla-microformas-control">
+                            <thead class="table-dark" style="vertical-align: middle;">
+                                <tr>
+                                    <th rowspan="2">BLOQUE</th>
+                                    <th rowspan="2">RANGO PAQUETES</th>
+                                    <th rowspan="2">CANTIDAD PAQUETES</th>
+                                    <th rowspan="2">JUZGADO</th>
+                                    <th colspan="2">FOLIOS / IMÁGENES</th>
+                                    <th rowspan="2">TOTAL REGISTROS</th>
+                                    <th rowspan="2">CANT. EXPEDIENTES</th>
+                                    <th rowspan="2">MES</th>
+                                    <th colspan="2">FECHAS</th>
+                                    <th rowspan="2">FECHA GRABACION</th>
+                                    <th rowspan="2" class="col-acciones no-print">ACCIÓN</th>
+                                </tr>
+                                <tr>
+                                    <th>FOLIOS</th>
+                                    <th>IMÁGENES</th>
+                                    <th>FECHA INICIO</th>
+                                    <th>FECHA FIN</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-microformas-body">
+                            </tbody>
+                            <tfoot class="table-secondary fw-bold" id="tabla-microformas-foot">
+                            </tfoot>
+                        </table>
                     </div>
                 </div>
             </section>
@@ -749,7 +872,7 @@
                 </div>
             </section>
 
-            <!-- AUDITORÍA GENERAL DE CAMBIOS (EXCLUSIVA PARA ALFREDO CRUZADO / ACRUZADO) -->
+            <!-- AUDITORÍA GENERAL DE CAMBIOS -->
             <section id="view-auditoria" class="view-section">
                 <div class="card p-4 border-0 shadow-sm">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -777,7 +900,6 @@
                                 </tr>
                             </thead>
                             <tbody id="tabla-auditoria-global">
-                                <!-- Los datos se cargarán dinámicamente -->
                             </tbody>
                         </table>
                     </div>
@@ -785,6 +907,80 @@
             </section>
 
         </main>
+    </div>
+
+    <!-- MODAL PARA AGREGAR / EDITAR BLOQUE DE MICROFORMAS -->
+    <div class="modal fade" id="modalMicroforma" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white border-0">
+                    <h6 class="modal-title fw-bold" id="modal-microforma-titulo"><i class="bi bi-file-earmark-plus me-2"></i>Registrar Bloque de Microformas</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="cerrarModalMicroforma()"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-modal-microforma" onsubmit="event.preventDefault();">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">N° Bloque</label>
+                                <input type="number" class="form-control form-control-sm" id="mf-bloque" required placeholder="Ej: 33">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Paquete Desde</label>
+                                <input type="number" class="form-control form-control-sm" id="mf-paquete-desde" required placeholder="Ej: 961" oninput="calcularCantidadPaquetesMicroforma()">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Paquete Hasta</label>
+                                <input type="number" class="form-control form-control-sm" id="mf-paquete-hasta" required placeholder="Ej: 963" oninput="calcularCantidadPaquetesMicroforma()">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Cant. Paquetes (Auto)</label>
+                                <input type="number" class="form-control form-control-sm bg-light fw-bold text-primary" id="mf-cant-paquetes" readonly required placeholder="Auto">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Juzgado</label>
+                                <input type="text" class="form-control form-control-sm" id="mf-juzgado" required placeholder="Ej: 4TO JUZG. PAZ LETRADO">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Folios</label>
+                                <input type="number" class="form-control form-control-sm" id="mf-folios" required placeholder="4149">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Imágenes</label>
+                                <input type="number" class="form-control form-control-sm" id="mf-imagenes" required placeholder="4447">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Total Registros</label>
+                                <input type="number" class="form-control form-control-sm" id="mf-registros" required placeholder="387">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Cant. Expedientes</label>
+                                <input type="number" class="form-control form-control-sm" id="mf-expedientes" required placeholder="94">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Mes</label>
+                                <input type="text" class="form-control form-control-sm" id="mf-mes" required placeholder="Ej: DICIEMBRE">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Fecha Inicio</label>
+                                <input type="date" class="form-control form-control-sm" id="mf-fec-inicio" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Fecha Fin</label>
+                                <input type="date" class="form-control form-control-sm" id="mf-fec-fin" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Fecha Grabación</label>
+                                <input type="date" class="form-control form-control-sm" id="mf-fec-grabacion" required>
+                            </div>
+                        </div>
+                    </form>
+                    <div class="d-flex justify-content-end gap-2 pt-3 border-top mt-3">
+                        <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal" onclick="cerrarModalMicroforma()">Cancelar</button>
+                        <button type="button" class="btn btn-primary btn-sm px-4 fw-bold" id="btn-guardar-microforma" onclick="guardarMicroforma()">Guardar Bloque</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL PRINCIPAL: AGREGAR RANGO CON SUS PROPIOS FALTANTES -->
@@ -936,7 +1132,8 @@
 
         const PERMISOS = {
             reingresos_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"],
-            inventario_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN", "TEOFILO GABINO", "TGABINO"]
+            inventario_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN", "TEFILO GABINO", "TGABINO"],
+            microformas_escritura: ["ALFREDO CRUZADO", "ACRUZADO"]
         };
 
         function normalizarTexto(texto) {
@@ -949,22 +1146,34 @@
             return u === "ALFREDO CRUZADO" || u === "ACRUZADO";
         }
 
+        function esUsuarioMicroformasVisualizador(nombreUsuario) {
+            const u = normalizarTexto(nombreUsuario);
+            return u === "ROBERTO DÁVILA" || u === "ROBERTO DAVILA" || u === "RDAVILA" || u === "JORGE DESPOSORIO" || u === "JDESPOSORIO" || esUsuarioAdministradorLog(u);
+        }
+
         function aplicarPermisos(nombreUsuario) {
             const usuarioLimpio = normalizarTexto(nombreUsuario);
             
             const reingresosLimpios = PERMISOS.reingresos_escritura.map(n => normalizarTexto(n));
             const inventarioLimpios = PERMISOS.inventario_escritura.map(n => normalizarTexto(n));
+            const microformasLimpios = PERMISOS.microformas_escritura.map(n => normalizarTexto(n));
 
             const puedeReingresos = reingresosLimpios.includes(usuarioLimpio);
             const puedeInventario = inventarioLimpios.includes(usuarioLimpio);
+            const puedeMicroformasEscritura = microformasLimpios.includes(usuarioLimpio);
+            const puedeVerMicroformas = esUsuarioMicroformasVisualizador(usuarioLimpio);
             const esAdminLog = esUsuarioAdministradorLog(usuarioLimpio);
+
+            const menuMicroformas = document.getElementById('menu-link-microformas');
+            if (menuMicroformas) {
+                menuMicroformas.style.display = puedeVerMicroformas ? 'flex' : 'none';
+            }
 
             const menuAuditoria = document.getElementById('menu-link-auditoria');
             if (menuAuditoria) {
                 menuAuditoria.style.display = esAdminLog ? 'flex' : 'none';
             }
 
-            // Ocultar o mostrar de manera absoluta el botón de impresión del Dashboard Global exclusivamente para Alfredo
             const btnImprimirDash = document.getElementById('btn-imprimir-dashboard');
             if (btnImprimirDash) {
                 if (esAdminLog) {
@@ -972,6 +1181,11 @@
                 } else {
                     btnImprimirDash.style.setProperty('display', 'none', 'important');
                 }
+            }
+
+            const btnNuevaMicroforma = document.getElementById('btn-nueva-microforma');
+            if (btnNuevaMicroforma) {
+                btnNuevaMicroforma.style.display = puedeMicroformasEscritura ? 'flex' : 'none';
             }
 
             document.getElementById('btn-guardar-reingreso')?.toggleAttribute('disabled', !puedeReingresos);
@@ -991,28 +1205,13 @@
             }
 
             document.querySelectorAll('#view-reingresos input, #view-reingresos select').forEach(el => el.disabled = !puedeReingresos);
-
-            document.getElementById('form-inventario')?.querySelectorAll('input, select, button[type=submit]')
-                .forEach(el => el.disabled = !puedeInventario);
+            document.getElementById('form-inventario')?.querySelectorAll('input, select, button[type=submit]').forEach(el => el.disabled = !puedeInventario);
 
             const btnAgregarRango = document.querySelector('button[onclick="abrirModalRango()"]');
             if (btnAgregarRango) {
                 btnAgregarRango.disabled = !puedeInventario;
                 btnAgregarRango.style.pointerEvents = puedeInventario ? 'auto' : 'none';
                 btnAgregarRango.classList.toggle('opacity-50', !puedeInventario);
-            }
-
-            const avisoExistente = document.getElementById('aviso-solo-consulta');
-            if (!puedeReingresos || !puedeInventario) {
-                if (!avisoExistente) {
-                    const aviso = document.createElement('div');
-                    aviso.id = 'aviso-solo-consulta';
-                    aviso.className = 'alert alert-warning py-2 px-3 mb-3 small fw-medium';
-                    aviso.innerHTML = '<i class="bi bi-eye me-1"></i> Modo solo consulta: no tiene permisos de escritura en algunas secciones.';
-                    document.getElementById('main-content')?.prepend(aviso);
-                }
-            } else if (avisoExistente) {
-                avisoExistente.remove();
             }
         }
 
@@ -1045,8 +1244,28 @@
         let listaRangosCenso = [];    
         let listaFaltantesModal = []; 
         let baseDatosReingresos = [];
+        let baseDatosMicroformas = [];
         let idReingresoEnEdicion = null;
+        let idMicroformaEnEdicion = null;
         let modalInstance = null;
+        let modalMicroformaInstance = null;
+
+        function obtenerLogoArchivoBase64() {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.onerror = function() { resolve(null); };
+                img.src = 'https://ecomindsetgo.github.io/saamir/LOGO%20ARCHIVO.png';
+            });
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
             const correoGuardado = localStorage.getItem('saamir_ultimo_correo');
@@ -1070,7 +1289,6 @@
             });
             
             selectRec.innerHTML = '<option value="" selected disabled>Seleccione personal...</option>';
-            
             Object.keys(listaPersonalRoles).forEach(p => {
                 if (p !== usuarioActivoNombre) {
                     selectRec.options.add(new Option(p, p));
@@ -1128,6 +1346,15 @@
                 }
             }
 
+            if (viewId === 'view-microformas') {
+                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
+                if (!esUsuarioMicroformasVisualizador(userTitle)) {
+                    Swal.fire('Acceso Denegado', 'No cuenta con autorización para visualizar este módulo.', 'error');
+                    return;
+                }
+                renderTablaMicroformas();
+            }
+
             document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('#sidebar .nav-link').forEach(l => l.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
@@ -1147,7 +1374,6 @@
             const password = document.getElementById('login-password').value;
             try {
                 localStorage.setItem('saamir_ultimo_correo', email);
-
                 await signInWithEmailAndPassword(auth, email, password);
                 Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Acceso Autorizado', showConfirmButton: false, timer: 2000 });
             } catch (error) {
@@ -1166,9 +1392,7 @@
                 document.getElementById('inv-registra').value = userTitle;
                 
                 const campoEntregado = document.getElementById('re-entregado');
-                if (campoEntregado) {
-                    campoEntregado.value = userTitle;
-                }
+                if (campoEntregado) campoEntregado.value = userTitle;
 
                 document.getElementById('perf-email').value = user.email || '';
                 document.getElementById('perf-nombre').value = user.displayName || '';
@@ -1182,8 +1406,11 @@
                 inicializarSelectsReingresos();
                 resetFormularioReingreso();
                 
-                await cargarInventariosDesdeCloud().catch(err => console.error("Error al cargar inventarios:", err));
-                await cargarHistorialReingresosParaDashboard().catch(err => console.error("Error al cargar reingresos:", err));
+                await Promise.all([
+                    cargarInventariosDesdeCloud(),
+                    cargarHistorialReingresosParaDashboard(),
+                    cargarMicroformasDesdeCloud()
+                ]).catch(err => console.error(err));
             } else {
                 document.getElementById('app-container').style.display = 'none';
                 document.getElementById('login-container').style.display = 'flex';
@@ -1242,6 +1469,244 @@
                 } else { Swal.fire('Error', error.message, 'error'); }
             }
         });
+
+        // ==================== LÓGICA DE MICROFORMAS (CORREGIDA) ====================
+        window.calcularCantidadPaquetesMicroforma = function() {
+            const desdeInput = document.getElementById('mf-paquete-desde');
+            const hastaInput = document.getElementById('mf-paquete-hasta');
+            const inputCant = document.getElementById('mf-cant-paquetes');
+            
+            if (!desdeInput || !hastaInput || !inputCant) return;
+
+            const desde = parseInt(desdeInput.value, 10);
+            const hasta = parseInt(hastaInput.value, 10);
+
+            if (!isNaN(desde) && !isNaN(hasta) && hasta >= desde) {
+                inputCant.value = (hasta - desde) + 1;
+            } else {
+                inputCant.value = '';
+            }
+        };
+
+        window.abrirModalMicroforma = function(id = null) {
+            idMicroformaEnEdicion = id;
+            document.getElementById('form-modal-microforma').reset();
+            document.getElementById('mf-cant-paquetes').value = '';
+            
+            if (id !== null) {
+                const item = baseDatosMicroformas.find(m => m.id === id);
+                if (item) {
+                    document.getElementById('mf-bloque').value = item.bloque || '';
+                    document.getElementById('mf-paquete-desde').value = item.paqueteDesde || '';
+                    document.getElementById('mf-paquete-hasta').value = item.paqueteHasta || '';
+                    document.getElementById('mf-cant-paquetes').value = item.cantPaquetes || '';
+                    document.getElementById('mf-juzgado').value = item.juzgado || '';
+                    document.getElementById('mf-folios').value = item.folios || '';
+                    document.getElementById('mf-imagenes').value = item.imagenes || '';
+                    document.getElementById('mf-registros').value = item.registros || '';
+                    document.getElementById('mf-expedientes').value = item.expedientes || '';
+                    document.getElementById('mf-mes').value = item.mes || '';
+                    document.getElementById('mf-fec-inicio').value = item.fecInicio || '';
+                    document.getElementById('mf-fec-fin').value = item.fecFin || '';
+                    document.getElementById('mf-fec-grabacion').value = item.fecGrabacion || '';
+                    document.getElementById('modal-microforma-titulo').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Bloque de Microformas';
+                    document.getElementById('btn-guardar-microforma').innerText = 'Guardar Cambios';
+                }
+            } else {
+                document.getElementById('modal-microforma-titulo').innerHTML = '<i class="bi bi-file-earmark-plus me-2"></i>Registrar Bloque de Microformas';
+                document.getElementById('btn-guardar-microforma').innerText = 'Guardar Bloque';
+            }
+
+            modalMicroformaInstance = new bootstrap.Modal(document.getElementById('modalMicroforma'));
+            modalMicroformaInstance.show();
+        };
+
+        window.cerrarModalMicroforma = function() {
+            idMicroformaEnEdicion = null;
+            if (modalMicroformaInstance) modalMicroformaInstance.hide();
+        };
+
+        window.guardarMicroforma = async function() {
+            const currentUserObj = auth.currentUser;
+            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+
+            if (!esUsuarioAdministradorLog(currentUserName)) {
+                Swal.fire('Acceso denegado', 'Solo Alfredo Cruzado puede registrar o modificar bloques de microformas.', 'error');
+                return;
+            }
+
+            const pDesde = document.getElementById('mf-paquete-desde').value.trim();
+            const pHasta = document.getElementById('mf-paquete-hasta').value.trim();
+            const bloqueNum = parseInt(document.getElementById('mf-bloque').value, 10);
+            const cantPaq = parseInt(document.getElementById('mf-cant-paquetes').value, 10);
+
+            if (!bloqueNum || !pDesde || !pHasta || isNaN(cantPaq)) {
+                Swal.fire('Campos incompletos', 'Por favor complete el N° de Bloque y asegúrese de que el rango de paquetes esté calculado correctamente.', 'warning');
+                return;
+            }
+
+            const bloqueData = {
+                bloque: bloqueNum,
+                paqueteDesde: pDesde,
+                paqueteHasta: pHasta,
+                rango: `${pDesde} al ${pHasta}`,
+                cantPaquetes: cantPaq,
+                juzgado: document.getElementById('mf-juzgado').value.trim().toUpperCase(),
+                folios: parseInt(document.getElementById('mf-folios').value, 10) || 0,
+                imagenes: parseInt(document.getElementById('mf-imagenes').value, 10) || 0,
+                registros: parseInt(document.getElementById('mf-registros').value, 10) || 0,
+                expedientes: parseInt(document.getElementById('mf-expedientes').value, 10) || 0,
+                mes: document.getElementById('mf-mes').value.trim().toUpperCase(),
+                fecInicio: document.getElementById('mf-fec-inicio').value,
+                fecFin: document.getElementById('mf-fec-fin').value,
+                fecGrabacion: document.getElementById('mf-fec-grabacion').value,
+                timestamp: Date.now()
+            };
+
+            try {
+                if (idMicroformaEnEdicion) {
+                    bloqueData.auditoriaEdicion = { nombre: currentUserName, timestamp: Date.now() };
+                    await updateDoc(doc(db, "control_microformas", idMicroformaEnEdicion), bloqueData);
+                    Swal.fire({ icon: 'success', title: 'Bloque Actualizado', text: 'Los cambios se guardaron correctamente.' });
+                } else {
+                    bloqueData.activo = true;
+                    bloqueData.auditoriaCreacion = { nombre: currentUserName, timestamp: Date.now() };
+                    await addDoc(collection(db, "control_microformas"), bloqueData);
+                    Swal.fire({ icon: 'success', title: 'Bloque Registrado', text: 'El bloque de microformas se añadió con éxito.' });
+                }
+
+                window.cerrarModalMicroforma();
+                await cargarMicroformasDesdeCloud();
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
+            }
+        };
+
+        async function cargarMicroformasDesdeCloud() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "control_microformas"));
+                baseDatosMicroformas = [];
+                querySnapshot.forEach((docSnap) => {
+                    const data = { id: docSnap.id, ...docSnap.data() };
+                    if (data.activo !== false) baseDatosMicroformas.push(data);
+                });
+
+                baseDatosMicroformas.sort((a, b) => (a.bloque || 0) - (b.bloque || 0));
+                renderTablaMicroformas();
+                actualizarDashboardGlobal();
+            } catch (e) {
+                console.error("Error al cargar microformas:", e);
+            }
+        }
+
+        function renderTablaMicroformas() {
+            const tbody = document.getElementById('tabla-microformas-body');
+            const tfoot = document.getElementById('tabla-microformas-foot');
+            if (!tbody || !tfoot) return;
+
+            tbody.innerHTML = '';
+            if (baseDatosMicroformas.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="13" class="text-center text-muted py-4">No hay bloques registrados en el sistema.</td></tr>`;
+                tfoot.innerHTML = '';
+                return;
+            }
+
+            let sumaPaquetes = 0;
+            let sumaFolios = 0;
+            let sumaImagenes = 0;
+            let sumaRegistros = 0;
+            let sumaExpedientes = 0;
+
+            const currentUserObj = auth.currentUser;
+            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : '';
+            const esAdmin = esUsuarioAdministradorLog(currentUserName);
+
+            baseDatosMicroformas.forEach(item => {
+                sumaPaquetes += item.cantPaquetes || 0;
+                sumaFolios += item.folios || 0;
+                sumaImagenes += item.imagenes || 0;
+                sumaRegistros += item.registros || 0;
+                sumaExpedientes += item.expedientes || 0;
+
+                const fInicio = item.fecInicio ? item.fecInicio.split('-').reverse().join('/') : '';
+                const fFin = item.fecFin ? item.fecFin.split('-').reverse().join('/') : '';
+                const fGrab = item.fecGrabacion ? item.fecGrabacion.split('-').reverse().join('/') : '';
+                const textoRango = item.rango || (item.paqueteDesde && item.paqueteHasta ? `${item.paqueteDesde} al ${item.paqueteHasta}` : '');
+
+                const tr = `<tr>
+                    <td class="fw-bold">${item.bloque}</td>
+                    <td class="text-start ps-2"><code>${textoRango}</code></td>
+                    <td class="fw-bold">${item.cantPaquetes}</td>
+                    <td class="text-start ps-2">${item.juzgado}</td>
+                    <td>${item.folios.toLocaleString()}</td>
+                    <td class="fw-bold">${item.imagenes.toLocaleString()}</td>
+                    <td>${item.registros.toLocaleString()}</td>
+                    <td class="fw-bold">${item.expedientes.toLocaleString()}</td>
+                    <td>${item.mes}</td>
+                    <td>${fInicio}</td>
+                    <td>${fFin}</td>
+                    <td>${fGrab}</td>
+                    <td class="col-acciones no-print">
+                        ${esAdmin ? `
+                            <button class="btn btn-xs btn-outline-primary py-0 px-1 me-1" onclick="window.abrirModalMicroforma('${item.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-xs btn-outline-danger py-0 px-1" onclick="window.eliminarMicroforma('${item.id}')" title="Eliminar"><i class="bi bi-trash"></i></button>
+                        ` : `<span class="text-muted small">Sólo lectura</span>`}
+                    </td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', tr);
+            });
+
+            const totalBloques = baseDatosMicroformas.length;
+            const promPaquetes = totalBloques > 0 ? (sumaPaquetes / totalBloques).toFixed(0) : 0;
+            const promFolios = totalBloques > 0 ? Math.round(sumaFolios / totalBloques) : 0;
+            const promImagenes = totalBloques > 0 ? Math.round(sumaImagenes / totalBloques) : 0;
+            const promRegistros = totalBloques > 0 ? Math.round(sumaRegistros / totalBloques) : 0;
+            const promExpedientes = totalBloques > 0 ? Math.round(sumaExpedientes / totalBloques) : 0;
+
+            tfoot.innerHTML = `
+                <tr class="table-warning">
+                    <td colspan="2" class="text-end pe-3">TOTALES</td>
+                    <td>${sumaPaquetes}</td>
+                    <td>-</td>
+                    <td>${sumaFolios.toLocaleString()}</td>
+                    <td>${sumaImagenes.toLocaleString()}</td>
+                    <td>${sumaRegistros.toLocaleString()}</td>
+                    <td>${sumaExpedientes.toLocaleString()}</td>
+                    <td colspan="5"></td>
+                </tr>
+                <tr class="table-info">
+                    <td colspan="2" class="text-end pe-3">PROMEDIO</td>
+                    <td>${promPaquetes}</td>
+                    <td>-</td>
+                    <td>${promFolios.toLocaleString()}</td>
+                    <td>${promImagenes.toLocaleString()}</td>
+                    <td>${promRegistros.toLocaleString()}</td>
+                    <td>${promExpedientes.toLocaleString()}</td>
+                    <td colspan="5"></td>
+                </tr>
+            `;
+        }
+
+        window.eliminarMicroforma = async function(id) {
+            const confirmacion = await Swal.fire({
+                icon: 'warning',
+                title: '¿Eliminar bloque?',
+                text: 'El bloque de microformas quedará inactivo.',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                confirmButtonColor: '#800000'
+            });
+
+            if (!confirmacion.isConfirmed) return;
+
+            try {
+                await updateDoc(doc(db, "control_microformas", id), { activo: false });
+                Swal.fire({ icon: 'success', title: 'Bloque eliminado', timer: 1500, showConfirmButton: false });
+                await cargarMicroformasDesdeCloud();
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
+            }
+        };
 
         let indiceEdicionRango = null;
 
@@ -1540,7 +2005,7 @@
                 baseDatosReingresos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                 actualizarDashboardGlobal();
             } catch (error) {
-                console.error("Error al cargar reingresos para el dashboard:", error);
+                console.error(error);
             }
         }
 
@@ -1560,6 +2025,25 @@
             document.getElementById('dash-porcentaje').innerText = porcentajeIntegridad + "%";
             const elPorcentaje = document.getElementById('dash-porcentaje');
             elPorcentaje.style.color = porcentajeIntegridad < 90 ? 'var(--sipa-primary)' : 'inherit';
+
+            let sumBloques = baseDatosMicroformas.length;
+            let sumPaquetes = 0;
+            let sumExpedientes = 0;
+            let sumImágenes = 0;
+            let sumFolios = 0;
+
+            baseDatosMicroformas.forEach(m => {
+                sumPaquetes += Number(m.cantPaquetes) || 0;
+                sumExpedientes += Number(m.expedientes) || 0;
+                sumImágenes += Number(m.imagenes) || 0;
+                sumFolios += Number(m.folios) || 0;
+            });
+
+            document.getElementById('dash-micro-bloques').innerText = sumBloques.toLocaleString();
+            document.getElementById('dash-micro-paquetes').innerText = sumPaquetes.toLocaleString();
+            document.getElementById('dash-micro-expedientes').innerText = sumExpedientes.toLocaleString();
+            document.getElementById('dash-micro-imagenes').innerText = sumImágenes.toLocaleString();
+            document.getElementById('dash-micro-folios').innerText = sumFolios.toLocaleString();
 
             const hoyStr = new Date().toISOString().split('T')[0];
             const mesActualStr = hoyStr.substring(0, 7);
@@ -1676,7 +2160,6 @@
             if (!lote) return;
 
             idLoteEnEdicion = id;
-
             document.getElementById('inv-repositorio').value = lote.repositorio || '';
             document.getElementById('inv-fecha').value = lote.fecha || '';
             document.getElementById('inv-registra').value = lote.registra || '';
@@ -1713,7 +2196,6 @@
 
                 let logs = [];
 
-                // 1. Auditoría de Inicios de Sesión
                 try {
                     const snapLogins = await getDocs(collection(db, "auditoria_logins"));
                     snapLogins.forEach(docSnap => {
@@ -1728,9 +2210,8 @@
                             detalle: `Acceso autorizado al sistema desde el correo: ${d.email || 'N/A'}`
                         });
                     });
-                } catch(err) { console.warn("No se pudo cargar auditoria_logins:", err); }
+                } catch(err) { console.warn(err); }
 
-                // 2. Auditoría de Inventario (Creaciones, Ediciones y Bajas)
                 try {
                     const snapCenso = await getDocs(collection(db, "censo_institucional"));
                     snapCenso.forEach(docSnap => {
@@ -1768,9 +2249,8 @@
                             });
                         }
                     });
-                } catch(err) { console.warn("No se pudo cargar censo_institucional:", err); }
+                } catch(err) { console.warn(err); }
 
-                // 3. Auditoría de Reingresos (Creaciones, Ediciones y Bajas)
                 try {
                     const snapReingresos = await getDocs(collection(db, "reingresos"));
                     snapReingresos.forEach(docSnap => {
@@ -1808,7 +2288,23 @@
                             });
                         }
                     });
-                } catch(err) { console.warn("No se pudo cargar reingresos:", err); }
+                } catch(err) { console.warn(err); }
+
+                try {
+                    const snapMicro = await getDocs(collection(db, "control_microformas"));
+                    snapMicro.forEach(docSnap => {
+                        const d = docSnap.data();
+                        const ts = d.timestamp || d.auditoriaCreacion?.timestamp || 0;
+                        logs.push({
+                            fecha: ts ? new Date(ts).toLocaleString() : 'N/A',
+                            timestamp: ts,
+                            modulo: 'Control Microformas',
+                            accion: d.auditoriaEdicion ? 'Actualización de Bloque' : 'Creación de Bloque',
+                            usuario: d.auditoriaEdicion?.nombre || d.auditoriaCreacion?.nombre || 'ALFREDO CRUZADO',
+                            detalle: `Bloque N° ${d.bloque} | Rango: ${d.rango} | Juzgado: ${d.juzgado}`
+                        });
+                    });
+                } catch(err) { console.warn(err); }
 
                 logs.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -1835,7 +2331,7 @@
                 });
 
             } catch (error) {
-                console.error("Error al cargar auditoría:", error);
+                console.error(error);
                 document.getElementById('tabla-auditoria-global').innerHTML = `<tr><td colspan="5" class="text-center text-danger py-3">Error al cargar el historial de cambios.</td></tr>`;
             }
         };
@@ -1871,33 +2367,39 @@
             new bootstrap.Modal(document.getElementById('modal-pdf-preview')).show();
         }
 
-        window.generarPDFInstitucional = function(id) {
+        window.generarPDFInstitucional = async function(id) {
             const lote = baseDatosInventario.find(l => l.id === id);
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
             const pageWidth = doc.internal.pageSize.getWidth();
 
-            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(40, 40, 40);
-            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 18, { align: "center" });
-            doc.setFontSize(10); doc.setFont("Inter", "normal");
-            doc.text("ARCHIVO DESCONCENTRADO DE LA CSJSA", pageWidth / 2, 23, { align: "center" });
+            const logoData = await obtenerLogoArchivoBase64();
+            if (logoData) {
+                doc.addImage(logoData, 'PNG', 15, 10, 18, 18);
+            }
 
-            doc.setFont("Inter", "bold"); doc.setFontSize(12); doc.setTextColor(128, 0, 0); 
-            doc.text("SAAMIR - Sistema de Administración de Archivos, Microformas, Inventario y Reportes", pageWidth / 2, 30, { align: "center" });
-            doc.setLineWidth(0.4); doc.setDrawColor(128, 0, 0); doc.line(15, 34, pageWidth - 15, 34);
-            doc.setFontSize(12); doc.setTextColor(0, 0, 0);
-            doc.text("INFORME CONSOLIDADO DE INVENTARIO DE EXISTENCIAS", pageWidth / 2, 41, { align: "center" });
+            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(40, 40, 40);
+            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 16, { align: "center" });
+            doc.setFontSize(9.5); doc.setFont("Inter", "normal");
+            doc.text("ARCHIVO DESCONCENTRADO DE LA CSJSA", pageWidth / 2, 21, { align: "center" });
+
+            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(128, 0, 0); 
+            doc.text("SAAMIR - Sistema de Administración de Archivos, Microformas, Inventario y Reportes", pageWidth / 2, 27, { align: "center" });
+            doc.setLineWidth(0.4); doc.setDrawColor(128, 0, 0); doc.line(15, 31, pageWidth - 15, 31);
+            
+            doc.setFontSize(11); doc.setTextColor(0, 0, 0);
+            doc.text("INFORME CONSOLIDADO DE INVENTARIO DE EXISTENCIAS", pageWidth / 2, 38, { align: "center" });
 
             doc.setFontSize(9.5);
             doc.setFont("Inter", "bold");
-            doc.text("Repositorio / Sede:", 15, 48);
+            doc.text("Repositorio / Sede:", 15, 45);
             doc.setFont("Inter", "normal");
-            doc.text(String(lote.repositorio), 48, 48);
+            doc.text(String(lote.repositorio), 48, 45);
 
             doc.setFont("Inter", "bold");
-            doc.text("Fecha de Ejecución:", 15, 53);
+            doc.text("Fecha de Ejecución:", 15, 50);
             doc.setFont("Inter", "normal");
-            doc.text(String(lote.fecha), 48, 53);
+            doc.text(String(lote.fecha), 48, 50);
 
             const filasTablaAutotable = lote.matrizRangos.map((r, idx) => [
                 (idx + 1).toString(),
@@ -1912,20 +2414,20 @@
             filasTablaAutotable.push([ 'Σ', 'TOTAL CONSOLIDADO', '-', '-', lote.totalTeorico.toString(), lote.totalFaltantes.toString(), lote.totalReal.toString() ]);
 
             doc.autoTable({
-                startY: 60,
+                startY: 55,
                 margin: { left: 15, right: 15 },
                 theme: 'grid',
                 headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 9 },
-                styles: { fontSize: 8.5, font: 'Inter', cellPadding: 2.5 },
+                styles: { fontSize: 8.5, font: 'Inter', cellPadding: 2 },
                 columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 33, halign: 'center' }, 2: { cellWidth: 33, halign: 'center' }, 3: { cellWidth: 30, halign: 'center' }, 4: { cellWidth: 24, halign: 'center' }, 5: { cellWidth: 24, halign: 'center' }, 6: { cellWidth: 24, halign: 'center' } },
                 head: [['Item', 'Rango Inicial', 'Rango Final', 'Archivamiento', 'Teórico', 'Faltantes', 'Total Real Físico']],
                 body: filasTablaAutotable
             });
 
-            let currentY = doc.lastAutoTable.finalY + 8;
-            doc.setFont("Inter", "bold"); doc.setFontSize(9);
+            let currentY = doc.lastAutoTable.finalY + 6;
+            doc.setFont("Inter", "bold"); doc.setFontSize(8.5);
             doc.text("DETALLE ESPECÍFICO DE EXPEDIENTES EXCLUIDOS:", 15, currentY);
-            currentY += 3;
+            currentY += 2;
 
             const subFaltantesBody = [];
             lote.matrizRangos.forEach(r => {
@@ -1944,11 +2446,36 @@
                 startY: currentY,
                 margin: { left: 15, right: 15 },
                 theme: 'striped',
-                headStyles: { fillColor: [40, 40, 40], textColor: [255, 255, 255], halign: 'center', fontSize: 8.5 },
-                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor: [40, 40, 40], textColor: [255, 255, 255], halign: 'center', fontSize: 8 },
+                styles: { fontSize: 7.5, cellPadding: 1.5 },
                 head: [['Rango', 'Archivamiento', 'Faltante Desde', 'Faltante Hasta', 'Cantidad']],
                 body: subFaltantesBody
             });
+
+            currentY = doc.lastAutoTable.finalY + 6;
+            doc.setFont("Inter", "bold"); doc.setFontSize(8.5);
+            doc.text("OBSERVACIONES GENERALES DEL INVENTARIO:", 15, currentY);
+            currentY += 4;
+            doc.setFont("Inter", "normal"); doc.setFontSize(8);
+            const obsTexto = lote.observaciones && lote.observaciones !== 'Ninguna.' ? lote.observaciones : 'Ninguna.';
+            const splitObs = doc.splitTextToSize(obsTexto, pageWidth - 30);
+            doc.text(splitObs, 15, currentY);
+            currentY += (splitObs.length * 4) + 12;
+
+            if (currentY > 255) { doc.addPage(); currentY = 30; }
+            doc.setLineWidth(0.3);
+            doc.line(35, currentY, 95, currentY);
+            doc.line(115, currentY, 175, currentY);
+
+            currentY += 4;
+            doc.setFont("Inter", "bold"); doc.setFontSize(8);
+            doc.text("USUARIO QUE REGISTRA", 65, currentY, { align: "center" });
+            doc.text("USUARIO QUE RECIBE", 145, currentY, { align: "center" });
+
+            currentY += 4;
+            doc.setFont("Inter", "normal"); doc.setFontSize(7.5);
+            doc.text(String(lote.registra || 'N/A').toUpperCase(), 65, currentY, { align: "center" });
+            doc.text(String(lote.recibe || 'N/A').toUpperCase(), 145, currentY, { align: "center" });
 
             const blobUrl = doc.output('bloburl');
             const repoLimpio = (lote.repositorio || '').replace(/[^a-zA-Z0-9]/g, '_');
@@ -1971,7 +2498,6 @@
                 const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
                 if (idReingresoEnEdicion) {
-                    // Modo Actualización
                     const datosActualizados = {
                         fecha: document.getElementById('re-fecha').value,
                         solicitante: document.getElementById('re-solicitante').value,
@@ -1988,7 +2514,6 @@
                     await updateDoc(doc(db, "reingresos", idReingresoEnEdicion), datosActualizados);
                     Swal.fire({ icon: 'success', title: 'Reingreso Actualizado', text: 'Los cambios se guardaron correctamente.' });
                 } else {
-                    // Modo Nuevo Registro
                     const correlativo = await obtenerSiguienteCorrelativoReingreso();
                     const datos = {
                         correlativo,
@@ -2023,7 +2548,6 @@
             if (!registro) return;
 
             idReingresoEnEdicion = id;
-
             document.getElementById('re-fecha').value = registro.fecha || '';
             document.getElementById('re-solicitante').value = registro.solicitante || '';
             document.getElementById('re-local').value = registro.local || '';
@@ -2112,7 +2636,7 @@
                 baseDatosReingresos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                 filtrarHistorialReingresos();
             } catch (error) {
-                console.error("Error al cargar historial de reingresos:", error);
+                console.error(error);
             }
         };
 
@@ -2165,45 +2689,88 @@
             });
         }
 
-        const LOGO_PJAD_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAfQAAAH0CAYAAADL1t+KAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAFIWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0=";
-
-        function construirPDFReingreso({ correlativo, fecha, solicitante, local, entregado, expedientes }) {
+        async function construirPDFReingreso({ correlativo, fecha, solicitante, local, entregado, expedientes }) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
 
-            doc.setFont("helvetica", "bold"); doc.setTextColor(20, 20, 20);
-            doc.text("REPORTE DE EXPEDIENTES REINGRESADOS", pageWidth / 2, 18, { align: "center" });
+            const logoData = await obtenerLogoArchivoBase64();
+            if (logoData) {
+                doc.addImage(logoData, 'PNG', 15, 10, 18, 18);
+            }
 
-            doc.setFont("helvetica", "bold"); doc.setTextColor(128, 0, 0);
-            doc.text("SAAMIR - Sistema de Administración de Archivos", pageWidth / 2, 26, { align: "center" });
+            doc.setFont("Inter", "bold"); doc.setTextColor(20, 20, 20); doc.setFontSize(11);
+            doc.text("REPORTE DE EXPEDIENTES REINGRESADOS", pageWidth / 2, 16, { align: "center" });
+
+            doc.setFont("Inter", "bold"); doc.setTextColor(128, 0, 0); doc.setFontSize(9.5);
+            doc.text("SAAMIR - Sistema de Administración de Archivos, Microformas, Inventario y Reportes", pageWidth / 2, 22, { align: "center" });
 
             doc.setDrawColor(128, 0, 0); doc.setLineWidth(0.4);
-            doc.line(15, 35, pageWidth - 15, 35);
+            doc.line(15, 27, pageWidth - 15, 27);
 
-            doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
-            doc.text(`Correlativo (ID): ${correlativo}`, 15, 42);
-            doc.text(`Fecha: ${fecha}`, pageWidth - 15, 42, { align: "right" });
-            doc.text(`Solicitante: ${solicitante}`, 15, 48);
-            doc.text(`Local: ${local}`, pageWidth - 15, 48, { align: "right" });
+            doc.setFont("Inter", "bold"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
+            doc.text(`Correlativo (ID): ${String(correlativo).padStart(3, '0')}`, 15, 34);
+            doc.text(`Fecha: ${fecha}`, pageWidth - 15, 34, { align: "right" });
+            doc.text(`Solicitante: ${solicitante}`, 15, 40);
+            doc.text(`Local de Reingreso: ${local}`, pageWidth - 15, 40, { align: "right" });
+            doc.text(`Entregado por: ${entregado}`, 15, 46);
 
-            const filasTabla = expedientes.map((e, idx) => [
-                (idx + 1).toString(), e.paquete, e.exp, e.folios, e.juzgado, e.tipo, e.acomp, local
-            ]);
+            let totalTransitorio = 0;
+            let totalDefinitivo = 0;
+            let totalAcompanados = 0;
+
+            const filasTabla = expedientes.map((e, idx) => {
+                if (e.tipo === 'Transitorio') totalTransitorio++;
+                if (e.tipo === 'Definitivo') totalDefinitivo++;
+                totalAcompanados += parseInt(e.acomp, 10) || 0;
+
+                return [
+                    (idx + 1).toString(), 
+                    e.paquete || '-', 
+                    e.exp || '-', 
+                    e.folios || '0', 
+                    e.juzgado || '-', 
+                    e.tipo || 'Transitorio', 
+                    e.acomp || '0', 
+                    local
+                ];
+            });
 
             doc.autoTable({
-                startY: 54,
+                startY: 50,
                 margin: { left: 15, right: 15 },
                 theme: 'grid',
                 head: [['N°', 'N° Paquete', 'N° Expediente', 'Folios', 'Juzgado', 'Tipo', 'Acompañados', 'Repositorio']],
                 body: filasTabla,
-                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontSize: 8, halign: 'center' },
-                styles: { fontSize: 7.5, font: 'Inter', halign: 'center', cellPadding: 1.5 }
+                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontSize: 8.5, halign: 'center' },
+                styles: { fontSize: 8, font: 'Inter', halign: 'center', cellPadding: 2 }
             });
 
+            let currentY = doc.lastAutoTable.finalY + 8;
+            doc.setFont("Inter", "bold"); doc.setFontSize(8.5); doc.setTextColor(0, 0, 0);
+            doc.text(`Total AT (Archivamiento Transitorio): ${totalTransitorio}`, 15, currentY);
+            doc.text(`Total AD (Archivamiento Definitivo): ${totalDefinitivo}`, pageWidth / 2, currentY);
+            
+            currentY += 5;
+            doc.text(`Total Expedientes: ${expedientes.length}`, 15, currentY);
+            currentY += 5;
+            doc.text(`Total Acompañados: ${totalAcompanados}`, 15, currentY);
+
+            currentY += 20;
+            if (currentY > 255) { doc.addPage(); currentY = 30; }
+
+            doc.setLineWidth(0.3);
+            doc.line(35, currentY, 95, currentY);
+            doc.line(115, currentY, 175, currentY);
+
+            currentY += 4;
+            doc.setFont("Inter", "bold"); doc.setFontSize(8);
+            doc.text(`Entregado por: ${entregado}`, 65, currentY, { align: "center" });
+            doc.text(`Recibido por: ${solicitante}`, 145, currentY, { align: "center" });
+
             const blobUrl = doc.output('bloburl');
-            mostrarModalPreviewPDF(blobUrl, `REINGRESOS_${correlativo}_${fecha}.pdf`);
-        }
+            mostrarModalPreviewPDF(blobUrl, `REINGRESOS_${String(correlativo).padStart(3, '0')}_${fecha}.pdf`);
+        };
 
         window.generarReporteReingresoPDF = async function() {
             const expedientes = Array.from(document.querySelectorAll("#tabla-reingresos tbody tr")).map(tr => {
@@ -2216,7 +2783,7 @@
                 return;
             }
 
-            construirPDFReingreso({
+            await construirPDFReingreso({
                 correlativo: idReingresoEnEdicion ? baseDatosReingresos.find(r => r.id === idReingresoEnEdicion)?.correlativo : await obtenerSiguienteCorrelativoReingreso(),
                 fecha: document.getElementById('re-fecha').value,
                 solicitante: document.getElementById('re-solicitante').value,
@@ -2226,10 +2793,10 @@
             });
         };
 
-        window.generarPDFReingresoDesdeRegistro = function(id) {
+        window.generarPDFReingresoDesdeRegistro = async function(id) {
             const registro = baseDatosReingresos.find(r => r.id === id);
             if (!registro) return;
-            construirPDFReingreso({
+            await construirPDFReingreso({
                 correlativo: registro.correlativo ?? '-',
                 fecha: registro.fecha,
                 solicitante: registro.solicitante,
@@ -2238,11 +2805,6 @@
                 expedientes: registro.expedientes || []
             });
         };
-
-        window.switchView = switchView;
-        window.abrirModalRango = abrirModalRango;
-        window.cerrarModalRango = cerrarModalRango;
-        window.filtrarRegistros = filtrarRegistros;
     </script>
 
     <script>
