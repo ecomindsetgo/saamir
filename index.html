@@ -108,16 +108,28 @@
             margin-bottom: 2rem;
         }
 
+        /* Estilos mejorados para las tarjetas del Dashboard */
         .dashboard-card {
             background: white;
-            border-radius: 8px;
+            border-radius: 10px;
             border: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-            transition: transform 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .dashboard-card:hover {
-            transform: translateY(-2px);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        }
+
+        .dashboard-icon-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
         }
 
         .form-section-title {
@@ -179,6 +191,7 @@
                     <label class="form-label text-secondary small fw-medium">Correo Institucional</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope text-muted"></i></span>
+                        <!-- Se añadió el id para persistencia del correo -->
                         <input type="email" id="login-email" class="form-control bg-light border-start-0" required placeholder="usuario@pj.gob.pe">
                     </div>
                 </div>
@@ -314,100 +327,124 @@
     </div>
 </section>
 
-            <!-- DASHBOARD GLOBAL -->
+            <!-- DASHBOARD GLOBAL (MEJORADO Y ORDENADO) -->
             <section id="view-dashboard" class="view-section active">
-                <!-- Indicadores de Inventario -->
-                <div class="row g-3 mb-3">
-                    <div class="col-12 col-sm-6 col-xl-3">
-                        <div class="card dashboard-card p-3 border-start border-primary border-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <p class="text-muted small text-uppercase fw-bold mb-1">Total Teórico General</p>
-                                    <h3 class="fw-bold m-0" id="dash-total-teorico">0</h3>
+                
+                <!-- Sección 1: Indicadores de Inventario -->
+                <div class="mb-4">
+                    <h6 class="text-uppercase fw-bold text-muted small mb-3 tracking-wider"><i class="bi bi-box-seam me-1 text-primary"></i> Resumen de Inventario Institucional</h6>
+                    <div class="row g-3">
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="card dashboard-card p-3 border-start border-primary border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Total Teórico General</p>
+                                        <h3 class="fw-bold m-0" id="dash-total-teorico">0</h3>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-primary bg-opacity-10 text-primary">
+                                        <i class="bi bi-calculator"></i>
+                                    </div>
                                 </div>
-                                <div class="text-primary fs-3"><i class="bi bi-calculator"></i></div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-sm-6 col-xl-3">
-                        <div class="card dashboard-card p-3 border-start border-danger border-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <p class="text-muted small text-uppercase fw-bold mb-1">Total Faltantes Excluidos</p>
-                                    <h3 class="fw-bold m-0" id="dash-total-faltantes">0</h3>
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="card dashboard-card p-3 border-start border-danger border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Total Faltantes Excluidos</p>
+                                        <h3 class="fw-bold m-0 text-danger" id="dash-total-faltantes">0</h3>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-danger bg-opacity-10 text-danger">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                    </div>
                                 </div>
-                                <div class="text-danger fs-3"><i class="bi bi-exclamation-triangle"></i></div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-sm-6 col-xl-3">
-                        <div class="card dashboard-card p-3 border-start border-success border-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <p class="text-muted small text-uppercase fw-bold mb-1">Total Real en Custodia</p>
-                                    <h3 class="fw-bold m-0" id="dash-total-real">0</h3>
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="card dashboard-card p-3 border-start border-success border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Total Real en Custodia</p>
+                                        <h3 class="fw-bold m-0 text-success" id="dash-total-real">0</h3>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-success bg-opacity-10 text-success">
+                                        <i class="bi bi-box-seam"></i>
+                                    </div>
                                 </div>
-                                <div class="text-success fs-3"><i class="bi bi-box-seam"></i></div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-sm-6 col-xl-3">
-                        <div class="card dashboard-card p-3 border-start border-info border-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <p class="text-muted small text-uppercase fw-bold mb-1">Porcentaje de Integridad</p>
-                                    <h3 class="fw-bold m-0" id="dash-porcentaje">100%</h3>
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="card dashboard-card p-3 border-start border-info border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Porcentaje de Integridad</p>
+                                        <h3 class="fw-bold m-0 text-info" id="dash-porcentaje">100%</h3>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-info bg-opacity-10 text-info">
+                                        <i class="bi bi-percent"></i>
+                                    </div>
                                 </div>
-                                <div class="text-info fs-3"><i class="bi bi-percent"></i></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Nuevos Indicadores de Reingresos -->
-                <div class="row g-3 mb-4">
-                    <div class="col-12 col-sm-4">
-                        <div class="card dashboard-card p-3 border-start border-warning border-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <p class="text-muted small text-uppercase fw-bold mb-1">Reingresos del Mes</p>
-                                    <h3 class="fw-bold m-0" id="dash-reingresos-mes">0</h3>
-                                </div>
-                                <div class="text-warning fs-3"><i class="bi bi-calendar-month"></i></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-sm-4">
-                        <div class="card dashboard-card p-3 border-start border-dark border-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <p class="text-muted small text-uppercase fw-bold mb-1">Reingresos de Hoy</p>
-                                    <h3 class="fw-bold m-0" id="dash-reingresos-hoy">0</h3>
-                                </div>
-                                <div class="text-dark fs-3"><i class="bi bi-calendar-day"></i></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-sm-4">
-                        <div class="card dashboard-card p-3 border-start border-secondary border-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <p class="text-muted small text-uppercase fw-bold mb-1">Total Acompañados</p>
-                                    <h3 class="fw-bold m-0" id="dash-total-acompanados">0</h3>
-                                </div>
-                                <div class="text-secondary fs-3"><i class="bi bi-layers-half"></i></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tablas Recientes -->
+                <!-- Sección 2: Indicadores de Reingresos -->
+                <div class="mb-4">
+                    <h6 class="text-uppercase fw-bold text-muted small mb-3 tracking-wider"><i class="bi bi-arrow-return-left me-1 text-warning"></i> Métricas Operativas de Reingresos</h6>
+                    <div class="row g-3">
+                        <div class="col-12 col-sm-4">
+                            <div class="card dashboard-card p-3 border-start border-warning border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Reingresos del Mes</p>
+                                        <h3 class="fw-bold m-0" id="dash-reingresos-mes">0</h3>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-warning bg-opacity-10 text-warning">
+                                        <i class="bi bi-calendar-month"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <div class="card dashboard-card p-3 border-start border-dark border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Reingresos de Hoy</p>
+                                        <h3 class="fw-bold m-0" id="dash-reingresos-hoy">0</h3>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-dark bg-opacity-10 text-dark">
+                                        <i class="bi bi-calendar-day"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <div class="card dashboard-card p-3 border-start border-secondary border-4">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <p class="text-muted small text-uppercase fw-bold mb-1">Total Acompañados</p>
+                                        <h3 class="fw-bold m-0" id="dash-total-acompanados">0</h3>
+                                    </div>
+                                    <div class="dashboard-icon-box bg-secondary bg-opacity-10 text-secondary">
+                                        <i class="bi bi-layers-half"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección 3: Tablas Recientes Ordenadas -->
                 <div class="row g-4">
                     <div class="col-12">
-                        <div class="card p-4 border-0 shadow-sm mb-3">
-                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-clock-history me-2"></i>Últimos Lotes Consolidados Registrados</h6>
+                        <div class="card p-4 border-0 shadow-sm">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="fw-bold text-dark m-0"><i class="bi bi-clock-history me-2 text-primary"></i>Últimos Lotes Consolidados Registrados</h6>
+                                <span class="badge bg-light text-secondary border">Historial reciente</span>
+                            </div>
                             <div class="table-responsive">
-                                <table class="table table-hover align-middle" style="font-size: 0.9rem;">
+                                <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
                                     <thead class="table-light">
                                         <tr>
                                             <th>Fecha Registro</th>
@@ -430,9 +467,12 @@
 
                     <div class="col-12">
                         <div class="card p-4 border-0 shadow-sm">
-                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-arrow-return-left me-2"></i>Últimos 5 Reingresos Registrados</h6>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="fw-bold text-dark m-0"><i class="bi bi-arrow-return-left me-2 text-warning"></i>Últimos Reingresos Registrados</h6>
+                                <span class="badge bg-light text-secondary border">Últimos 5 movimientos</span>
+                            </div>
                             <div class="table-responsive">
-                                <table class="table table-hover align-middle" style="font-size: 0.9rem;">
+                                <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
                                     <thead class="table-light">
                                         <tr>
                                             <th>Fecha</th>
@@ -955,6 +995,15 @@
         let baseDatosReingresos = [];
         let modalInstance = null;
 
+        // Recuperar el correo guardado en localStorage al iniciar la aplicación
+        window.addEventListener('DOMContentLoaded', () => {
+            const correoGuardado = localStorage.getItem('saamir_ultimo_correo');
+            if (correoGuardado) {
+                const inputEmail = document.getElementById('login-email');
+                if (inputEmail) inputEmail.value = correoGuardado;
+            }
+        });
+
         function cargarDataMaestra(usuarioActivoNombre = "") {
             const selectRepo = document.getElementById('inv-repositorio');
             const selectFiltroRepo = document.getElementById('filtro-repo');
@@ -1033,6 +1082,9 @@
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
             try {
+                // Guardar el correo en localStorage para que persista al actualizar la ventana
+                localStorage.setItem('saamir_ultimo_correo', email);
+
                 await signInWithEmailAndPassword(auth, email, password);
                 Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Acceso Autorizado', showConfirmButton: false, timer: 2000 });
             } catch (error) {
@@ -1082,7 +1134,6 @@
         document.getElementById('form-perfil-datos').addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = auth.currentUser;
-            // Normalizar espacios múltiples al actualizar perfil
             const nuevoNombre = normalizarTexto(document.getElementById('perf-nombre').value);
             if (!user) return;
             try {
