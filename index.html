@@ -589,7 +589,7 @@
 
     <div class="d-flex justify-content-end mt-4 gap-2">
         <button class="btn btn-danger px-4" onclick="generarReporteReingresoPDF()"><i class="bi bi-file-pdf me-2"></i>Generar PDF</button>
-        <button class="btn btn-primary px-4 fw-bold" onclick="guardarReingreso()"><i class="bi bi-cloud-upload me-2"></i>Guardar Registro</button>
+        <button class="btn btn-primary px-4 fw-bold" id="btn-guardar-reingreso" onclick="guardarReingreso()"><i class="bi bi-cloud-upload me-2"></i>Guardar Registro</button>
     </div>
 </section>
 
@@ -795,7 +795,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 
         // ==========================================
@@ -843,7 +843,59 @@ const dataMaestra = {
 };
 
 
-        // Matrices de almacenamiento dinámico en memoria
+        // ==========================================
+        // 🔐 PERMISOS POR USUARIO (Capa 1 - UI)
+        // Esto solo evita errores por accidente: cualquiera con DevTools
+        // puede saltarse esto. La protección real vive en las Reglas de
+        // Firestore (Capa 2) - ver documento de reglas aparte.
+        // ==========================================
+        const PERMISOS = {
+            reingresos_escritura: ["ALFREDO CRUZADO", "ROBERTO DÁVILA", "JORGE IZQUIERDO", "MANUEL BARANDIARAN"],
+            inventario_escritura: ["ALFREDO CRUZADO", "ROBERTO DÁVILA", "JORGE IZQUIERDO", "MANUEL BARANDIARAN", "TEÓFILO GABINO"]
+        };
+
+        function aplicarPermisos(nombreUsuario) {
+            const puedeReingresos = PERMISOS.reingresos_escritura.includes(nombreUsuario);
+            const puedeInventario = PERMISOS.inventario_escritura.includes(nombreUsuario);
+
+            document.getElementById('btn-guardar-reingreso')?.toggleAttribute('disabled', !puedeReingresos);
+            document.querySelectorAll('#view-reingresos input, #view-reingresos select').forEach(el => el.disabled = !puedeReingresos);
+
+            document.getElementById('form-inventario')?.querySelectorAll('input, select, button[type=submit]')
+                .forEach(el => el.disabled = !puedeInventario);
+
+            // Aviso visual de modo solo-consulta
+            const avisoExistente = document.getElementById('aviso-solo-consulta');
+            if (!puedeReingresos || !puedeInventario) {
+                if (!avisoExistente) {
+                    const aviso = document.createElement('div');
+                    aviso.id = 'aviso-solo-consulta';
+                    aviso.className = 'alert alert-warning py-2 px-3 mb-3 small fw-medium';
+                    aviso.innerHTML = '<i class="bi bi-eye me-1"></i> Modo solo consulta: no tiene permisos de escritura en algunas secciones.';
+                    document.getElementById('main-content')?.prepend(aviso);
+                }
+            } else if (avisoExistente) {
+                avisoExistente.remove();
+            }
+        }
+
+        // Crea o actualiza el documento usuarios/{uid} en Firestore.
+        // Es la base que usarán las Reglas de Seguridad (Capa 2) para
+        // verificar el nombre real del usuario sin depender del token.
+        async function sincronizarUsuarioEnFirestore(user, nombreUsuario) {
+            try {
+                await setDoc(doc(db, "usuarios", user.uid), {
+                    nombre: nombreUsuario,
+                    email: user.email || '',
+                    rol: listaPersonalRoles[nombreUsuario] || "Personal de Archivo",
+                    actualizadoEn: Date.now()
+                }, { merge: true });
+            } catch (e) {
+                console.error("No se pudo sincronizar usuarios/{uid}:", e);
+            }
+        }
+
+
         let baseDatosInventario = []; 
         let listaRangosCenso = [];    
         let listaFaltantesModal = []; 
@@ -949,6 +1001,7 @@ function resetFormularioReingreso() {
         // Carga de datos iniciales
         const userTitle = user.displayName ? user.displayName.toUpperCase() : user.email.split('@')[0].toUpperCase();
         document.getElementById('user-display-name').innerText = userTitle;
+        document.getElementById('user-display-role').innerText = listaPersonalRoles[userTitle] || "Personal de Archivo";
         document.getElementById('inv-registra').value = userTitle;
         
         // Auto-completar "Entregado por" con el usuario logueado usando input readonly
@@ -965,6 +1018,8 @@ function resetFormularioReingreso() {
         if (formClave) formClave.reset();
 
         cargarDataMaestra(userTitle);
+        aplicarPermisos(userTitle);
+        sincronizarUsuarioEnFirestore(user, userTitle);
         inicializarSelectsReingresos(); // Asegúrate de llamar esto
         resetFormularioReingreso(); // Limpia cualquier dato de reingreso dejado por la sesión anterior
         
@@ -1000,6 +1055,8 @@ function resetFormularioReingreso() {
                 if (campoEntregado) campoEntregado.value = nuevoNombre;
                 
                 cargarDataMaestra(nuevoNombre);
+                aplicarPermisos(nuevoNombre);
+                sincronizarUsuarioEnFirestore(user, nuevoNombre);
                 Swal.fire('Éxito', 'Perfil actualizado de forma interna.', 'success');
             } catch (error) { Swal.fire('Error', error.message, 'error'); }
         });
@@ -1260,7 +1317,12 @@ function resetFormularioReingreso() {
                 totalTeorico: parseInt(document.getElementById('calc-total-teorico').innerText, 10),
                 totalFaltantes: parseInt(document.getElementById('calc-total-faltantes').innerText, 10),
                 totalReal: parseInt(document.getElementById('calc-total-real').innerText, 10),
-                matrizRangos: [...listaRangosCenso]
+                matrizRangos: [...listaRangosCenso],
+                auditoria: {
+                    uid: auth.currentUser?.uid || null,
+                    nombre: auth.currentUser?.displayName ? auth.currentUser.displayName.toUpperCase() : (auth.currentUser?.email || 'desconocido'),
+                    timestamp: Date.now()
+                }
             };
 
             const esEdicion = !!idLoteEnEdicion;
@@ -1270,6 +1332,7 @@ function resetFormularioReingreso() {
                     await updateDoc(doc(db, "censo_institucional", idLoteEnEdicion), consolidadoLote);
                 } else {
                     consolidadoLote.createdAt = Date.now();
+                    consolidadoLote.activo = true;
                     await addDoc(collection(db, "censo_institucional"), consolidadoLote);
                 }
 
@@ -1297,7 +1360,10 @@ function resetFormularioReingreso() {
                 // Traemos todo y ordenamos en el cliente, con un valor de respaldo.
                 const querySnapshot = await getDocs(collection(db, "censo_institucional"));
                 baseDatosInventario = [];
-                querySnapshot.forEach((doc) => { baseDatosInventario.push({ id: doc.id, ...doc.data() }); });
+                querySnapshot.forEach((doc) => {
+                    const data = { id: doc.id, ...doc.data() };
+                    if (data.activo !== false) baseDatosInventario.push(data);
+                });
 
                 baseDatosInventario.sort((a, b) => {
                     const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : (a.createdAt || 0);
@@ -1316,7 +1382,10 @@ async function cargarHistorialReingresosParaDashboard() {
             try {
                 const querySnapshot = await getDocs(collection(db, "reingresos"));
                 baseDatosReingresos = [];
-                querySnapshot.forEach((doc) => baseDatosReingresos.push({ id: doc.id, ...doc.data() }));
+                querySnapshot.forEach((doc) => {
+                    const data = { id: doc.id, ...doc.data() };
+                    if (data.activo !== false) baseDatosReingresos.push(data);
+                });
                 baseDatosReingresos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                 actualizarDashboardGlobal();
             } catch (error) {
@@ -1445,10 +1514,17 @@ function actualizarDashboardGlobal() {
 
         window.eliminarRegistroLocal = function(id) {
             Swal.fire({
-                title: '¿Expulsar Lote del Inventario?', text: "Se borrará el lote de forma irreversible de la nube.", icon: 'warning', showCancelButton: true, confirmButtonColor: '#800000', confirmButtonText: 'Sí, borrar'
+                title: '¿Expulsar Lote del Inventario?', text: "El lote quedará marcado como inactivo y dejará de aparecer en las listas (no se destruye, por trazabilidad).", icon: 'warning', showCancelButton: true, confirmButtonColor: '#800000', confirmButtonText: 'Sí, borrar'
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    await deleteDoc(doc(db, "censo_institucional", id));
+                    await updateDoc(doc(db, "censo_institucional", id), {
+                        activo: false,
+                        auditoriaEliminacion: {
+                            uid: auth.currentUser?.uid || null,
+                            nombre: auth.currentUser?.displayName ? auth.currentUser.displayName.toUpperCase() : (auth.currentUser?.email || 'desconocido'),
+                            timestamp: Date.now()
+                        }
+                    });
                     await cargarInventariosDesdeCloud();
                 }
             });
@@ -1697,7 +1773,13 @@ const filasTablaAutotable = lote.matrizRangos.map((r, idx) => [
                     local: document.getElementById('re-local').value,
                     entregado: document.getElementById('re-entregado').value,
                     expedientes,
-                    createdAt: Date.now()
+                    createdAt: Date.now(),
+                    activo: true,
+                    auditoria: {
+                        uid: auth.currentUser?.uid || null,
+                        nombre: auth.currentUser?.displayName ? auth.currentUser.displayName.toUpperCase() : (auth.currentUser?.email || 'desconocido'),
+                        timestamp: Date.now()
+                    }
                 };
 
                 await addDoc(collection(db, "reingresos"), datos);
@@ -1736,7 +1818,14 @@ const filasTablaAutotable = lote.matrizRangos.map((r, idx) => [
             if (!confirmacion.isConfirmed) return;
 
             try {
-                await deleteDoc(doc(db, "reingresos", id));
+                await updateDoc(doc(db, "reingresos", id), {
+                    activo: false,
+                    auditoriaEliminacion: {
+                        uid: auth.currentUser?.uid || null,
+                        nombre: auth.currentUser?.displayName ? auth.currentUser.displayName.toUpperCase() : (auth.currentUser?.email || 'desconocido'),
+                        timestamp: Date.now()
+                    }
+                });
                 Swal.fire({ icon: 'success', title: 'Registro eliminado', timer: 1500, showConfirmButton: false });
                 await window.cargarHistorialReingresos();
             } catch (e) {
@@ -1748,7 +1837,10 @@ const filasTablaAutotable = lote.matrizRangos.map((r, idx) => [
             try {
                 const querySnapshot = await getDocs(collection(db, "reingresos"));
                 baseDatosReingresos = [];
-                querySnapshot.forEach((doc) => baseDatosReingresos.push({ id: doc.id, ...doc.data() }));
+                querySnapshot.forEach((doc) => {
+                    const data = { id: doc.id, ...doc.data() };
+                    if (data.activo !== false) baseDatosReingresos.push(data);
+                });
                 baseDatosReingresos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                 filtrarHistorialReingresos();
             } catch (error) {
