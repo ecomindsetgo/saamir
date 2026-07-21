@@ -176,7 +176,6 @@
             display: block;
         }
 
-        /* ESTILOS DE DIFERENCIACIÓN VISUAL DE SECCIONES EN EL DASHBOARD */
         .seccion-inventario-box {
             background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
             border-left: 5px solid var(--sipa-primary);
@@ -204,7 +203,6 @@
             margin-bottom: 1.5rem;
         }
 
-        /* DISEÑO RESPONSIVO AVANZADO PARA MÓVILES (TABLETS Y CELULARES) */
         .btn-menu-movil {
             display: none;
         }
@@ -267,25 +265,6 @@
             }
         }
 
-        @media (max-width: 576px) {
-            .login-card {
-                padding: 1.5rem;
-            }
-            h4, h5 {
-                font-size: 1.1rem;
-            }
-            .total-value {
-                font-size: 1.5rem;
-            }
-            .table {
-                font-size: 0.75rem !important;
-            }
-            .btn {
-                font-size: 0.85rem;
-                padding: 0.4rem 0.8rem;
-            }
-        }
-
         @media print {
             body * {
                 visibility: hidden;
@@ -309,17 +288,6 @@
             .modal,
             .modal-backdrop {
                 display: none !important;
-            }
-
-            * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                color-adjust: exact !important;
-            }
-
-            .table-dark, .table-dark th, .table-dark td {
-                background-color: #212529 !important;
-                color: #ffffff !important;
             }
         }
     </style>
@@ -422,120 +390,120 @@
                 </div>
             </div>
 
-<section id="view-consultas-reingresos" class="view-section">
-<div class="card p-3 p-md-4 border-0 shadow-sm mb-3">
-    <h6 class="form-section-title"><i class="bi bi-funnel me-2"></i>Filtros de Búsqueda</h6>
-    <div class="row g-3">
-        <div class="col-12 col-md-3">
-            <label class="form-label small">Solicitante</label>
-            <select class="form-select form-select-sm" id="filtro-re-solicitante" onchange="filtrarHistorialReingresos()">
-                <option value="">Todos</option>
-            </select>
-        </div>
-        <div class="col-12 col-md-3">
-            <label class="form-label small">Entregado por</label>
-            <select class="form-select form-select-sm" id="filtro-re-entregado" onchange="filtrarHistorialReingresos()">
-                <option value="">Todos</option>
-            </select>
-        </div>
-        <div class="col-12 col-md-3">
-            <label class="form-label small">Fecha</label>
-            <input type="date" class="form-control form-control-sm" id="filtro-re-fecha" onchange="filtrarHistorialReingresos()">
-        </div>
-        <div class="col-12 col-md-3">
-            <label class="form-label small">Búsqueda libre</label>
-            <input type="text" id="busqueda-reingresos" class="form-control form-control-sm"
-                   placeholder="🔍 Local, paquete, expediente..."
-                   onkeyup="filtrarHistorialReingresos()">
-        </div>
-    </div>
-    <div class="text-end mt-2">
-        <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('filtro-re-solicitante').value='';document.getElementById('filtro-re-entregado').value='';document.getElementById('filtro-re-fecha').value='';document.getElementById('busqueda-reingresos').value='';filtrarHistorialReingresos()">
-            <i class="bi bi-x-circle"></i> Limpiar filtros
-        </button>
-    </div>
-</div>
-    <div class="card p-3 p-md-4 border-0 shadow-sm">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="fw-bold m-0 text-dark">
-                <i class="bi bi-search me-2"></i>Consulta de Historial de Reingresos
-            </h6>
-            <button class="btn btn-primary btn-sm" onclick="cargarHistorialReingresos()">
-                <i class="bi bi-arrow-clockwise"></i> Actualizar
-            </button>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle border" style="font-size: 0.85rem;">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Solicitante</th>
-                        <th>Local</th>
-                        <th>Entregado por</th>
-                        <th>Cantidad</th>
-                        <th class="text-end">Acción</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla-historial-reingresos">
-                </tbody>
-            </table>
-        </div>
-    </div>
-</section>
+            <section id="view-consultas-reingresos" class="view-section">
+                <div class="card p-3 p-md-4 border-0 shadow-sm mb-3">
+                    <h6 class="form-section-title"><i class="bi bi-funnel me-2"></i>Filtros de Búsqueda</h6>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small">Solicitante</label>
+                            <select class="form-select form-select-sm" id="filtro-re-solicitante" onchange="filtrarHistorialReingresos()">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small">Entregado por</label>
+                            <select class="form-select form-select-sm" id="filtro-re-entregado" onchange="filtrarHistorialReingresos()">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small">Fecha</label>
+                            <input type="date" class="form-control form-control-sm" id="filtro-re-fecha" onchange="filtrarHistorialReingresos()">
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small">Búsqueda libre</label>
+                            <input type="text" id="busqueda-reingresos" class="form-control form-control-sm"
+                                   placeholder="🔍 Local, paquete, expediente..."
+                                   onkeyup="filtrarHistorialReingresos()">
+                        </div>
+                    </div>
+                    <div class="text-end mt-2">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('filtro-re-solicitante').value='';document.getElementById('filtro-re-entregado').value='';document.getElementById('filtro-re-fecha').value='';document.getElementById('busqueda-reingresos').value='';filtrarHistorialReingresos()">
+                            <i class="bi bi-x-circle"></i> Limpiar filtros
+                        </button>
+                    </div>
+                </div>
+                <div class="card p-3 p-md-4 border-0 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold m-0 text-dark">
+                            <i class="bi bi-search me-2"></i>Consulta de Historial de Reingresos
+                        </h6>
+                        <button class="btn btn-primary btn-sm" onclick="cargarHistorialReingresos()">
+                            <i class="bi bi-arrow-clockwise"></i> Actualizar
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle border" style="font-size: 0.85rem;">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Solicitante</th>
+                                    <th>Local</th>
+                                    <th>Entregado por</th>
+                                    <th>Cantidad</th>
+                                    <th class="text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-historial-reingresos">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
-<!-- SECCIÓN DE CONSULTAS DE TRASLADOS -->
-<section id="view-consultas-traslados" class="view-section">
-    <div class="card p-3 p-md-4 border-0 shadow-sm mb-3">
-        <h6 class="form-section-title"><i class="bi bi-funnel me-2"></i>Filtros de Búsqueda de Traslados</h6>
-        <div class="row g-3">
-            <div class="col-12 col-md-4">
-                <label class="form-label small">Entregado por</label>
-                <select class="form-select form-select-sm" id="filtro-tr-entregado" onchange="filtrarHistorialTraslados()">
-                    <option value="">Todos</option>
-                </select>
-            </div>
-            <div class="col-12 col-md-4">
-                <label class="form-label small">Fecha</label>
-                <input type="date" class="form-control form-control-sm" id="filtro-tr-fecha" onchange="filtrarHistorialTraslados()">
-            </div>
-            <div class="col-12 col-md-4">
-                <label class="form-label small">Búsqueda libre</label>
-                <input type="text" id="busqueda-traslados" class="form-control form-control-sm"
-                       placeholder="🔍 Paquete, motivo, repositorio..."
-                       onkeyup="filtrarHistorialTraslados()">
-            </div>
-        </div>
-        <div class="text-end mt-2">
-            <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('filtro-tr-entregado').value='';document.getElementById('filtro-tr-fecha').value='';document.getElementById('busqueda-traslados').value='';filtrarHistorialTraslados()">
-                <i class="bi bi-x-circle"></i> Limpiar filtros
-            </button>
-        </div>
-    </div>
-    <div class="card p-3 p-md-4 border-0 shadow-sm">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="fw-bold m-0 text-dark">
-                <i class="bi bi-search me-2"></i>Consulta de Historial de Traslados
-            </h6>
-            <button class="btn btn-primary btn-sm" onclick="cargarHistorialTraslados()">
-                <i class="bi bi-arrow-clockwise"></i> Actualizar
-            </button>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle border" style="font-size: 0.85rem;">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Entregado por</th>
-                        <th>Total Paquetes</th>
-                        <th class="text-end">Acción</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla-historial-traslados">
-                </tbody>
-            </table>
-        </div>
-    </div>
-</section>
+            <!-- SECCIÓN DE CONSULTAS DE TRASLADOS -->
+            <section id="view-consultas-traslados" class="view-section">
+                <div class="card p-3 p-md-4 border-0 shadow-sm mb-3">
+                    <h6 class="form-section-title"><i class="bi bi-funnel me-2"></i>Filtros de Búsqueda de Traslados</h6>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small">Entregado por</label>
+                            <select class="form-select form-select-sm" id="filtro-tr-entregado" onchange="filtrarHistorialTraslados()">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small">Fecha</label>
+                            <input type="date" class="form-control form-control-sm" id="filtro-tr-fecha" onchange="filtrarHistorialTraslados()">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small">Búsqueda libre</label>
+                            <input type="text" id="busqueda-traslados" class="form-control form-control-sm"
+                                   placeholder="🔍 Paquete, motivo, repositorio..."
+                                   onkeyup="filtrarHistorialTraslados()">
+                        </div>
+                    </div>
+                    <div class="text-end mt-2">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('filtro-tr-entregado').value='';document.getElementById('filtro-tr-fecha').value='';document.getElementById('busqueda-traslados').value='';filtrarHistorialTraslados()">
+                            <i class="bi bi-x-circle"></i> Limpiar filtros
+                        </button>
+                    </div>
+                </div>
+                <div class="card p-3 p-md-4 border-0 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold m-0 text-dark">
+                            <i class="bi bi-search me-2"></i>Consulta de Historial de Traslados
+                        </h6>
+                        <button class="btn btn-primary btn-sm" onclick="cargarHistorialTraslados()">
+                            <i class="bi bi-arrow-clockwise"></i> Actualizar
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle border" style="font-size: 0.85rem;">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Entregado por</th>
+                                    <th>Total Paquetes</th>
+                                    <th class="text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-historial-traslados">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
             <!-- DASHBOARD GLOBAL -->
             <section id="view-dashboard" class="view-section active">
@@ -549,7 +517,6 @@
                     </button>
                 </div>
 
-                <!-- SECCIÓN 1: INVENTARIO INSTITUCIONAL (Diferenciada visualmente) -->
                 <div class="seccion-inventario-box">
                     <h6 class="text-uppercase fw-bold text-danger small mb-3 tracking-wider"><i class="bi bi-box-seam me-1 text-primary"></i> Resumen de Inventario Institucional</h6>
                     <div class="row g-3">
@@ -608,7 +575,6 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 2: PRODUCCIÓN DE MICROFORMAS (Diferenciada visualmente) -->
                 <div class="seccion-microformas-box">
                     <h6 class="text-uppercase fw-bold text-primary small mb-3 tracking-wider"><i class="bi bi-file-earmark-spreadsheet-fill me-1 text-primary"></i> Producción de Microformas Digitales (Acumulado)</h6>
                     <div class="row g-3">
@@ -680,7 +646,6 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 3: MÉTRICAS DE REINGRESOS (Diferenciada visualmente) -->
                 <div class="seccion-reingresos-box">
                     <h6 class="text-uppercase fw-bold text-warning small mb-3 tracking-wider"><i class="bi bi-arrow-return-left me-1 text-warning"></i> Métricas Operativas de Reingresos</h6>
                     <div class="row g-3">
@@ -730,7 +695,6 @@
             <!-- MÓDULO DE CONTROL DE MICROFORMAS -->
             <section id="view-microformas" class="view-section">
                 <div class="card p-3 p-md-4 border-0 shadow-sm mb-4">
-                    <!-- ENCABEZADO INSTITUCIONAL CON LOGO DE MICROFORMAS (LPMD) -->
                     <div class="text-center mb-4 pb-3 border-bottom">
                         <div class="d-flex justify-content-center align-items-center mb-2">
                             <img src="https://ecomindsetgo.github.io/saamir/LOGO%20LPMD.png" alt="Logo LPMD" style="max-height: 70px; object-fit: contain;" id="img-logo-lpmd-render" onerror="this.src='LOGO LPMD.png'">
@@ -918,18 +882,24 @@
                 </div>
             </section>
 
-            <!-- MÓDULO FORMATO DE TRASLADO -->
+            <!-- MÓDULO FORMATO DE TRASLADO ACTUALIZADO -->
             <section id="view-traslados" class="view-section">
                 <div class="card p-3 p-md-4 mb-4">
                     <h6 class="form-section-title"><i class="bi bi-truck me-2"></i>Datos de Registro de Traslado</h6>
                     <div class="row g-3">
-                        <div class="col-12 col-md-6">
+                        <div class="col-12 col-md-4">
                             <label class="form-label small fw-bold">Fecha</label>
                             <input type="date" class="form-control bg-light" id="tr-fecha">
                         </div>
-                        <div class="col-12 col-md-6">
+                        <div class="col-12 col-md-4">
                             <label class="form-label small fw-bold">Entregado por</label>
                             <input type="text" class="form-control bg-light fw-bold text-dark" id="tr-entregado" readonly style="cursor: not-allowed;">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold">Recibido por</label>
+                            <select id="tr-recibe" class="form-select bg-light" required>
+                                <option value="" selected disabled>Seleccione personal...</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -1151,7 +1121,7 @@
                             </div>
                             <div class="col-12">
                                 <label class="form-label small fw-bold mb-1">Sub-rangos de Paquetes</label>
-                                <div class="small text-muted mb-2">Un bloque puede tener varios tramos de paquetes no consecutivos (p.ej. cuando los paquetes están intercalados con otro bloque). Agregue un sub-rango por cada tramo continuo.</div>
+                                <div class="small text-muted mb-2">Un bloque puede tener varios tramos de paquetes no consecutivos. Agregue un sub-rango por cada tramo continuo.</div>
                                 <div id="mf-subrangos-container"></div>
                                 <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="window.agregarSubrangoMicroforma()"><i class="bi bi-plus-circle"></i> Agregar sub-rango</button>
                             </div>
@@ -1245,7 +1215,6 @@
                         </div>
                     </form>
 
-                    <!-- SECCIÓN INTERNA PARA AGREGAR EXCLUSIONES A ESTE RANGO ESPECÍFICO -->
                     <div class="card p-3 bg-light border mb-3">
                         <p class="fw-bold text-danger mb-2" style="font-size: 0.8rem;"><i class="bi bi-exclamation-triangle"></i> Registro de Faltantes Internos del Rango</p>
                         <form id="form-mod-add-faltante">
@@ -1338,10 +1307,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Nombre que aparece en la firma del reporte "Control de Producción de Microformas Digitales"
         const NOMBRE_SUPERVISOR_LPMD = "ALFREDO CRUZADO PALACIOS";
-
-        // Dominio institucional: el usuario solo escribe su alias (ej. "acruzado") y el sistema arma el correo completo
         const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
         const repositorios = ["SÓTANO NCPP", "SAENZ PEÑA", "PADILLA", "DUNAS", "DOMUS"];
@@ -1427,21 +1393,14 @@
                 btnNuevaMicroforma.style.display = puedeMicroformasEscritura ? 'flex' : 'none';
             }
 
+            // REINGRESOS: Mantiene su validación original
             document.getElementById('btn-guardar-reingreso')?.toggleAttribute('disabled', !puedeReingresos);
-            document.getElementById('btn-guardar-traslado')?.toggleAttribute('disabled', !puedeReingresos);
             
             const btnAgregarExpediente = document.querySelector('button[onclick="agregarFilaReingreso()"]');
             if (btnAgregarExpediente) {
                 btnAgregarExpediente.disabled = !puedeReingresos;
                 btnAgregarExpediente.style.pointerEvents = puedeReingresos ? 'auto' : 'none';
                 btnAgregarExpediente.classList.toggle('opacity-50', !puedeReingresos);
-            }
-
-            const btnAgregarTraslado = document.querySelector('button[onclick="agregarFilaTraslado()"]');
-            if (btnAgregarTraslado) {
-                btnAgregarTraslado.disabled = !puedeReingresos;
-                btnAgregarTraslado.style.pointerEvents = puedeReingresos ? 'auto' : 'none';
-                btnAgregarTraslado.classList.toggle('opacity-50', !puedeReingresos);
             }
 
             const btnGenerarPDF = document.querySelector('button[onclick="generarReporteReingresoPDF()"]');
@@ -1451,15 +1410,28 @@
                 btnGenerarPDF.classList.toggle('opacity-50', !puedeReingresos);
             }
 
-            const btnGenerarPDFTraslado = document.querySelector('button[onclick="generarReporteTrasladoPDF()"]');
-            if (btnGenerarPDFTraslado) {
-                btnGenerarPDFTraslado.disabled = !puedeReingresos;
-                btnGenerarPDFTraslado.style.pointerEvents = puedeReingresos ? 'auto' : 'none';
-                btnGenerarPDFTraslado.classList.toggle('opacity-50', !puedeReingresos);
+            document.querySelectorAll('#view-reingresos input, #view-reingresos select').forEach(el => el.disabled = !puedeReingresos);
+
+            // FORMATO DE TRASLADO: ABIERTO PARA TODOS LOS USUARIOS AUTENTICADOS
+            document.getElementById('btn-guardar-traslado')?.removeAttribute('disabled');
+            
+            const btnAgregarTraslado = document.querySelector('button[onclick="agregarFilaTraslado()"]');
+            if (btnAgregarTraslado) {
+                btnAgregarTraslado.disabled = false;
+                btnAgregarTraslado.style.pointerEvents = 'auto';
+                btnAgregarTraslado.classList.remove('opacity-50');
             }
 
-            document.querySelectorAll('#view-reingresos input, #view-reingresos select').forEach(el => el.disabled = !puedeReingresos);
-            document.querySelectorAll('#view-traslados input, #view-traslados select').forEach(el => el.disabled = !puedeReingresos);
+            const btnGenerarPDFTraslado = document.querySelector('button[onclick="generarReporteTrasladoPDF()"]');
+            if (btnGenerarPDFTraslado) {
+                btnGenerarPDFTraslado.disabled = false;
+                btnGenerarPDFTraslado.style.pointerEvents = 'auto';
+                btnGenerarPDFTraslado.classList.remove('opacity-50');
+            }
+
+            document.querySelectorAll('#view-traslados input, #view-traslados select').forEach(el => el.disabled = false);
+
+            // INVENTARIO: Mantiene su validación original
             document.getElementById('form-inventario')?.querySelectorAll('input, select, button[type=submit]').forEach(el => el.disabled = !puedeInventario);
 
             const btnAgregarRango = document.querySelector('button[onclick="abrirModalRango()"]');
@@ -1528,7 +1500,6 @@
         window.addEventListener('DOMContentLoaded', () => {
             let correoGuardado = localStorage.getItem('saamir_ultimo_correo');
             if (correoGuardado) {
-                // Compatibilidad: si quedó guardado un correo completo de antes, nos quedamos solo con el alias.
                 if (correoGuardado.includes('@')) {
                     correoGuardado = correoGuardado.split('@')[0];
                     localStorage.setItem('saamir_ultimo_correo', correoGuardado);
@@ -1580,12 +1551,22 @@
             });
         }
 
-        function inicializarSelectsTraslados() {
+        function inicializarSelectsTraslados(usuarioActivoNombre = "") {
             const fEntregadoTr = document.getElementById('filtro-tr-entregado');
             if (fEntregadoTr) {
                 fEntregadoTr.innerHTML = '<option value="">Todos</option>';
                 dataMaestra.personal.forEach(p => {
                     fEntregadoTr.innerHTML += `<option value="${p}">${p}</option>`;
+                });
+            }
+
+            const selectTrRecibe = document.getElementById('tr-recibe');
+            if (selectTrRecibe) {
+                selectTrRecibe.innerHTML = '<option value="" selected disabled>Seleccione personal...</option>';
+                Object.keys(listaPersonalRoles).forEach(p => {
+                    if (p !== usuarioActivoNombre) {
+                        selectTrRecibe.options.add(new Option(p, p));
+                    }
                 });
             }
         }
@@ -1608,10 +1589,12 @@
         function resetFormularioTraslado() {
             idTrasladoEnEdicion = null;
             const fFecha = document.getElementById('tr-fecha');
+            const fRecibe = document.getElementById('tr-recibe');
             const tbody = document.querySelector('#tabla-traslados tbody');
             const btnGuardar = document.getElementById('btn-guardar-traslado');
 
             if (fFecha) fFecha.valueAsDate = new Date();
+            if (fRecibe) fRecibe.value = '';
             if (tbody) tbody.innerHTML = '';
             if (btnGuardar) btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Registro';
             actualizarTotalTraslados();
@@ -1679,8 +1662,6 @@
             e.preventDefault();
             let entrada = document.getElementById("login-alias").value.trim().toLowerCase();
             const password = document.getElementById('login-password').value;
-            // Si el usuario ya escribió un correo completo (con @), se respeta tal cual.
-            // Si solo escribió su alias, se arma el correo con el dominio institucional.
             const email = entrada.includes('@') ? entrada : `${entrada}@${DOMINIO_INSTITUCIONAL}`;
             try {
                 localStorage.setItem('saamir_ultimo_correo', entrada);
@@ -1717,7 +1698,7 @@
                 sincronizarUsuarioEnFirestore(user, userTitle);
                 registrarInicioSesionEnCloud(user, userTitle);
                 inicializarSelectsReingresos();
-                inicializarSelectsTraslados();
+                inicializarSelectsTraslados(userTitle);
                 resetFormularioReingreso();
                 resetFormularioTraslado();
                 
@@ -1754,6 +1735,7 @@
                 if (campoEntregadoTr) campoEntregadoTr.value = nuevoNombre;
                 
                 cargarDataMaestra(nuevoNombre);
+                inicializarSelectsTraslados(nuevoNombre);
                 aplicarPermisos(nuevoNombre);
                 sincronizarUsuarioEnFirestore(user, nuevoNombre);
                 Swal.fire('Éxito', 'Perfil actualizado de forma interna.', 'success');
@@ -1787,19 +1769,12 @@
             }
         });
 
-        // ==================== LÓGICA DE MICROFORMAS ====================
         function puedeEditarMicroformas(nombreUsuario) {
             const u = normalizarTexto(nombreUsuario);
             return PERMISOS.microformas_escritura.map(n => normalizarTexto(n)).includes(u);
         }
 
-        // Formato esperado por cada sub-rango: PREFIJO-NUMERO (Ej: 23-916). Solo el número
-        // diferenciador (después del guion) se usa para calcular la cantidad de paquetes
-        // DENTRO de ese sub-rango. Cada sub-rango es un tramo continuo e independiente;
-        // esto permite que un bloque tenga paquetes intercalados con otro bloque (varios
-        // tramos cortos) o varios tramos separados dentro del mismo bloque.
         const REGEX_RANGO_PAQUETE = /^\s*(\d+)-(\d+)\s*$/;
-
         let contadorFilaSubrango = 0;
 
         function crearFilaSubrangoHTML(desde = '', hasta = '') {
@@ -1831,7 +1806,6 @@
         window.eliminarSubrangoMicroforma = function(btn) {
             const fila = btn.closest('.subrango-row');
             if (fila) fila.remove();
-            // Siempre debe quedar al menos una fila para poder ingresar datos
             const cont = document.getElementById('mf-subrangos-container');
             if (cont && cont.children.length === 0) {
                 window.agregarSubrangoMicroforma();
@@ -1839,8 +1813,6 @@
             window.recalcularTotalPaquetesMicroforma();
         };
 
-        // Lee todos los sub-rangos válidos ingresados en el formulario.
-        // Devuelve { subrangos: [...], total, huboFilasInvalidas }
         function leerSubrangosMicroforma() {
             const filas = document.querySelectorAll('#mf-subrangos-container .subrango-row');
             const subrangos = [];
@@ -1854,7 +1826,6 @@
                 const desde = desdeInput.value.trim();
                 const hasta = hastaInput.value.trim();
 
-                // Fila completamente vacía: se ignora en silencio (no cuenta como inválida)
                 if (!desde && !hasta) {
                     if (badgeCant) badgeCant.textContent = '0';
                     return;
@@ -1876,7 +1847,6 @@
                     }
                 }
 
-                // Formato incorrecto o Hasta < Desde
                 if (badgeCant) badgeCant.textContent = '?';
                 huboFilasInvalidas = true;
             });
@@ -1892,14 +1862,10 @@
             if (display) display.textContent = total;
         };
 
-        // Se mantiene este nombre por compatibilidad con el atributo oninput ya existente
-        // en otras partes del formulario; ahora simplemente recalcula el total.
         window.calcularCantidadPaquetesMicroforma = function() {
             window.recalcularTotalPaquetesMicroforma();
         };
 
-        // Construye el texto de rango combinado a partir de los sub-rangos,
-        // p.ej: "23-976 al 23-977 y del 23-979 al 23-982"
         function construirTextoRango(subrangos) {
             return subrangos.map((s, i) => {
                 const tramo = `${s.desde} al ${s.hasta}`;
@@ -1922,10 +1888,8 @@
                     document.getElementById('mf-bloque').value = item.bloque || '';
 
                     if (Array.isArray(item.subrangos) && item.subrangos.length > 0) {
-                        // Registro ya migrado al nuevo formato de múltiples sub-rangos
                         item.subrangos.forEach(s => window.agregarSubrangoMicroforma(s.desde || '', s.hasta || ''));
                     } else if (item.paqueteDesde && item.paqueteHasta) {
-                        // Registro antiguo con un solo rango
                         window.agregarSubrangoMicroforma(item.paqueteDesde, item.paqueteHasta);
                     } else if (item.rango && item.rango.includes(' al ')) {
                         const partes = item.rango.split(' al ');
@@ -1975,7 +1939,7 @@
             const { subrangos, total, huboFilasInvalidas } = leerSubrangosMicroforma();
 
             if (huboFilasInvalidas) {
-                Swal.fire('Rango inválido', 'Uno o más sub-rangos tienen formato incorrecto (use PREFIJO-NUMERO, ej: 23-916) o "Hasta" es menor que "Desde". Corríjalos o quítelos antes de guardar.', 'warning');
+                Swal.fire('Rango inválido', 'Uno o más sub-rangos tienen formato incorrecto.', 'warning');
                 return;
             }
 
@@ -1989,8 +1953,6 @@
             const bloqueData = {
                 bloque: bloqueNum,
                 subrangos: subrangos,
-                // Se mantienen por compatibilidad con vistas o exportes antiguos que
-                // aún puedan leer un único Desde/Hasta (corresponde al primer sub-rango).
                 paqueteDesde: subrangos[0].desde,
                 paqueteHasta: subrangos[0].hasta,
                 rango: rangoCompleto,
@@ -2040,7 +2002,6 @@
                 actualizarDashboardGlobal();
             } catch (e) {
                 console.error("Error al cargar microformas:", e);
-                Swal.fire('Error de Conexión', 'No se pudo cargar el control de microformas: ' + e.message, 'error');
             }
         }
 
@@ -2233,7 +2194,7 @@
             const prefijoRango = extraerPrefijo(rangoInicial);
             const prefijoDesde = extraerPrefijo(desdeStr);
             if (prefijoDesde !== prefijoRango) {
-                Swal.fire('Código no coincide', `El expediente "${desdeStr}" no pertenece al código del rango (${rangoInicial} - ${rangoFinal}).`, 'error');
+                Swal.fire('Código no coincide', `El expediente "${desdeStr}" no pertenece al código del rango.`, 'error');
                 return;
             }
 
@@ -2646,7 +2607,6 @@
                 if(selectUsuario) selectUsuario.innerHTML = '<option value="">Todos los usuarios</option>';
                 const setUsuariosUnicos = new Set();
 
-                // 1. Logins
                 try {
                     const snapLogins = await getDocs(collection(db, "auditoria_logins"));
                     snapLogins.forEach(docSnap => {
@@ -2666,7 +2626,6 @@
                     });
                 } catch(err) { console.warn(err); }
 
-                // 2. Inventarios (Censo Institucional)
                 try {
                     const snapCenso = await getDocs(collection(db, "censo_institucional"));
                     snapCenso.forEach(docSnap => {
@@ -2715,7 +2674,6 @@
                     });
                 } catch(err) { console.warn(err); }
 
-                // 3. Reingresos
                 try {
                     const snapReingresos = await getDocs(collection(db, "reingresos"));
                     snapReingresos.forEach(docSnap => {
@@ -2764,7 +2722,6 @@
                     });
                 } catch(err) { console.warn(err); }
 
-                // 3.1 Traslados
                 try {
                     const snapTraslados = await getDocs(collection(db, "traslados"));
                     snapTraslados.forEach(docSnap => {
@@ -2813,13 +2770,10 @@
                     });
                 } catch(err) { console.warn(err); }
 
-                // 4. Control de Microformas
                 try {
                     const snapMicro = await getDocs(collection(db, "control_microformas"));
                     snapMicro.forEach(docSnap => {
                         const d = docSnap.data();
-                        
-                        // Creación
                         const tsCreacion = d.auditoriaCreacion?.timestamp || d.timestamp || 0;
                         const userCreacionMicro = d.auditoriaCreacion?.nombre || 'ALFREDO CRUZADO';
                         if (tsCreacion) {
@@ -2835,7 +2789,6 @@
                             });
                         }
 
-                        // Edición
                         if (d.auditoriaEdicion) {
                             const tsEdicion = d.auditoriaEdicion.timestamp || 0;
                             const userEdMicro = d.auditoriaEdicion.nombre || 'ALFREDO CRUZADO';
@@ -2851,7 +2804,6 @@
                             });
                         }
 
-                        // Eliminación / Baja
                         if (d.activo === false && d.auditoriaEliminacion) {
                             const tsEliminacion = d.auditoriaEliminacion.timestamp || 0;
                             const userDelMicro = d.auditoriaEliminacion.nombre || 'ALFREDO CRUZADO';
@@ -3078,11 +3030,6 @@
             doc.text("Personal de Archivo", 65, currentY, { align: "center" });
             doc.text("Personal de Archivo", 145, currentY, { align: "center" });
 
-            currentY += 4;
-            doc.setFont("Inter", "italic"); doc.setFontSize(6.5); doc.setTextColor(100, 100, 100);
-            doc.text("Firma y Sello del Operador", 65, currentY, { align: "center" });
-            doc.text("Firma y Sello de Validación", 145, currentY, { align: "center" });
-
             const blobUrl = doc.output('bloburl');
             const repoLimpio = (lote.repositorio || '').replace(/[^a-zA-Z0-9]/g, '_');
             mostrarModalPreviewPDF(blobUrl, `INVENTARIO_${repoLimpio}_${lote.fecha}.pdf`);
@@ -3150,6 +3097,15 @@
         };
 
         window.guardarTraslado = async function() {
+            const fecha = document.getElementById('tr-fecha').value;
+            const entregado = document.getElementById('tr-entregado').value;
+            const recibe = document.getElementById('tr-recibe').value;
+
+            if (!recibe) {
+                Swal.fire('Atención', 'Debe seleccionar quién recibe el traslado.', 'warning');
+                return;
+            }
+
             const paquetes = Array.from(document.querySelectorAll("#tabla-traslados tbody tr")).map(tr => {
                 const inputs = tr.querySelectorAll('input, select');
                 return { 
@@ -3172,8 +3128,9 @@
 
                 if (idTrasladoEnEdicion) {
                     const datosActualizados = {
-                        fecha: document.getElementById('tr-fecha').value,
-                        entregado: document.getElementById('tr-entregado').value,
+                        fecha,
+                        entregado,
+                        recibe,
                         paquetes,
                         auditoriaEdicion: {
                             uid: currentUserObj?.uid || null,
@@ -3188,8 +3145,9 @@
                     const correlativo = await obtenerSiguienteCorrelativoTraslado();
                     const datos = {
                         correlativo,
-                        fecha: document.getElementById('tr-fecha').value,
-                        entregado: document.getElementById('tr-entregado').value,
+                        fecha,
+                        entregado,
+                        recibe,
                         paquetes,
                         createdAt: Date.now(),
                         activo: true,
@@ -3260,6 +3218,7 @@
             idTrasladoEnEdicion = id;
             document.getElementById('tr-fecha').value = registro.fecha || '';
             document.getElementById('tr-entregado').value = registro.entregado || '';
+            document.getElementById('tr-recibe').value = registro.recibe || '';
 
             const tbody = document.querySelector('#tabla-traslados tbody');
             tbody.innerHTML = '';
@@ -3580,7 +3539,7 @@
             mostrarModalPreviewPDF(blobUrl, `REINGRESOS_${String(correlativo).padStart(3, '0')}_${fecha}.pdf`);
         };
 
-        async function construirPDFTraslado({ correlativo, fecha, entregado, paquetes }) {
+        async function construirPDFTraslado({ correlativo, fecha, entregado, recibe, paquetes }) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
@@ -3603,6 +3562,7 @@
             doc.text(`Correlativo (ID): ${String(correlativo).padStart(3, '0')}`, 15, 34);
             doc.text(`Fecha: ${fecha}`, pageWidth - 15, 34, { align: "right" });
             doc.text(`Entregado por: ${entregado}`, 15, 40);
+            doc.text(`Recibido por: ${recibe || 'N/A'}`, pageWidth - 15, 40, { align: "right" });
 
             const filasTabla = paquetes.map((e, idx) => [
                 (idx + 1).toString(),
@@ -3637,7 +3597,7 @@
             currentY += 4;
             doc.setFont("Inter", "bold"); doc.setFontSize(8);
             doc.text(`Entregado por: ${entregado}`, 65, currentY, { align: "center" });
-            doc.text(`Recibido por: ${entregado}`, 145, currentY, { align: "center" });
+            doc.text(`Recibido por: ${recibe || 'N/A'}`, 145, currentY, { align: "center" });
 
             const blobUrl = doc.output('bloburl');
             mostrarModalPreviewPDF(blobUrl, `TRASLADO_${String(correlativo).padStart(3, '0')}_${fecha}.pdf`);
@@ -3665,6 +3625,12 @@
         };
 
         window.generarReporteTrasladoPDF = async function() {
+            const recibe = document.getElementById('tr-recibe').value;
+            if (!recibe) {
+                Swal.fire('Atención', 'Seleccione quién recibe antes de generar el reporte.', 'warning');
+                return;
+            }
+
             const paquetes = Array.from(document.querySelectorAll("#tabla-traslados tbody tr")).map(tr => {
                 const inputs = tr.querySelectorAll('input, select');
                 return { 
@@ -3685,6 +3651,7 @@
                 correlativo: idTrasladoEnEdicion ? baseDatosTraslados.find(r => r.id === idTrasladoEnEdicion)?.correlativo : await obtenerSiguienteCorrelativoTraslado(),
                 fecha: document.getElementById('tr-fecha').value,
                 entregado: document.getElementById('tr-entregado').value,
+                recibe,
                 paquetes
             });
         };
@@ -3709,250 +3676,207 @@
                 correlativo: registro.correlativo ?? '-',
                 fecha: registro.fecha,
                 entregado: registro.entregado,
+                recibe: registro.recibe,
                 paquetes: registro.paquetes || []
             });
         };
 
-window.generarPDFMicroformasInstitucional = async function() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
+        window.generarPDFMicroformasInstitucional = async function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+            const pageWidth = doc.internal.pageSize.getWidth();
 
-    const logoData = await obtenerLogoArchivoBase64();
-    if (logoData) {
-        doc.addImage(logoData, 'PNG', 15, 10, 18, 18);
-    }
-
-    doc.setFont("Inter", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(40, 40, 40);
-    doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 16, { align: "center" });
-
-    doc.setFontSize(9.5);
-    doc.setFont("Inter", "normal");
-    doc.text("Archivo Desconcentrado - Línea de Producción de Microformas Digitales", pageWidth / 2, 21, { align: "center" });
-
-    doc.setFont("Inter", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(128, 0, 0);
-    doc.text("CONTROL DE PRODUCCIÓN DE MICROFORMAS DIGITALES", pageWidth / 2, 27, { align: "center" });
-
-    doc.setLineWidth(0.4);
-    doc.setDrawColor(128, 0, 0);
-    doc.line(15, 31, pageWidth - 15, 31);
-
-    if (baseDatosMicroformas.length === 0) {
-        Swal.fire('Atención', 'No hay registros de microformas para generar el PDF.', 'warning');
-        return;
-    }
-
-    // Convierte a número real, sin importar si viene como string, con puntos, comas o vacío.
-    const aNumero = (valor) => {
-        if (valor === null || valor === undefined || valor === '') return 0;
-        if (typeof valor === 'number') return valor;
-        const limpio = String(valor).replace(/[^\d-]/g, '');
-        const n = parseInt(limpio, 10);
-        return isNaN(n) ? 0 : n;
-    };
-
-    // Si un sub-rango tiene "desde === hasta", lo deja como un solo valor en vez de "X al X".
-    const normalizarRango = (texto) => {
-        if (!texto) return texto;
-        return String(texto).split(' y del ').map(parte => {
-            const m = parte.trim().match(/^(.+?)\s+al\s+(.+)$/i);
-            if (m) {
-                const desde = m[1].trim();
-                const hasta = m[2].trim();
-                return desde === hasta ? desde : `${desde} al ${hasta}`;
+            const logoData = await obtenerLogoArchivoBase64();
+            if (logoData) {
+                doc.addImage(logoData, 'PNG', 15, 10, 18, 18);
             }
-            return parte.trim();
-        }).join(' y del ');
-    };
 
-    let sumaPaquetes = 0;
-    let sumaFolios = 0;
-    let sumaImagenes = 0;
-    let sumaRegistros = 0;
-    let sumaExpedientes = 0;
+            doc.setFont("Inter", "bold");
+            doc.setFontSize(11);
+            doc.setTextColor(40, 40, 40);
+            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 16, { align: "center" });
 
-    const filas = baseDatosMicroformas.map(item => {
+            doc.setFontSize(9.5);
+            doc.setFont("Inter", "normal");
+            doc.text("Archivo Desconcentrado - Línea de Producción de Microformas Digitales", pageWidth / 2, 21, { align: "center" });
 
-        const fIni = item.fecInicio ? item.fecInicio.split('-').reverse().join('/') : '';
-        const fFin = item.fecFin ? item.fecFin.split('-').reverse().join('/') : '';
-        const fGrab = item.fecGrabacion ? item.fecGrabacion.split('-').reverse().join('/') : '';
+            doc.setFont("Inter", "bold");
+            doc.setFontSize(11);
+            doc.setTextColor(128, 0, 0);
+            doc.text("CONTROL DE PRODUCCIÓN DE MICROFORMAS DIGITALES", pageWidth / 2, 27, { align: "center" });
 
-        const textoRangoBase = item.rango || (
-            item.paqueteDesde && item.paqueteHasta
-                ? (item.paqueteDesde === item.paqueteHasta
-                    ? `${item.paqueteDesde}`
-                    : `${item.paqueteDesde} al ${item.paqueteHasta}`)
-                : 'N/A'
-        );
-        const textoRango = normalizarRango(textoRangoBase);
+            doc.setLineWidth(0.4);
+            doc.setDrawColor(128, 0, 0);
+            doc.line(15, 31, pageWidth - 15, 31);
 
-        const cantPaquetes = aNumero(item.cantPaquetes);
-        const folios = aNumero(item.folios);
-        const imagenes = aNumero(item.imagenes);
-        const registros = aNumero(item.registros);
-        const expedientes = aNumero(item.expedientes);
+            if (baseDatosMicroformas.length === 0) {
+                Swal.fire('Atención', 'No hay registros de microformas para generar el PDF.', 'warning');
+                return;
+            }
 
-        sumaPaquetes += cantPaquetes;
-        sumaFolios += folios;
-        sumaImagenes += imagenes;
-        sumaRegistros += registros;
-        sumaExpedientes += expedientes;
+            const aNumero = (valor) => {
+                if (valor === null || valor === undefined || valor === '') return 0;
+                if (typeof valor === 'number') return valor;
+                const limpio = String(valor).replace(/[^\d-]/g, '');
+                const n = parseInt(limpio, 10);
+                return isNaN(n) ? 0 : n;
+            };
 
-        return [
-            item.bloque ?? 'N/A',
-            textoRango,
-            cantPaquetes,
-            item.juzgado || 'N/A',
-            folios,
-            imagenes,
-            registros,
-            expedientes,
-            item.mes || 'N/A',
-            fIni,
-            fFin,
-            fGrab
-        ];
-    });
+            const normalizarRango = (texto) => {
+                if (!texto) return texto;
+                return String(texto).split(' y del ').map(parte => {
+                    const m = parte.trim().match(/^(.+?)\s+al\s+(.+)$/i);
+                    if (m) {
+                        const desde = m[1].trim();
+                        const hasta = m[2].trim();
+                        return desde === hasta ? desde : `${desde} al ${hasta}`;
+                    }
+                    return parte.trim();
+                }).join(' y del ');
+            };
 
-    filas.push([
-        'TOTAL',
-        '-',
-        sumaPaquetes,
-        '-',
-        sumaFolios,
-        sumaImagenes,
-        sumaRegistros,
-        sumaExpedientes,
-        '-',
-        '-',
-        '-',
-        '-'
-    ]);
+            let sumaPaquetes = 0;
+            let sumaFolios = 0;
+            let sumaImagenes = 0;
+            let sumaRegistros = 0;
+            let sumaExpedientes = 0;
 
-    doc.autoTable({
-        startY: 38,
-        margin: { left: 15, right: 15 },
-        theme: 'grid',
-        tableWidth: 267,
+            const filas = baseDatosMicroformas.map(item => {
+                const fIni = item.fecInicio ? item.fecInicio.split('-').reverse().join('/') : '';
+                const fFin = item.fecFin ? item.fecFin.split('-').reverse().join('/') : '';
+                const fGrab = item.fecGrabacion ? item.fecGrabacion.split('-').reverse().join('/') : '';
 
-        headStyles: {
-            fillColor: [128, 0, 0],
-            textColor: [255, 255, 255],
-            fontStyle: 'bold',
-            halign: 'center',
-            fontSize: 8
-        },
+                const textoRangoBase = item.rango || (
+                    item.paqueteDesde && item.paqueteHasta
+                        ? (item.paqueteDesde === item.paqueteHasta
+                            ? `${item.paqueteDesde}`
+                            : `${item.paqueteDesde} al ${item.paqueteHasta}`)
+                        : 'N/A'
+                );
+                const textoRango = normalizarRango(textoRangoBase);
 
-        styles: {
-            fontSize: 7.5,
-            font: 'Inter',
-            cellPadding: 2,
-            halign: 'center',
-            overflow: 'linebreak',
-            valign: 'middle'
-        },
+                const cantPaquetes = aNumero(item.cantPaquetes);
+                const folios = aNumero(item.folios);
+                const imagenes = aNumero(item.imagenes);
+                const registros = aNumero(item.registros);
+                const expedientes = aNumero(item.expedientes);
 
-        columnStyles: {
-            0: { cellWidth: 18 },  // BLOQUE
-            1: { cellWidth: 32 },  // RANGO PAQUETES
-            2: { cellWidth: 16 },  // CANT. PAQ.
-            3: { cellWidth: 51 },  // JUZGADO
-            4: { cellWidth: 18 },  // FOLIOS
-            5: { cellWidth: 18 },  // IMÁGENES
-            6: { cellWidth: 18 },  // TOTAL REG.
-            7: { cellWidth: 16 },  // CANT. EXP.
-            8: { cellWidth: 20 },  // MES
-            9: { cellWidth: 20 },  // INICIO
-            10: { cellWidth: 20 }, // FIN
-            11: { cellWidth: 20 } // GRABACIÓN
-        },
+                sumaPaquetes += cantPaquetes;
+                sumaFolios += folios;
+                sumaImagenes += imagenes;
+                sumaRegistros += registros;
+                sumaExpedientes += expedientes;
 
-        head: [[
-            { content: 'BLOQUE', rowSpan: 2 },
-            { content: 'RANGO PAQUETES', rowSpan: 2 },
-            { content: 'CANT. PAQ.', rowSpan: 2 },
-            { content: 'JUZGADO', rowSpan: 2 },
-            { content: 'FOLIOS / IMÁGENES', colSpan: 2 },
-            { content: 'TOTAL REG.', rowSpan: 2 },
-            { content: 'CANT. EXP.', rowSpan: 2 },
-            { content: 'MES', rowSpan: 2 },
-            { content: 'FECHAS', colSpan: 2 },
-            { content: 'GRABACIÓN', rowSpan: 2 }
-        ],
-        [
-            'FOLIOS',
-            'IMÁGENES',
-            'INICIO',
-            'FIN'
-        ]],
+                return [
+                    item.bloque ?? 'N/A',
+                    textoRango,
+                    cantPaquetes,
+                    item.juzgado || 'N/A',
+                    folios,
+                    imagenes,
+                    registros,
+                    expedientes,
+                    item.mes || 'N/A',
+                    fIni,
+                    fFin,
+                    fGrab
+                ];
+            });
 
-        body: filas
-    });
+            filas.push([
+                'TOTAL',
+                '-',
+                sumaPaquetes,
+                '-',
+                sumaFolios,
+                sumaImagenes,
+                sumaRegistros,
+                sumaExpedientes,
+                '-',
+                '-',
+                '-',
+                '-'
+            ]);
 
-    let currentY = doc.lastAutoTable.finalY + 28;
+            doc.autoTable({
+                startY: 38,
+                margin: { left: 15, right: 15 },
+                theme: 'grid',
+                tableWidth: 267,
+                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8 },
+                styles: { fontSize: 7.5, font: 'Inter', cellPadding: 2, halign: 'center', overflow: 'linebreak', valign: 'middle' },
+                columnStyles: {
+                    0: { cellWidth: 18 },
+                    1: { cellWidth: 32 },
+                    2: { cellWidth: 16 },
+                    3: { cellWidth: 51 },
+                    4: { cellWidth: 18 },
+                    5: { cellWidth: 18 },
+                    6: { cellWidth: 18 },
+                    7: { cellWidth: 16 },
+                    8: { cellWidth: 20 },
+                    9: { cellWidth: 20 },
+                    10: { cellWidth: 20 },
+                    11: { cellWidth: 20 }
+                },
+                head: [[
+                    { content: 'BLOQUE', rowSpan: 2 },
+                    { content: 'RANGO PAQUETES', rowSpan: 2 },
+                    { content: 'CANT. PAQ.', rowSpan: 2 },
+                    { content: 'JUZGADO', rowSpan: 2 },
+                    { content: 'FOLIOS / IMÁGENES', colSpan: 2 },
+                    { content: 'TOTAL REG.', rowSpan: 2 },
+                    { content: 'CANT. EXP.', rowSpan: 2 },
+                    { content: 'MES', rowSpan: 2 },
+                    { content: 'FECHAS', colSpan: 2 },
+                    { content: 'GRABACIÓN', rowSpan: 2 }
+                ],
+                [
+                    'FOLIOS',
+                    'IMÁGENES',
+                    'INICIO',
+                    'FIN'
+                ]],
+                body: filas
+            });
 
-    if (currentY > 180) {
-        doc.addPage();
-        currentY = 30;
-    }
+            let currentY = doc.lastAutoTable.finalY + 28;
+            if (currentY > 180) { doc.addPage(); currentY = 30; }
 
-    doc.setLineWidth(0.3);
-    doc.line(70, currentY, 140, currentY);
-    doc.line(160, currentY, 230, currentY);
+            doc.setLineWidth(0.3);
+            doc.line(70, currentY, 140, currentY);
+            doc.line(160, currentY, 230, currentY);
 
-    currentY += 4;
+            currentY += 4;
+            doc.setFont("Inter", "bold");
+            doc.setFontSize(8);
+            doc.text("VALIDADO POR JEFATURA", 195, currentY, { align: "center" });
 
-    doc.setFont("Inter", "bold");
-    doc.setFontSize(8);
-    doc.text("VALIDADO POR JEFATURA", 195, currentY, { align: "center" });
+            currentY += 4;
+            doc.setFont("Inter", "bold");
+            doc.setFontSize(7.5);
+            doc.text(NOMBRE_SUPERVISOR_LPMD, 105, currentY, { align: "center" });
+            doc.text("RESPONSABLE DE ARCHIVO DESCONCENTRADO", 195, currentY, { align: "center" });
 
-    currentY += 4;
+            currentY += 3.5;
+            doc.setFont("Inter", "normal");
+            doc.setFontSize(7);
+            doc.text("SUPERVISOR DE LA LÍNEA DE PRODUCCIÓN DE MICROFORMAS DIGITALES (LPMD)", 105, currentY, { align: "center" });
 
-    doc.setFont("Inter", "bold");
-    doc.setFontSize(7.5);
-    doc.text(NOMBRE_SUPERVISOR_LPMD, 105, currentY, { align: "center" });
-    doc.text("RESPONSABLE DE ARCHIVO DESCONCENTRADO", 195, currentY, { align: "center" });
+            currentY += 3.5;
+            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", 105, currentY, { align: "center" });
 
-    currentY += 3.5;
+            currentY += 8;
+            const fechaGeneracionMf = new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            doc.setFont("Inter", "italic");
+            doc.setFontSize(7.5);
+            doc.setTextColor(90, 90, 90);
+            doc.text(`Fecha de creación / impresión: ${fechaGeneracionMf}`, pageWidth / 2, currentY, { align: "center" });
 
-    doc.setFont("Inter", "normal");
-    doc.setFontSize(7);
-    doc.text("SUPERVISOR DE LA LÍNEA DE PRODUCCIÓN DE MICROFORMAS DIGITALES (LPMD)", 105, currentY, { align: "center" });
-
-    currentY += 3.5;
-    doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", 105, currentY, { align: "center" });
-
-    currentY += 8;
-
-    const fechaGeneracionMf = new Date().toLocaleString('es-PE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
-
-    doc.setFont("Inter", "italic");
-    doc.setFontSize(7.5);
-    doc.setTextColor(90, 90, 90);
-
-    doc.text(
-        `Fecha de creación / impresión: ${fechaGeneracionMf}`,
-        pageWidth / 2,
-        currentY,
-        { align: "center" }
-    );
-
-    const blobUrl = doc.output('bloburl');
-    const fechaHoy = new Date().toISOString().split('T')[0];
-
-    mostrarModalPreviewPDF(
-        blobUrl,
-        `CONTROL_MICROFORMAS_${fechaHoy}.pdf`
-    );
-};
+            const blobUrl = doc.output('bloburl');
+            const fechaHoy = new Date().toISOString().split('T')[0];
+            mostrarModalPreviewPDF(blobUrl, `CONTROL_MICROFORMAS_${fechaHoy}.pdf`);
+        };
 
         window.generarPDFDashboardGlobal = async function() {
             const { jsPDF } = window.jspdf;
