@@ -336,6 +336,9 @@
                 <a class="nav-link active" href="#" onclick="switchView('view-dashboard', 'Dashboard Principal')">
                     <i class="bi bi-grid-1x2-fill"></i> Dashboard Global
                 </a>
+                <a class="nav-link" href="#" data-view="view-tarjetas" onclick="switchView('view-tarjetas', 'Generador de Tarjetas de Paquetes')">
+                    <i class="bi bi-card-checklist"></i> Generador de Tarjetas
+                </a>
                 <a class="nav-link" href="#" data-view="view-inventario" onclick="window.iniciarNuevoInventario()">
                     <i class="bi bi-journal-plus"></i> Cargar Inventario
                 </a>
@@ -389,6 +392,87 @@
                     </div>
                 </div>
             </div>
+
+            <!-- NUEVO MÓDULO: GENERADOR DE TARJETAS DE PAQUETES -->
+            <section id="view-tarjetas" class="view-section">
+                <div class="card p-3 p-md-4 border-0 shadow-sm mb-4">
+                    <h6 class="form-section-title"><i class="bi bi-card-checklist me-2"></i>Parámetros Generales del Bloque de Tarjetas</h6>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small fw-bold">Año de Ingreso (Ingreso)</label>
+                            <select class="form-select form-select-sm bg-light" id="tar-anio-ingreso">
+                                <!-- Se autocompletará por JS -->
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small fw-bold">Personal Responsable</label>
+                            <input type="text" class="form-control form-control-sm bg-light fw-bold text-dark" id="tar-personal" readonly style="cursor: not-allowed;">
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small fw-bold">Tipo de Archivo</label>
+                            <select class="form-select form-select-sm bg-light" id="tar-tipo-archivo">
+                                <option value="DEFINITIVO">DEFINITIVO</option>
+                                <option value="TRANSITORIO">TRANSITORIO</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small fw-bold">Repositorio</label>
+                            <select class="form-select form-select-sm bg-light" id="tar-repositorio">
+                                <option value="SÓTANO NCPP">SÓTANO NCPP</option>
+                                <option value="PADILLA">PADILLA</option>
+                                <option value="DOMUS">DOMUS</option>
+                                <option value="DUNAS">DUNAS</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold">Juzgado</label>
+                            <input type="text" class="form-control form-control-sm" id="tar-juzgado" placeholder="Ej: CONSTITUCIONAL">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold">Juez</label>
+                            <input type="text" class="form-control form-control-sm" id="tar-juez" placeholder="Ej: IBAÑEZ VEGA MILLNER">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold">Fecha de Recepción</label>
+                            <input type="date" class="form-control form-control-sm" id="tar-fecha-recepcion">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Oficio (Documento de Ingreso al Archivo)</label>
+                            <input type="text" class="form-control form-control-sm" id="tar-oficio" placeholder="Ej: OFICIO Nº 000060-2026-MCCALP-CSJSA-PJ-PJ">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-3 p-md-4 border-0 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <h6 class="form-section-title m-0"><i class="bi bi-table me-2"></i>Detalle de Paquetes (Filas Interactivas)</h6>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="window.agregarFilaTarjeta(5)">+ Añadir 5 Filas</button>
+                            <button class="btn btn-dark btn-sm" onclick="window.agregarFilaTarjeta(1)">+ Añadir Fila</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle text-center" id="tabla-tarjetas-detalles" style="font-size: 0.85rem;">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th style="width: 60px;">Ítem</th>
+                                    <th style="width: 140px;">N° Paquete</th>
+                                    <th style="width: 130px;">Cant. Expedientes</th>
+                                    <th style="width: 160px;">Año de Expedientes</th>
+                                    <th>Resumen Rápido</th>
+                                    <th style="width: 70px;">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Filas dinámicas -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-end mt-4 gap-2 flex-wrap">
+                        <button class="btn btn-danger px-4 btn-ancho-movil" onclick="window.generarPDFTarjetasOficial()"><i class="bi bi-file-pdf me-2"></i>Generar PDF de Tarjetas</button>
+                    </div>
+                </div>
+            </section>
 
             <section id="view-consultas-reingresos" class="view-section">
                 <div class="card p-3 p-md-4 border-0 shadow-sm mb-3">
@@ -1509,7 +1593,21 @@
                 const inputEmail = document.getElementById("login-alias");
                 if (inputEmail) inputEmail.value = correoGuardado;
             }
+            inicializarAniosIngresoTarjetas();
+            if (document.querySelectorAll('#tabla-tarjetas-detalles tbody tr').length === 0) {
+                window.agregarFilaTarjeta(5); // Iniciar con 5 filas por defecto
+            }
         });
+
+        function inicializarAniosIngresoTarjetas() {
+            const selectAnio = document.getElementById('tar-anio-ingreso');
+            if (!selectAnio) return;
+            selectAnio.innerHTML = '';
+            const anioActual = new Date().getFullYear();
+            for (let y = anioActual + 1; y >= 2015; y--) {
+                selectAnio.options.add(new Option(y, y, false, y === anioActual));
+            }
+        }
 
         function cargarDataMaestra(usuarioActivoNombre = "") {
             const selectRepo = document.getElementById('inv-repositorio');
@@ -1684,6 +1782,12 @@
                 document.getElementById('user-display-role').innerText = listaPersonalRoles[userTitle] || "Personal de Archivo";
                 document.getElementById('inv-registra').value = userTitle;
                 
+                const campoPersonalTarjetas = document.getElementById('tar-personal');
+                if (campoPersonalTarjetas) campoPersonalTarjetas.value = userTitle;
+
+                const fechaRecTarjetas = document.getElementById('tar-fecha-recepcion');
+                if (fechaRecTarjetas && !fechaRecTarjetas.value) fechaRecTarjetas.valueAsDate = new Date();
+
                 const campoEntregado = document.getElementById('re-entregado');
                 if (campoEntregado) campoEntregado.value = userTitle;
 
@@ -1730,6 +1834,9 @@
                 document.getElementById('user-display-role').innerText = listaPersonalRoles[nuevoNombre] || "Personal de Archivo";
                 document.getElementById('inv-registra').value = nuevoNombre;
                 
+                const campoPersonalTarjetas = document.getElementById('tar-personal');
+                if (campoPersonalTarjetas) campoPersonalTarjetas.value = nuevoNombre;
+
                 const campoEntregado = document.getElementById('re-entregado');
                 if (campoEntregado) campoEntregado.value = nuevoNombre;
 
@@ -3970,6 +4077,144 @@
             mostrarModalPreviewPDF(blobUrl, `REPORTE_GLOBAL_${fechaHoy}.pdf`);
         };
 
+        // MOTOR DE GENERACIÓN DE TARJETAS DE PAQUETES (PDF OFICIAL 2x1)
+        window.generarPDFTarjetasOficial = async function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+            
+            const anioIngreso = document.getElementById('tar-anio-ingreso').value;
+            const personal = document.getElementById('tar-personal').value;
+            const tipoArchivo = document.getElementById('tar-tipo-archivo').value;
+            const repositorio = document.getElementById('tar-repositorio').value;
+            const juzgado = document.getElementById('tar-juzgado').value.trim().toUpperCase();
+            const juez = document.getElementById('tar-juez').value.trim().toUpperCase();
+            const fechaRecepcionRaw = document.getElementById('tar-fecha-recepcion').value;
+            const fechaRecepcion = fechaRecepcionRaw ? fechaRecepcionRaw.split('-').reverse().join('/') : '';
+            const oficio = document.getElementById('tar-oficio').value.trim().toUpperCase();
+
+            const filas = document.querySelectorAll('#tabla-tarjetas-detalles tbody tr');
+            if (filas.length === 0) {
+                Swal.fire('Atención', 'Agregue al menos una fila de paquete en la tabla.', 'warning');
+                return;
+            }
+
+            const paquetesData = [];
+            filas.forEach(tr => {
+                const nroPaq = tr.querySelector('.tar-nro-paq').value.trim();
+                const cantExp = tr.querySelector('.tar-cant-exp').value.trim();
+                const anioExp = tr.querySelector('.tar-anio-exp').value.trim();
+                if (nroPaq) {
+                    paquetesData.push({ nroPaq, cantExp: cantExp || '0', anioExp: anioExp || '-' });
+                }
+            });
+
+            if (paquetesData.length === 0) {
+                Swal.fire('Atención', 'Ingrese al menos un número de paquete válido en las filas.', 'warning');
+                return;
+            }
+
+            const logoData = await obtenerLogoArchivoBase64();
+
+            // Función para dibujar una tarjeta individual en una posición específica (x, y)
+            const dibujarTarjeta = (x, y, dataPaquete) => {
+                const w = 88; // Ancho de la tarjeta en mm
+                const h = 132; // Alto de la tarjeta en mm
+
+                // Borde exterior y fondo blanco
+                doc.setDrawColor(40, 40, 40);
+                doc.setLineWidth(0.4);
+                doc.setFillColor(255, 255, 255);
+                doc.rect(x, y, w, h, 'FD');
+
+                // Encabezado institucional
+                if (logoData) {
+                    doc.addImage(logoData, 'PNG', x + 3, y + 2, 10, 10);
+                }
+                doc.setFont("Inter", "bold");
+                doc.setFontSize(8.5);
+                doc.setTextColor(20, 20, 20);
+                doc.text("PODER JUDICIAL DEL PERÚ", x + w / 2, y + 4.5, { align: "center" });
+                
+                doc.setFontSize(6.5);
+                doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", x + w / 2, y + 8, { align: "center" });
+                doc.text("ARCHIVO DESCONCENTRADO", x + w / 2, y + 11, { align: "center" });
+
+                doc.setLineWidth(0.3);
+                doc.line(x + 3, y + 13, x + w - 3, y + 13);
+
+                let cursorY = y + 16;
+
+                // Bloques de campos de la tarjeta
+                const campoFila = (label, valor, altoBox = 6, esDoble = false, val2 = '', lblSub1 = '', lblSub2 = '') => {
+                    doc.setFont("Inter", "bold");
+                    doc.setFontSize(6.5);
+                    doc.setTextColor(80, 80, 80);
+                    doc.text(label, x + 3, cursorY + 3.5);
+
+                    if (!esDoble) {
+                        doc.setDrawColor(60, 60, 60);
+                        doc.setFillColor(248, 248, 248);
+                        doc.rect(x + 28, cursorY, w - 31, altoBox, 'FD');
+
+                        doc.setFont("Inter", "bold");
+                        doc.setFontSize(8.5);
+                        doc.setTextColor(10, 10, 10);
+                        doc.text(String(valor || ''), x + 28 + (w - 31) / 2, cursorY + (altoBox / 2) + 1.2, { align: "center" });
+                        cursorY += altoBox + 2;
+                    } else {
+                        // Caso especial para PAQUETE N° (Año de ingreso y Número de paquete)
+                        doc.setDrawColor(60, 60, 60);
+                        doc.setFillColor(248, 248, 248);
+                        doc.rect(x + 28, cursorY, (w - 31) / 2, altoBox, 'FD');
+                        doc.rect(x + 28 + (w - 31) / 2, cursorY, (w - 31) / 2, altoBox, 'FD');
+
+                        doc.setFont("Inter", "bold");
+                        doc.setFontSize(9.5);
+                        doc.setTextColor(10, 10, 10);
+                        doc.text(String(valor || ''), x + 28 + ((w - 31) / 4), cursorY + (altoBox / 2) + 1.2, { align: "center" });
+                        doc.text(String(val2 || ''), x + 28 + ((w - 31) / 2) + ((w - 31) / 4), cursorY + (altoBox / 2) + 1.2, { align: "center" });
+
+                        doc.setFont("Inter", "normal");
+                        doc.setFontSize(5);
+                        doc.setTextColor(100, 100, 100);
+                        doc.text(lblSub1, x + 28 + ((w - 31) / 4), cursorY + altoBox + 2, { align: "center" });
+                        doc.text(lblSub2, x + 28 + ((w - 31) / 2) + ((w - 31) / 4), cursorY + altoBox + 2, { align: "center" });
+
+                        cursorY += altoBox + 4.5;
+                    }
+                };
+
+                campoFila("TIPO DE ARCHIVO", tipoArchivo, 6);
+                campoFila("JUZGADO", juzgado, 7);
+                campoFila("JUEZ", juez, 6);
+                campoFila("PAQUETE N°", anioIngreso, 8, true, dataPaquete.nroPaq, "AÑO DE INGRESO", "NÚMERO PAQUETE");
+                campoFila("CANT. EXPEDIENTES", dataPaquete.cantExp, 6);
+                campoFila("AÑO EXPEDIENTES", dataPaquete.anioExp, 6);
+                campoFila("DOC. ING. ARCHIVO", oficio, 6);
+                campoFila("FECHA RECEPCIÓN", fechaRecepcion, 6);
+                campoFila("TRABAJADO POR", personal, 6);
+                campoFila("REPOSITORIO", repositorio, 6);
+            };
+
+            // Imprimir de 2 en 2 tarjetas por página A4 (Izquierda y Derecha)
+            for (let i = 0; i < paquetesData.length; i += 2) {
+                if (i > 0) doc.addPage();
+                
+                // Coordenadas para centrar dos tarjetas de 88mm en una página A4 de 210mm de ancho
+                // Márgenes: Izq 12mm, Espacio central 10mm, Der 12mm -> (12 + 88 + 10 + 88 = 198, centrado perfecto)
+                const yPos = 12;
+                dibujarTarjeta(12, yPos, paquetesData[i]);
+
+                if (i + 1 < paquetesData.length) {
+                    dibujarTarjeta(110, yPos, paquetesData[i + 1]);
+                }
+            }
+
+            const blobUrl = doc.output('bloburl');
+            const fechaHoy = new Date().toISOString().split('T')[0];
+            mostrarModalPreviewPDF(blobUrl, `TARJETAS_PAQUETES_${fechaHoy}.pdf`);
+        };
+
         window.switchView = switchView;
         window.abrirModalRango = abrirModalRango;
         window.cerrarModalRango = cerrarModalRango;
@@ -4074,6 +4319,62 @@
             const lbl = document.getElementById('lbl-total-traslados');
             if (lbl) lbl.textContent = sumaTotalPaquetes;
         }
+
+        // FUNCIONES PARA EL GENERADOR DE TARJETAS DE PAQUETES
+        window.agregarFilaTarjeta = function(cantidad = 1) {
+            const tbody = document.querySelector('#tabla-tarjetas-detalles tbody');
+            if (!tbody) return;
+
+            // Obtener el último número de paquete digitado para autoincrementar (correlativo automático)
+            const filasActuales = tbody.querySelectorAll('tr');
+            let ultimoNro = 521; // Valor por defecto inicial si está vacío
+            if (filasActuales.length > 0) {
+                const ultimaFila = filasActuales[filasActuales.length - 1];
+                const valUltimo = parseInt(ultimaFila.querySelector('.tar-nro-paq').value, 10);
+                if (!isNaN(valUltimo)) {
+                    ultimoNro = valUltimo + 1;
+                }
+            }
+
+            for (let i = 0; i < cantidad; i++) {
+                const nroCorrelativoActual = ultimoNro + i;
+                const idx = tbody.querySelectorAll('tr').length + 1;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="fw-bold tar-item-nro">${idx}</td>
+                    <td><input type="number" class="form-control form-control-sm text-center fw-bold tar-nro-paq" value="${nroCorrelativoActual}" oninput="actualizarResumenTarjeta(this)"></td>
+                    <td><input type="number" class="form-control form-control-sm text-center tar-cant-exp" value="5" min="1" oninput="actualizarResumenTarjeta(this)"></td>
+                    <td><input type="text" class="form-control form-control-sm text-center tar-anio-exp" value="2026" placeholder="Ej: 2019 o 2005-2025" oninput="actualizarResumenTarjeta(this)"></td>
+                    <td class="text-start small text-muted tar-resumen">Paquete N° ${nroCorrelativoActual} (5 exp. - Año: 2026)</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="this.closest('tr').remove(); reindexarTarjetas();">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        };
+
+        function reindexarTarjetas() {
+            const filas = document.querySelectorAll('#tabla-tarjetas-detalles tbody tr');
+            filas.forEach((tr, idx) => {
+                const tdItem = tr.querySelector('.tar-item-nro');
+                if (tdItem) tdItem.textContent = idx + 1;
+            });
+        }
+
+        window.actualizarResumenTarjeta = function(inputEl) {
+            const tr = inputEl.closest('tr');
+            const nroPaq = tr.querySelector('.tar-nro-paq').value || '-';
+            const cantExp = tr.querySelector('.tar-cant-exp').value || '0';
+            const anioExp = tr.querySelector('.tar-anio-exp').value || '-';
+            const tdResumen = tr.querySelector('.tar-resumen');
+            if (tdResumen) {
+                tdResumen.textContent = `Paquete N° ${nroPaq} (${cantExp} exp. - Año: ${anioExp})`;
+            }
+        };
     </script>
 </body>
 </html>
