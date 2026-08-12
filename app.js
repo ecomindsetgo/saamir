@@ -90,6 +90,15 @@
             return PERMISOS.recepcion_reingresos.map(n => normalizarTexto(n)).includes(normalizarTexto(nombreUsuario));
         }
 
+        // La RECEPCIÓN de un reingreso es un visto bueno personal: solo el usuario que
+        // figura como "solicitante" en ESE registro puede confirmar que lo recibió.
+        // (puedeRecepcionarReingreso, arriba, sólo se usa como heurística general para
+        // decidir si se muestra el enlace de menú "Verificación de Reingresos").
+        function puedeRecepcionarRegistro(nombreUsuario, registro) {
+            if (!registro || !registro.solicitante) return false;
+            return normalizarTexto(nombreUsuario) === normalizarTexto(registro.solicitante);
+        }
+
         // Dado un registro (con localSalida y local) y su estado actual, calcula el
         // siguiente estado saltando las etapas de vigilancia sin vigilante asignado.
         function calcularSiguienteEstadoReingreso(registro, estadoActual) {
@@ -126,7 +135,11 @@
         // que es la fuente de verdad de quién es "solo vigilancia". Esto evita que el personal
         // de archivo (que inicia sesión con su alias, no con su nombre completo) sea
         // confundido con un vigilante exclusivo solo por tener algún permiso de verificación.
-        const VISTAS_PERMITIDAS_VIGILANCIA = ['view-verificacion-reingresos', 'view-perfil'];
+        // Los vigilantes, además de su bandeja de verificación, pueden CONSULTAR el
+        // historial de reingresos (solo lectura: ver y descargar PDF). No se les da
+        // 'view-reingresos' (creación) — la protección de edición/eliminación en la
+        // vista de consulta se aplica en renderTablaHistorialReingresos().
+        const VISTAS_PERMITIDAS_VIGILANCIA = ['view-verificacion-reingresos', 'view-consultas-reingresos', 'view-perfil'];
 
         function esUsuarioVigilanciaExclusiva(nombreUsuario) {
             const u = normalizarTexto(nombreUsuario);
@@ -2073,6 +2086,11 @@
         };
 
         window.editarReingreso = function(id) {
+            if (esUsuarioVigilanciaExclusiva(obtenerNombreUsuarioActual())) {
+                Swal.fire('Acceso de solo consulta', 'Los usuarios de vigilancia solo pueden visualizar y descargar reingresos.', 'info');
+                return;
+            }
+
             const registro = baseDatosReingresos.find(r => r.id === id);
             if (!registro) return;
 
@@ -2164,6 +2182,11 @@
         }
 
         window.eliminarReingreso = async function(id) {
+            if (esUsuarioVigilanciaExclusiva(obtenerNombreUsuarioActual())) {
+                Swal.fire('Acceso de solo consulta', 'Los usuarios de vigilancia solo pueden visualizar y descargar reingresos.', 'info');
+                return;
+            }
+
             const registro = baseDatosReingresos.find(r => r.id === id);
             const confirmacion = await Swal.fire({
                 icon: 'warning',
@@ -2299,19 +2322,20 @@
                 tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">Sin reingresos registrados.</td></tr>`;
                 return;
             }
+
+            // Los vigilantes acceden a esta vista en modo SOLO CONSULTA: pueden ver y
+            // descargar el PDF de cada reingreso, pero nunca editar ni eliminar.
+            const soloLectura = esUsuarioVigilanciaExclusiva(obtenerNombreUsuarioActual());
+
             registros.forEach(data => {
                 const estado = data.estado || 'GENERADO';
                 const etiqueta = ETIQUETAS_ESTADO_REINGRESO[estado] || ETIQUETAS_ESTADO_REINGRESO.GENERADO;
                 const badgeEstado = `<span class="badge bg-${etiqueta.clase}"><i class="bi ${etiqueta.icono} me-1"></i>${etiqueta.texto}</span>`;
-                const fila = `<tr>
-                    <td>${data.fecha || 'N/A'}</td>
-                    <td>${data.solicitante || 'N/A'}</td>
-                    <td>${data.local || 'N/A'}</td>
-                    <td>${data.entregado || 'N/A'}</td>
-                    <td>${data.expedientes ? data.expedientes.length : 0}</td>
-                    <td>${badgeEstado}</td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF">
+                const botonesAccion = soloLectura
+                    ? `<button class="btn btn-sm btn-danger py-1 px-2" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver / Descargar PDF">
+                            <i class="bi bi-file-pdf"></i>
+                        </button>`
+                    : `<button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF">
                             <i class="bi bi-file-pdf"></i>
                         </button>
                         <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarReingreso('${data.id}')" title="Editar Registro">
@@ -2319,8 +2343,15 @@
                         </button>
                         <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarReingreso('${data.id}')" title="Eliminar Registro">
                             <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
+                        </button>`;
+                const fila = `<tr>
+                    <td>${data.fecha || 'N/A'}</td>
+                    <td>${data.solicitante || 'N/A'}</td>
+                    <td>${data.local || 'N/A'}</td>
+                    <td>${data.entregado || 'N/A'}</td>
+                    <td>${data.expedientes ? data.expedientes.length : 0}</td>
+                    <td>${badgeEstado}</td>
+                    <td class="text-end">${botonesAccion}</td>
                 </tr>`;
                 tbody.insertAdjacentHTML('beforeend', fila);
             });
@@ -2372,7 +2403,7 @@
                     const estado = r.estado || 'GENERADO';
                     if (estado === 'VERIF_SALIDA') return puedeVigilarRepositorio(nombreActual, r.localSalida);
                     if (estado === 'VERIF_INGRESO') return puedeVigilarRepositorio(nombreActual, r.local);
-                    if (estado === 'RECEPCION') return puedeRecepcionarReingreso(nombreActual);
+                    if (estado === 'RECEPCION') return puedeRecepcionarRegistro(nombreActual, r);
                     return false;
                 });
 
@@ -2435,7 +2466,7 @@
                 autorizado = puedeVigilarRepositorio(currentUserName, registro.local);
             } else if (estadoActual === 'RECEPCION') {
                 campoAuditoria = 'auditoriaRecepcion';
-                autorizado = puedeRecepcionarReingreso(currentUserName);
+                autorizado = puedeRecepcionarRegistro(currentUserName, registro);
             }
 
             if (!campoAuditoria) {
@@ -2489,7 +2520,7 @@
             let autorizado = false;
             if (estadoActual === 'VERIF_SALIDA') autorizado = puedeVigilarRepositorio(currentUserName, registro.localSalida);
             else if (estadoActual === 'VERIF_INGRESO') autorizado = puedeVigilarRepositorio(currentUserName, registro.local);
-            else if (estadoActual === 'RECEPCION') autorizado = puedeRecepcionarReingreso(currentUserName);
+            else if (estadoActual === 'RECEPCION') autorizado = puedeRecepcionarRegistro(currentUserName, registro);
 
             if (!autorizado) {
                 Swal.fire('Sin permiso', 'Tu usuario no está autorizado para observar en esta etapa.', 'error');
@@ -2613,8 +2644,12 @@
                 return { nombre: auditoriaObj.nombre, fecha: f };
             };
 
-            const vbGeneracion = formatearVB(auditoriaGeneracion) ;
-            vbGeneracion.nombre = auditoriaGeneracion?.nombre || entregado || 'N/A';
+            // El V°B° de esta columna corresponde a quien REMITE/ENTREGA físicamente el
+            // paquete (campo "entregado"), no a quien lo solicitó ni necesariamente a
+            // quien digitó el registro en el sistema. Se usa siempre el campo "entregado"
+            // como fuente de verdad; auditoriaGeneracion solo aporta la fecha si falta.
+            const vbGeneracion = formatearVB(auditoriaGeneracion);
+            vbGeneracion.nombre = entregado || auditoriaGeneracion?.nombre || 'N/A';
 
             const vbSalidaAplica = repositorioTieneVigilancia(localSalida);
             const vbIngresoAplica = repositorioTieneVigilancia(local);
@@ -2623,7 +2658,7 @@
             const vbRecepcion = formatearVB(auditoriaRecepcion);
 
             const columnasFirma = [
-                { titulo: '1. Generó / Solicitó', dato: vbGeneracion, x: 15 },
+                { titulo: '1. Remitió / Entregó', dato: vbGeneracion, x: 15 },
                 { titulo: '2. Vigilancia Salida', dato: vbSalida, x: 15 + (pageWidth - 30) / 4 },
                 { titulo: '3. Vigilancia Ingreso', dato: vbIngreso, x: 15 + 2 * (pageWidth - 30) / 4 },
                 { titulo: '4. Recepción', dato: vbRecepcion, x: 15 + 3 * (pageWidth - 30) / 4 }
