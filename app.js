@@ -657,6 +657,17 @@
                 const formClave = document.getElementById('form-perfil-clave');
                 if (formClave) formClave.reset();
 
+                // Restringe el cambio de nombre para los usuarios de vigilancia exclusiva
+                // (VSOTANO, VSAENZPENA, VPADILLA): el campo queda bloqueado y no editable.
+                const campoPerfNombre = document.getElementById('perf-nombre');
+                const btnPerfDatos = document.querySelector('#form-perfil-datos button[type="submit"]');
+                if (campoPerfNombre) {
+                    const nombreBloqueado = esUsuarioVigilanciaExclusiva(userTitle);
+                    campoPerfNombre.disabled = nombreBloqueado;
+                    campoPerfNombre.readOnly = nombreBloqueado;
+                    if (btnPerfDatos) btnPerfDatos.disabled = nombreBloqueado;
+                }
+
                 cargarDataMaestra(userTitle);
                 aplicarPermisos(userTitle);
                 sincronizarUsuarioEnFirestore(user, userTitle);
@@ -699,6 +710,13 @@
             const user = auth.currentUser;
             const nuevoNombre = normalizarTexto(document.getElementById('perf-nombre').value);
             if (!user) return;
+
+            const nombreActual = normalizarTexto(user.displayName ? user.displayName : user.email.split('@')[0]);
+            if (esUsuarioVigilanciaExclusiva(nombreActual)) {
+                Swal.fire('Acción no permitida', 'Este usuario no tiene permitido cambiar su nombre.', 'warning');
+                return;
+            }
+
             try {
                 await updateProfile(user, { displayName: nuevoNombre });
                 document.getElementById('user-display-name').innerText = nuevoNombre;
