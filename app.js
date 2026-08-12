@@ -120,22 +120,28 @@
         }
 
         // NUEVO: un usuario "vigilancia exclusiva" es aquel que SOLO existe para dar vistos
-        // buenos de vigilancia/recepción (no forma parte del personal de archivo). A estos
-        // usuarios se les restringe la vista a únicamente "Verificación de Reingresos" y
-        // "Mi Perfil" (para poder cambiar su contraseña). Se detecta porque NO están en la
-        // lista maestra de personal de archivo (dataMaestra.personal) ni son el admin del log.
+        // buenos de vigilancia (guardianía) por repositorio — VSOTANO, VSAENZPENA, VPADILLA,
+        // etc. Se detecta de forma EXPLÍCITA (no por descarte) comparando contra la propia
+        // lista de vigilantes autorizados por repositorio (PERMISOS.vigilancia_repositorios),
+        // que es la fuente de verdad de quién es "solo vigilancia". Esto evita que el personal
+        // de archivo (que inicia sesión con su alias, no con su nombre completo) sea
+        // confundido con un vigilante exclusivo solo por tener algún permiso de verificación.
         const VISTAS_PERMITIDAS_VIGILANCIA = ['view-verificacion-reingresos', 'view-perfil'];
 
         function esUsuarioVigilanciaExclusiva(nombreUsuario) {
             const u = normalizarTexto(nombreUsuario);
-            const esPersonalDeArchivo = dataMaestra.personal.map(n => normalizarTexto(n)).includes(u);
-            if (esPersonalDeArchivo || esUsuarioAdministradorLog(u)) return false;
-            return usuarioTienePermisoDeVerificacion(u);
+            if (esUsuarioAdministradorLog(u)) return false;
+            const listaVigilanciaDedicada = Object.values(PERMISOS.vigilancia_repositorios)
+                .flat()
+                .map(n => normalizarTexto(n));
+            return listaVigilanciaDedicada.includes(u);
         }
 
         function normalizarTexto(texto) {
             if (!texto) return '';
-            return texto.trim().toUpperCase().replace(/\s+/g, ' ');
+            return texto.trim().toUpperCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes/diacríticos (Á->A, Ñ->N, etc.)
+                .replace(/\s+/g, ' ');
         }
 
         function esUsuarioAdministradorLog(nombreUsuario) {
