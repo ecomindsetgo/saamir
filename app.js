@@ -49,13 +49,14 @@
             microformas_escritura: ["ALFREDO CRUZADO", "ACRUZADO"],
             // NUEVO: usuarios de vigilancia habilitados para dar visto bueno de SALIDA e INGRESO
             // por cada repositorio. Solo se listan aquí los repositorios que SÍ cuentan con
-            // vigilante asignado (según lo indicado: Sótano NCPP y Padilla). Los repositorios
-            // que no aparecen en este mapa (Sáenz Peña, Dunas, Domus) se consideran "sin
-            // vigilancia" y ese paso del flujo se salta automáticamente.
+            // vigilante asignado (Sótano NCPP, Sáenz Peña y Padilla). Los repositorios que
+            // no aparecen en este mapa (Dunas, Domus) se consideran "sin vigilancia" y ese
+            // paso del flujo se salta automáticamente.
             // ⚠️ IMPORTANTE: reemplazar estos nombres/alias por los usuarios reales que se
             // creen en Firebase Auth para cada vigilante (ej: "vigilante.sotano@pj.gob.pe").
             vigilancia_repositorios: {
                 "SÓTANO NCPP": ["VIGILANTE SOTANO NCPP", "VSOTANO"],
+                "SAENZ PEÑA": ["VIGILANTE SAENZ PEÑA", "VSAENZPENA"],
                 "PADILLA": ["VIGILANTE PADILLA", "VPADILLA"]
             },
             // NUEVO: quién puede dar el visto bueno final de RECEPCIÓN. Por defecto se asume
