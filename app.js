@@ -2411,9 +2411,9 @@
                         </button>`;
                 const fila = `<tr>
                     <td>${data.fecha || 'N/A'}</td>
-                    <td>${data.solicitante || 'N/A'}</td>
+                    <td>${resolverNombreCanonico(data.solicitante) || 'N/A'}</td>
                     <td>${data.local || 'N/A'}</td>
-                    <td>${data.entregado || 'N/A'}</td>
+                    <td>${resolverNombreCanonico(data.entregado) || 'N/A'}</td>
                     <td>${data.expedientes ? data.expedientes.length : 0}</td>
                     <td>${badgeEstado}</td>
                     <td class="text-end">${botonesAccion}</td>
@@ -2434,7 +2434,7 @@
                 const totalPaqSuma = (data.paquetes || []).reduce((acc, p) => acc + (parseInt(p.cantidad, 10) || 1), 0);
                 const fila = `<tr>
                     <td>${data.fecha || 'N/A'}</td>
-                    <td>${data.entregado || 'N/A'}</td>
+                    <td>${resolverNombreCanonico(data.entregado) || 'N/A'}</td>
                     <td>${totalPaqSuma}</td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFTrasladoDesdeRegistro('${data.id}')" title="Ver PDF">
@@ -2651,11 +2651,11 @@
             doc.setFont("Inter", "bold"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
             doc.text(`Correlativo (ID): ${String(correlativo).padStart(3, '0')}`, 15, 34);
             doc.text(`Fecha: ${fecha}`, pageWidth - 15, 34, { align: "right" });
-            doc.text(`Solicitante: ${solicitante}`, 15, 40);
+            doc.text(`Solicitante: ${resolverNombreCanonico(solicitante)}`, 15, 40);
             doc.text(`Estado: ${(ETIQUETAS_ESTADO_REINGRESO[estado || 'GENERADO'] || ETIQUETAS_ESTADO_REINGRESO.GENERADO).texto}`, pageWidth - 15, 40, { align: "right" });
             doc.text(`Local de Salida: ${localSalida || 'N/A'}`, 15, 46);
             doc.text(`Local de Reingreso: ${local}`, pageWidth - 15, 46, { align: "right" });
-            doc.text(`Entregado por: ${entregado}`, 15, 52);
+            doc.text(`Entregado por: ${resolverNombreCanonico(entregado)}`, 15, 52);
 
             let totalTransitorio = 0;
             let totalDefinitivo = 0;
@@ -2706,7 +2706,10 @@
             const formatearVB = (auditoriaObj) => {
                 if (!auditoriaObj || !auditoriaObj.nombre) return { nombre: 'PENDIENTE', fecha: '' };
                 const f = auditoriaObj.timestamp ? new Date(auditoriaObj.timestamp).toLocaleDateString('es-PE') : '';
-                return { nombre: auditoriaObj.nombre, fecha: f };
+                // Se resuelve el alias a su nombre canónico al momento de MOSTRARLO,
+                // para que registros antiguos guardados con el alias crudo (ej. "VSAENZPENA")
+                // también se vean con el nombre completo (ej. "VIGILANCIA SAENZ PEÑA").
+                return { nombre: resolverNombreCanonico(auditoriaObj.nombre), fecha: f };
             };
 
             // El V°B° de esta columna corresponde a quien REMITE/ENTREGA físicamente el
@@ -2714,7 +2717,7 @@
             // quien digitó el registro en el sistema. Se usa siempre el campo "entregado"
             // como fuente de verdad; auditoriaGeneracion solo aporta la fecha si falta.
             const vbGeneracion = formatearVB(auditoriaGeneracion);
-            vbGeneracion.nombre = entregado || auditoriaGeneracion?.nombre || 'N/A';
+            vbGeneracion.nombre = resolverNombreCanonico(entregado) || resolverNombreCanonico(auditoriaGeneracion?.nombre) || 'N/A';
 
             const vbSalidaAplica = repositorioTieneVigilancia(localSalida);
             const vbIngresoAplica = repositorioTieneVigilancia(local);
@@ -2783,8 +2786,8 @@
             doc.setFont("Inter", "bold"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
             doc.text(`Correlativo (ID): ${String(correlativo).padStart(3, '0')}`, 15, 34);
             doc.text(`Fecha: ${fecha}`, pageWidth - 15, 34, { align: "right" });
-            doc.text(`Entregado por: ${entregado}`, 15, 40);
-            doc.text(`Recibido por: ${recibe || 'N/A'}`, pageWidth - 15, 40, { align: "right" });
+            doc.text(`Entregado por: ${resolverNombreCanonico(entregado)}`, 15, 40);
+            doc.text(`Recibido por: ${resolverNombreCanonico(recibe) || 'N/A'}`, pageWidth - 15, 40, { align: "right" });
 
             let sumaTotalPaq = 0;
             const filasTabla = paquetes.map((e, idx) => {
@@ -2826,8 +2829,8 @@
 
             currentY += 4;
             doc.setFont("Inter", "bold"); doc.setFontSize(8);
-            doc.text(`Entregado por: ${entregado}`, 65, currentY, { align: "center" });
-            doc.text(`Recibido por: ${recibe || 'N/A'}`, 145, currentY, { align: "center" });
+            doc.text(`Entregado por: ${resolverNombreCanonico(entregado)}`, 65, currentY, { align: "center" });
+            doc.text(`Recibido por: ${resolverNombreCanonico(recibe) || 'N/A'}`, 145, currentY, { align: "center" });
 
             const blobUrl = doc.output('bloburl');
             mostrarModalPreviewPDF(blobUrl, `TRASLADO_${String(correlativo).padStart(3, '0')}_${fecha}.pdf`);
