@@ -119,6 +119,20 @@
             return esVigilante || puedeRecepcionarReingreso(nombreUsuario);
         }
 
+        // NUEVO: un usuario "vigilancia exclusiva" es aquel que SOLO existe para dar vistos
+        // buenos de vigilancia/recepción (no forma parte del personal de archivo). A estos
+        // usuarios se les restringe la vista a únicamente "Verificación de Reingresos" y
+        // "Mi Perfil" (para poder cambiar su contraseña). Se detecta porque NO están en la
+        // lista maestra de personal de archivo (dataMaestra.personal) ni son el admin del log.
+        const VISTAS_PERMITIDAS_VIGILANCIA = ['view-verificacion-reingresos', 'view-perfil'];
+
+        function esUsuarioVigilanciaExclusiva(nombreUsuario) {
+            const u = normalizarTexto(nombreUsuario);
+            const esPersonalDeArchivo = dataMaestra.personal.map(n => normalizarTexto(n)).includes(u);
+            if (esPersonalDeArchivo || esUsuarioAdministradorLog(u)) return false;
+            return usuarioTienePermisoDeVerificacion(u);
+        }
+
         function normalizarTexto(texto) {
             if (!texto) return '';
             return texto.trim().toUpperCase().replace(/\s+/g, ' ');
@@ -219,6 +233,21 @@
                 btnAgregarRango.disabled = !puedeInventario;
                 btnAgregarRango.style.pointerEvents = puedeInventario ? 'auto' : 'none';
                 btnAgregarRango.classList.toggle('opacity-50', !puedeInventario);
+            }
+
+            // ===== RESTRICCIÓN PARA USUARIOS DE VIGILANCIA EXCLUSIVA =====
+            // Si el usuario solo existe para dar vistos buenos (no es personal de archivo),
+            // se le oculta todo el menú excepto "Verificación de Reingresos" y "Mi Perfil".
+            const esSoloVigilancia = esUsuarioVigilanciaExclusiva(usuarioLimpio);
+            document.querySelectorAll('#sidebar .nav-link').forEach(enlace => {
+                if (esSoloVigilancia) {
+                    const permitido = enlace.id === 'menu-link-verificacion-reingresos' || enlace.id === 'menu-link-perfil';
+                    enlace.style.setProperty('display', permitido ? 'flex' : 'none', 'important');
+                }
+            });
+            const badgeRolSidebar = document.getElementById('user-display-role');
+            if (badgeRolSidebar && esSoloVigilancia) {
+                badgeRolSidebar.innerText = 'Vigilancia';
             }
         }
 
@@ -430,6 +459,12 @@
 
         function switchView(viewId, titleText = "Dashboard Principal") {
             cerrarMenuMovil();
+
+            const userTitleGuard = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
+            if (esUsuarioVigilanciaExclusiva(userTitleGuard) && !VISTAS_PERMITIDAS_VIGILANCIA.includes(viewId)) {
+                viewId = 'view-verificacion-reingresos';
+                titleText = 'Verificación de Reingresos';
+            }
             
             if (viewId === 'view-auditoria') {
                 const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
@@ -538,6 +573,9 @@
                 await cargarHistorialReingresosParaDashboard().catch(err => console.error(err));
                 if (usuarioTienePermisoDeVerificacion(userTitle)) {
                     await window.cargarBandejaVerificacionReingresos().catch(err => console.error(err));
+                }
+                if (esUsuarioVigilanciaExclusiva(userTitle)) {
+                    switchView('view-verificacion-reingresos', 'Verificación de Reingresos');
                 }
                 await cargarHistorialTrasladosParaDashboard().catch(err => console.error(err));
                 await cargarMicroformasDesdeCloud().catch(err => console.error(err));
