@@ -2580,7 +2580,7 @@
 
             // ===== BLOQUE DE FIRMAS / VISTOS BUENOS DEL FLUJO DE APROBACIÓN =====
             // 1) Generó  2) Vigilancia Salida  3) Vigilancia Ingreso  4) Recepción
-            currentY += 16;
+            currentY += 20;
             if (currentY > 235) { doc.addPage(); currentY = 30; }
 
             const formatearVB = (auditoriaObj) => {
@@ -2605,6 +2605,14 @@
                 { titulo: '4. Recepción', dato: vbRecepcion, x: 15 + 3 * (pageWidth - 30) / 4 }
             ];
             const anchoCol = (pageWidth - 30) / 4 - 6;
+
+            // Leyenda "V°B°" sobre la línea de cada columna (en lugar de "Firma"),
+            // acorde con el flujo de aprobación digital por etapas del sistema.
+            doc.setFont("Inter", "bold"); doc.setFontSize(7); doc.setTextColor(90, 90, 90);
+            columnasFirma.forEach(col => {
+                doc.text('V°B°', col.x + anchoCol / 2, currentY - 2, { align: "center" });
+            });
+            doc.setTextColor(0, 0, 0);
 
             doc.setLineWidth(0.3);
             columnasFirma.forEach(col => {
