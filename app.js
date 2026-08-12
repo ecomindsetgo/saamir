@@ -46,8 +46,77 @@
         const PERMISOS = {
             reingresos_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"],
             inventario_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN", "TEOFILO GABINO", "TGABINO"],
-            microformas_escritura: ["ALFREDO CRUZADO", "ACRUZADO"]
+            microformas_escritura: ["ALFREDO CRUZADO", "ACRUZADO"],
+            // NUEVO: usuarios de vigilancia habilitados para dar visto bueno de SALIDA e INGRESO
+            // por cada repositorio. Solo se listan aquí los repositorios que SÍ cuentan con
+            // vigilante asignado (según lo indicado: Sótano NCPP y Padilla). Los repositorios
+            // que no aparecen en este mapa (Sáenz Peña, Dunas, Domus) se consideran "sin
+            // vigilancia" y ese paso del flujo se salta automáticamente.
+            // ⚠️ IMPORTANTE: reemplazar estos nombres/alias por los usuarios reales que se
+            // creen en Firebase Auth para cada vigilante (ej: "vigilante.sotano@pj.gob.pe").
+            vigilancia_repositorios: {
+                "SÓTANO NCPP": ["VIGILANTE SOTANO NCPP", "VSOTANO"],
+                "PADILLA": ["VIGILANTE PADILLA", "VPADILLA"]
+            },
+            // NUEVO: quién puede dar el visto bueno final de RECEPCIÓN. Por defecto se asume
+            // el mismo personal de archivo que puede generar reingresos.
+            recepcion_reingresos: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"]
         };
+
+        // ===== FLUJO DE APROBACIÓN DE REINGRESOS =====
+        // Orden de etapas. Las etapas de vigilancia se saltan automáticamente si el
+        // repositorio correspondiente no tiene vigilante asignado (ver PERMISOS.vigilancia_repositorios).
+        const ORDEN_ESTADOS_REINGRESO = ["GENERADO", "VERIF_SALIDA", "VERIF_INGRESO", "RECEPCION", "COMPLETADO"];
+
+        const ETIQUETAS_ESTADO_REINGRESO = {
+            GENERADO: { texto: "Generado", clase: "secondary", icono: "bi-pencil-square" },
+            VERIF_SALIDA: { texto: "Pend. Vigilancia Salida", clase: "warning", icono: "bi-shield-exclamation" },
+            VERIF_INGRESO: { texto: "Pend. Vigilancia Ingreso", clase: "warning", icono: "bi-shield-exclamation" },
+            RECEPCION: { texto: "Pend. Recepción", clase: "info", icono: "bi-inbox" },
+            COMPLETADO: { texto: "Completado", clase: "success", icono: "bi-check-circle" }
+        };
+
+        function repositorioTieneVigilancia(repo) {
+            return Object.prototype.hasOwnProperty.call(PERMISOS.vigilancia_repositorios, repo);
+        }
+
+        function puedeVigilarRepositorio(nombreUsuario, repo) {
+            const lista = (PERMISOS.vigilancia_repositorios[repo] || []).map(n => normalizarTexto(n));
+            return lista.includes(normalizarTexto(nombreUsuario));
+        }
+
+        function puedeRecepcionarReingreso(nombreUsuario) {
+            return PERMISOS.recepcion_reingresos.map(n => normalizarTexto(n)).includes(normalizarTexto(nombreUsuario));
+        }
+
+        // Dado un registro (con localSalida y local) y su estado actual, calcula el
+        // siguiente estado saltando las etapas de vigilancia sin vigilante asignado.
+        function calcularSiguienteEstadoReingreso(registro, estadoActual) {
+            let idx = ORDEN_ESTADOS_REINGRESO.indexOf(estadoActual);
+            if (idx === -1) idx = 0;
+            idx++;
+            while (idx < ORDEN_ESTADOS_REINGRESO.length - 1) {
+                const etapa = ORDEN_ESTADOS_REINGRESO[idx];
+                if (etapa === "VERIF_SALIDA" && !repositorioTieneVigilancia(registro.localSalida)) { idx++; continue; }
+                if (etapa === "VERIF_INGRESO" && !repositorioTieneVigilancia(registro.local)) { idx++; continue; }
+                break;
+            }
+            return ORDEN_ESTADOS_REINGRESO[idx];
+        }
+
+        // Usuario actual (nombre normalizado), usado por las funciones de vistos buenos.
+        function obtenerNombreUsuarioActual() {
+            const u = auth.currentUser;
+            if (!u) return 'DESCONOCIDO';
+            return normalizarTexto(u.displayName ? u.displayName : u.email.split('@')[0]);
+        }
+
+        // Indica si el usuario actual tiene ALGUNA verificación pendiente que atender
+        // (para decidir si se le muestra el enlace "Verificación de Reingresos").
+        function usuarioTienePermisoDeVerificacion(nombreUsuario) {
+            const esVigilante = Object.keys(PERMISOS.vigilancia_repositorios).some(repo => puedeVigilarRepositorio(nombreUsuario, repo));
+            return esVigilante || puedeRecepcionarReingreso(nombreUsuario);
+        }
 
         function normalizarTexto(texto) {
             if (!texto) return '';
@@ -85,6 +154,11 @@
             const menuAuditoria = document.getElementById('menu-link-auditoria');
             if (menuAuditoria) {
                 menuAuditoria.style.display = esAdminLog ? 'flex' : 'none';
+            }
+
+            const menuVerificacion = document.getElementById('menu-link-verificacion-reingresos');
+            if (menuVerificacion) {
+                menuVerificacion.style.display = usuarioTienePermisoDeVerificacion(usuarioLimpio) ? 'flex' : 'none';
             }
 
             const btnImprimirDash = document.getElementById('btn-imprimir-dashboard');
@@ -258,10 +332,12 @@
         function inicializarSelectsReingresos() {
             const sSolicitante = document.getElementById('re-solicitante');
             const sLocal = document.getElementById('re-local');
+            const sLocalSalida = document.getElementById('re-local-salida');
             const fSolicitante = document.getElementById('filtro-re-solicitante');
             const fEntregado = document.getElementById('filtro-re-entregado');
 
             sSolicitante.innerHTML = sLocal.innerHTML = '<option value="">Seleccione...</option>';
+            if (sLocalSalida) sLocalSalida.innerHTML = '<option value="">Seleccione...</option>';
             if (fSolicitante) fSolicitante.innerHTML = '<option value="">Todos</option>';
             if (fEntregado) fEntregado.innerHTML = '<option value="">Todos</option>';
 
@@ -273,6 +349,10 @@
 
             dataMaestra.repositorios.forEach(r => {
                 sLocal.innerHTML += `<option value="${r}">${r}</option>`;
+                if (sLocalSalida) {
+                    const etiquetaVigilancia = repositorioTieneVigilancia(r) ? '' : ' (sin vigilancia)';
+                    sLocalSalida.innerHTML += `<option value="${r}">${r}${etiquetaVigilancia}</option>`;
+                }
             });
         }
 
@@ -301,12 +381,14 @@
             const fFecha = document.getElementById('re-fecha');
             const fSolicitante = document.getElementById('re-solicitante');
             const fLocal = document.getElementById('re-local');
+            const fLocalSalida = document.getElementById('re-local-salida');
             const tbody = document.querySelector('#tabla-reingresos tbody');
             const btnGuardar = document.getElementById('btn-guardar-reingreso');
 
             if (fFecha) fFecha.valueAsDate = new Date();
             if (fSolicitante) fSolicitante.value = '';
             if (fLocal) fLocal.value = '';
+            if (fLocalSalida) fLocalSalida.value = '';
             if (tbody) tbody.innerHTML = '';
             if (btnGuardar) btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Registro';
         }
@@ -383,6 +465,15 @@
                 cargarHistorialReingresos();
             }
 
+            if (viewId === 'view-verificacion-reingresos') {
+                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
+                if (!usuarioTienePermisoDeVerificacion(userTitle)) {
+                    Swal.fire('Acceso Denegado', 'No cuenta con autorización para verificar reingresos.', 'error');
+                    return;
+                }
+                window.cargarBandejaVerificacionReingresos();
+            }
+
             if (viewId === 'view-consultas-traslados') {
                 cargarHistorialTraslados();
             }
@@ -444,6 +535,9 @@
                 
                 await cargarInventariosDesdeCloud().catch(err => console.error(err));
                 await cargarHistorialReingresosParaDashboard().catch(err => console.error(err));
+                if (usuarioTienePermisoDeVerificacion(userTitle)) {
+                    await window.cargarBandejaVerificacionReingresos().catch(err => console.error(err));
+                }
                 await cargarHistorialTrasladosParaDashboard().catch(err => console.error(err));
                 await cargarMicroformasDesdeCloud().catch(err => console.error(err));
                 await cargarHistorialTarjetas().catch(err => console.error(err));
@@ -1660,17 +1754,34 @@
                 return;
             }
 
+            const localSalida = document.getElementById('re-local-salida')?.value || '';
+            const localDestino = document.getElementById('re-local').value;
+
+            if (!localSalida) {
+                Swal.fire('Atención', 'Seleccione el Local de Salida antes de guardar.', 'warning');
+                return;
+            }
+
             try {
                 const currentUserObj = auth.currentUser;
-                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+                const currentUserName = obtenerNombreUsuarioActual();
 
                 if (idReingresoEnEdicion) {
+                    const registroPrevio = baseDatosReingresos.find(r => r.id === idReingresoEnEdicion);
+
+                    // Al editar (normalmente porque fue observado/devuelto), el registro
+                    // vuelve a iniciar el flujo de aprobación desde cero con los datos corregidos.
                     const datosActualizados = {
                         fecha: document.getElementById('re-fecha').value,
                         solicitante: document.getElementById('re-solicitante').value,
-                        local: document.getElementById('re-local').value,
+                        local: localDestino,
+                        localSalida,
                         entregado: document.getElementById('re-entregado').value,
                         expedientes,
+                        estado: calcularSiguienteEstadoReingreso({ localSalida, local: localDestino }, "GENERADO"),
+                        auditoriaVigilanciaSalida: null,
+                        auditoriaVigilanciaIngreso: null,
+                        auditoriaRecepcion: null,
                         auditoriaEdicion: {
                             uid: currentUserObj?.uid || null,
                             nombre: currentUserName,
@@ -1679,18 +1790,30 @@
                     };
 
                     await updateDoc(doc(db, "reingresos", idReingresoEnEdicion), datosActualizados);
-                    Swal.fire({ icon: 'success', title: 'Reingreso Actualizado', text: 'Los cambios se guardaron correctamente.' });
+                    Swal.fire({ icon: 'success', title: 'Reingreso Actualizado', text: 'Los cambios se guardaron y el flujo de verificación se reinició.' });
                 } else {
                     const correlativo = await obtenerSiguienteCorrelativoReingreso();
                     const datos = {
                         correlativo,
                         fecha: document.getElementById('re-fecha').value,
                         solicitante: document.getElementById('re-solicitante').value,
-                        local: document.getElementById('re-local').value,
+                        local: localDestino,
+                        localSalida,
                         entregado: document.getElementById('re-entregado').value,
                         expedientes,
                         createdAt: Date.now(),
                         activo: true,
+                        estado: calcularSiguienteEstadoReingreso({ localSalida, local: localDestino }, "GENERADO"),
+                        auditoriaGeneracion: {
+                            uid: currentUserObj?.uid || null,
+                            nombre: currentUserName,
+                            timestamp: Date.now()
+                        },
+                        auditoriaVigilanciaSalida: null,
+                        auditoriaVigilanciaIngreso: null,
+                        auditoriaRecepcion: null,
+                        historialObservaciones: [],
+                        // Se mantiene por compatibilidad con reportes/lógica anterior
                         auditoria: {
                             uid: currentUserObj?.uid || null,
                             nombre: currentUserName,
@@ -1699,7 +1822,7 @@
                     };
 
                     await addDoc(collection(db, "reingresos"), datos);
-                    Swal.fire({ icon: 'success', title: 'Registro guardado con éxito' });
+                    Swal.fire({ icon: 'success', title: 'Registro guardado con éxito', text: 'Estado actual: ' + ETIQUETAS_ESTADO_REINGRESO[datos.estado].texto + '.' });
                 }
 
                 resetFormularioReingreso();
@@ -1793,10 +1916,17 @@
             const registro = baseDatosReingresos.find(r => r.id === id);
             if (!registro) return;
 
+            if (registro.estado && registro.estado !== 'GENERADO') {
+                Swal.fire('No editable', 'Este reingreso ya está en verificación y no puede editarse mientras no sea observado/devuelto.', 'info');
+                return;
+            }
+
             idReingresoEnEdicion = id;
             document.getElementById('re-fecha').value = registro.fecha || '';
             document.getElementById('re-solicitante').value = registro.solicitante || '';
             document.getElementById('re-local').value = registro.local || '';
+            const campoLocalSalidaEdit = document.getElementById('re-local-salida');
+            if (campoLocalSalidaEdit) campoLocalSalidaEdit.value = registro.localSalida || '';
             document.getElementById('re-entregado').value = registro.entregado || '';
 
             const tbody = document.querySelector('#tabla-reingresos tbody');
@@ -1969,15 +2099,17 @@
             const fSolicitante = document.getElementById('filtro-re-solicitante')?.value || '';
             const fEntregado = document.getElementById('filtro-re-entregado')?.value || '';
             const fFecha = document.getElementById('filtro-re-fecha')?.value || '';
+            const fEstado = document.getElementById('filtro-re-estado')?.value || '';
             const fTexto = (document.getElementById('busqueda-reingresos')?.value || '').toLowerCase().trim();
 
             const filtrados = baseDatosReingresos.filter(r => {
                 const mSolicitante = fSolicitante === '' || r.solicitante === fSolicitante;
                 const mEntregado = fEntregado === '' || r.entregado === fEntregado;
                 const mFecha = fFecha === '' || r.fecha === fFecha;
-                const mTexto = fTexto === '' || (r.local || '').toLowerCase().includes(fTexto) ||
+                const mEstado = fEstado === '' || (r.estado || 'GENERADO') === fEstado;
+                const mTexto = fTexto === '' || (r.local || '').toLowerCase().includes(fTexto) || (r.localSalida || '').toLowerCase().includes(fTexto) ||
                     (r.expedientes || []).some(e => (e.paquete || '').toLowerCase().includes(fTexto) || (e.exp || '').toLowerCase().includes(fTexto));
-                return mSolicitante && mEntregado && mFecha && mTexto;
+                return mSolicitante && mEntregado && mFecha && mEstado && mTexto;
             });
 
             renderTablaHistorialReingresos(filtrados);
@@ -2004,16 +2136,20 @@
             if(!tbody) return;
             tbody.innerHTML = '';
             if (registros.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Sin reingresos registrados.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">Sin reingresos registrados.</td></tr>`;
                 return;
             }
             registros.forEach(data => {
+                const estado = data.estado || 'GENERADO';
+                const etiqueta = ETIQUETAS_ESTADO_REINGRESO[estado] || ETIQUETAS_ESTADO_REINGRESO.GENERADO;
+                const badgeEstado = `<span class="badge bg-${etiqueta.clase}"><i class="bi ${etiqueta.icono} me-1"></i>${etiqueta.texto}</span>`;
                 const fila = `<tr>
                     <td>${data.fecha || 'N/A'}</td>
                     <td>${data.solicitante || 'N/A'}</td>
                     <td>${data.local || 'N/A'}</td>
                     <td>${data.entregado || 'N/A'}</td>
                     <td>${data.expedientes ? data.expedientes.length : 0}</td>
+                    <td>${badgeEstado}</td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF">
                             <i class="bi bi-file-pdf"></i>
@@ -2060,7 +2196,184 @@
             });
         }
 
-        async function construirPDFReingreso({ correlativo, fecha, solicitante, local, entregado, expedientes }) {
+        // ===== BANDEJA DE VERIFICACIÓN DE REINGRESOS (Vigilancia Salida / Ingreso / Recepción) =====
+        window.cargarBandejaVerificacionReingresos = async function() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "reingresos"));
+                baseDatosReingresos = [];
+                querySnapshot.forEach((doc) => {
+                    const data = { id: doc.id, ...doc.data() };
+                    if (data.activo !== false) baseDatosReingresos.push(data);
+                });
+                baseDatosReingresos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+                const nombreActual = obtenerNombreUsuarioActual();
+                const pendientes = baseDatosReingresos.filter(r => {
+                    const estado = r.estado || 'GENERADO';
+                    if (estado === 'VERIF_SALIDA') return puedeVigilarRepositorio(nombreActual, r.localSalida);
+                    if (estado === 'VERIF_INGRESO') return puedeVigilarRepositorio(nombreActual, r.local);
+                    if (estado === 'RECEPCION') return puedeRecepcionarReingreso(nombreActual);
+                    return false;
+                });
+
+                renderBandejaVerificacionReingresos(pendientes);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        function renderBandejaVerificacionReingresos(registros) {
+            const tbody = document.getElementById('tabla-bandeja-verificacion-reingresos');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (registros.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-check2-circle me-1"></i>No tienes reingresos pendientes de verificación.</td></tr>`;
+                return;
+            }
+            registros.forEach(data => {
+                const estado = data.estado || 'GENERADO';
+                const etiqueta = ETIQUETAS_ESTADO_REINGRESO[estado] || ETIQUETAS_ESTADO_REINGRESO.GENERADO;
+                const fila = `<tr>
+                    <td>${String(data.correlativo ?? '-').toString().padStart(3, '0')}</td>
+                    <td>${data.fecha || 'N/A'}</td>
+                    <td>${data.localSalida || 'N/A'}</td>
+                    <td>${data.local || 'N/A'}</td>
+                    <td>${data.expedientes ? data.expedientes.length : 0}</td>
+                    <td><span class="badge bg-${etiqueta.clase}"><i class="bi ${etiqueta.icono} me-1"></i>${etiqueta.texto}</span></td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-success py-1 px-2 me-1" onclick="window.darVistoBuenoReingreso('${data.id}')" title="Dar Visto Bueno">
+                            <i class="bi bi-check-lg"></i> Visto Bueno
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger py-1 px-2 me-1" onclick="window.observarReingreso('${data.id}')" title="Observar">
+                            <i class="bi bi-x-lg"></i> Observar
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF">
+                            <i class="bi bi-file-pdf"></i>
+                        </button>
+                    </td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', fila);
+            });
+        }
+
+        window.darVistoBuenoReingreso = async function(id) {
+            const registro = baseDatosReingresos.find(r => r.id === id);
+            if (!registro) return;
+
+            const estadoActual = registro.estado || 'GENERADO';
+            const currentUserObj = auth.currentUser;
+            const currentUserName = obtenerNombreUsuarioActual();
+
+            let campoAuditoria = null;
+            let autorizado = false;
+
+            if (estadoActual === 'VERIF_SALIDA') {
+                campoAuditoria = 'auditoriaVigilanciaSalida';
+                autorizado = puedeVigilarRepositorio(currentUserName, registro.localSalida);
+            } else if (estadoActual === 'VERIF_INGRESO') {
+                campoAuditoria = 'auditoriaVigilanciaIngreso';
+                autorizado = puedeVigilarRepositorio(currentUserName, registro.local);
+            } else if (estadoActual === 'RECEPCION') {
+                campoAuditoria = 'auditoriaRecepcion';
+                autorizado = puedeRecepcionarReingreso(currentUserName);
+            }
+
+            if (!campoAuditoria) {
+                Swal.fire('Atención', 'Este reingreso no tiene una verificación pendiente en este momento.', 'info');
+                return;
+            }
+            if (!autorizado) {
+                Swal.fire('Sin permiso', 'Tu usuario no está autorizado para dar el visto bueno en esta etapa.', 'error');
+                return;
+            }
+
+            const { value: observaciones, isConfirmed } = await Swal.fire({
+                title: 'Confirmar Visto Bueno',
+                text: `Reingreso N° ${String(registro.correlativo ?? '-').toString().padStart(3, '0')} — ${ETIQUETAS_ESTADO_REINGRESO[estadoActual].texto}`,
+                input: 'textarea',
+                inputLabel: 'Observaciones (opcional)',
+                inputPlaceholder: 'Ej: conforme, sin novedad...',
+                showCancelButton: true,
+                confirmButtonText: 'Dar Visto Bueno',
+                confirmButtonColor: '#198754'
+            });
+            if (!isConfirmed) return;
+
+            const siguienteEstado = calcularSiguienteEstadoReingreso(registro, estadoActual);
+
+            try {
+                await updateDoc(doc(db, "reingresos", id), {
+                    estado: siguienteEstado,
+                    [campoAuditoria]: {
+                        uid: currentUserObj?.uid || null,
+                        nombre: currentUserName,
+                        timestamp: Date.now(),
+                        observaciones: observaciones || ''
+                    }
+                });
+                Swal.fire({ icon: 'success', title: 'Visto bueno registrado', text: 'Nuevo estado: ' + ETIQUETAS_ESTADO_REINGRESO[siguienteEstado].texto, timer: 2000, showConfirmButton: false });
+                await window.cargarBandejaVerificacionReingresos();
+                await cargarHistorialReingresosParaDashboard();
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
+            }
+        };
+
+        window.observarReingreso = async function(id) {
+            const registro = baseDatosReingresos.find(r => r.id === id);
+            if (!registro) return;
+
+            const estadoActual = registro.estado || 'GENERADO';
+            const currentUserName = obtenerNombreUsuarioActual();
+
+            let autorizado = false;
+            if (estadoActual === 'VERIF_SALIDA') autorizado = puedeVigilarRepositorio(currentUserName, registro.localSalida);
+            else if (estadoActual === 'VERIF_INGRESO') autorizado = puedeVigilarRepositorio(currentUserName, registro.local);
+            else if (estadoActual === 'RECEPCION') autorizado = puedeRecepcionarReingreso(currentUserName);
+
+            if (!autorizado) {
+                Swal.fire('Sin permiso', 'Tu usuario no está autorizado para observar en esta etapa.', 'error');
+                return;
+            }
+
+            const { value: motivo } = await Swal.fire({
+                title: '¿Observar este reingreso?',
+                text: 'El registro volverá a estado "Generado" para que el solicitante corrija los datos. Se perderán los vistos buenos previos.',
+                input: 'textarea',
+                inputLabel: 'Motivo de la observación',
+                inputPlaceholder: 'Describe el problema encontrado...',
+                inputValidator: (v) => !v ? 'Debes indicar el motivo' : undefined,
+                showCancelButton: true,
+                confirmButtonText: 'Observar',
+                confirmButtonColor: '#dc3545'
+            });
+            if (!motivo) return;
+
+            try {
+                const historialPrevio = Array.isArray(registro.historialObservaciones) ? registro.historialObservaciones : [];
+                const nuevoHistorial = historialPrevio.concat([{
+                    etapa: estadoActual,
+                    nombre: currentUserName,
+                    motivo,
+                    timestamp: Date.now()
+                }]);
+
+                await updateDoc(doc(db, "reingresos", id), {
+                    estado: "GENERADO",
+                    auditoriaVigilanciaSalida: null,
+                    auditoriaVigilanciaIngreso: null,
+                    auditoriaRecepcion: null,
+                    historialObservaciones: nuevoHistorial
+                });
+                Swal.fire({ icon: 'info', title: 'Reingreso observado', text: 'Se devolvió al solicitante para corrección.' });
+                await window.cargarBandejaVerificacionReingresos();
+                await cargarHistorialReingresosParaDashboard();
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
+            }
+        };
+
+        async function construirPDFReingreso({ correlativo, fecha, solicitante, local, localSalida, entregado, expedientes, estado, auditoriaGeneracion, auditoriaVigilanciaSalida, auditoriaVigilanciaIngreso, auditoriaRecepcion }) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
@@ -2083,8 +2396,10 @@
             doc.text(`Correlativo (ID): ${String(correlativo).padStart(3, '0')}`, 15, 34);
             doc.text(`Fecha: ${fecha}`, pageWidth - 15, 34, { align: "right" });
             doc.text(`Solicitante: ${solicitante}`, 15, 40);
-            doc.text(`Local de Reingreso: ${local}`, pageWidth - 15, 40, { align: "right" });
-            doc.text(`Entregado por: ${entregado}`, 15, 46);
+            doc.text(`Estado: ${(ETIQUETAS_ESTADO_REINGRESO[estado || 'GENERADO'] || ETIQUETAS_ESTADO_REINGRESO.GENERADO).texto}`, pageWidth - 15, 40, { align: "right" });
+            doc.text(`Local de Salida: ${localSalida || 'N/A'}`, 15, 46);
+            doc.text(`Local de Reingreso: ${local}`, pageWidth - 15, 46, { align: "right" });
+            doc.text(`Entregado por: ${entregado}`, 15, 52);
 
             let totalTransitorio = 0;
             let totalDefinitivo = 0;
@@ -2108,7 +2423,7 @@
             });
 
             doc.autoTable({
-                startY: 50,
+                startY: 56,
                 margin: { left: 15, right: 15 },
                 theme: 'grid',
                 head: [['N°', 'N° Paquete', 'N° Expediente', 'Folios', 'Juzgado', 'Tipo', 'Acompañados', 'Repositorio']],
@@ -2127,17 +2442,52 @@
             currentY += 5;
             doc.text(`Total Acompañados: ${totalAcompanados}`, 15, currentY);
 
-            currentY += 20;
-            if (currentY > 255) { doc.addPage(); currentY = 30; }
+            // ===== BLOQUE DE FIRMAS / VISTOS BUENOS DEL FLUJO DE APROBACIÓN =====
+            // 1) Generó  2) Vigilancia Salida  3) Vigilancia Ingreso  4) Recepción
+            currentY += 16;
+            if (currentY > 235) { doc.addPage(); currentY = 30; }
+
+            const formatearVB = (auditoriaObj) => {
+                if (!auditoriaObj || !auditoriaObj.nombre) return { nombre: 'PENDIENTE', fecha: '' };
+                const f = auditoriaObj.timestamp ? new Date(auditoriaObj.timestamp).toLocaleDateString('es-PE') : '';
+                return { nombre: auditoriaObj.nombre, fecha: f };
+            };
+
+            const vbGeneracion = formatearVB(auditoriaGeneracion) ;
+            vbGeneracion.nombre = auditoriaGeneracion?.nombre || entregado || 'N/A';
+
+            const vbSalidaAplica = repositorioTieneVigilancia(localSalida);
+            const vbIngresoAplica = repositorioTieneVigilancia(local);
+            const vbSalida = vbSalidaAplica ? formatearVB(auditoriaVigilanciaSalida) : { nombre: 'SIN VIGILANCIA ASIGNADA', fecha: '' };
+            const vbIngreso = vbIngresoAplica ? formatearVB(auditoriaVigilanciaIngreso) : { nombre: 'SIN VIGILANCIA ASIGNADA', fecha: '' };
+            const vbRecepcion = formatearVB(auditoriaRecepcion);
+
+            const columnasFirma = [
+                { titulo: '1. Generó / Solicitó', dato: vbGeneracion, x: 15 },
+                { titulo: '2. Vigilancia Salida', dato: vbSalida, x: 15 + (pageWidth - 30) / 4 },
+                { titulo: '3. Vigilancia Ingreso', dato: vbIngreso, x: 15 + 2 * (pageWidth - 30) / 4 },
+                { titulo: '4. Recepción', dato: vbRecepcion, x: 15 + 3 * (pageWidth - 30) / 4 }
+            ];
+            const anchoCol = (pageWidth - 30) / 4 - 6;
 
             doc.setLineWidth(0.3);
-            doc.line(35, currentY, 95, currentY);
-            doc.line(115, currentY, 175, currentY);
+            columnasFirma.forEach(col => {
+                doc.line(col.x, currentY, col.x + anchoCol, currentY);
+            });
 
-            currentY += 4;
-            doc.setFont("Inter", "bold"); doc.setFontSize(8);
-            doc.text(`Entregado por: ${entregado}`, 65, currentY, { align: "center" });
-            doc.text(`Recibido por: ${solicitante}`, 145, currentY, { align: "center" });
+            let yFirma = currentY + 4;
+            doc.setFont("Inter", "bold"); doc.setFontSize(7);
+            columnasFirma.forEach(col => {
+                doc.text(col.dato.nombre.toUpperCase(), col.x + anchoCol / 2, yFirma, { align: "center", maxWidth: anchoCol });
+            });
+
+            yFirma += 8;
+            doc.setFont("Inter", "normal"); doc.setFontSize(6.5); doc.setTextColor(90, 90, 90);
+            columnasFirma.forEach(col => {
+                doc.text(col.titulo, col.x + anchoCol / 2, yFirma, { align: "center" });
+                if (col.dato.fecha) doc.text(col.dato.fecha, col.x + anchoCol / 2, yFirma + 3.5, { align: "center" });
+            });
+            doc.setTextColor(0, 0, 0);
 
             const blobUrl = doc.output('bloburl');
             mostrarModalPreviewPDF(blobUrl, `REINGRESOS_${String(correlativo).padStart(3, '0')}_${fecha}.pdf`);
@@ -2226,13 +2576,21 @@
                 return;
             }
 
+            const registroEnEdicionActual = idReingresoEnEdicion ? baseDatosReingresos.find(r => r.id === idReingresoEnEdicion) : null;
+
             await construirPDFReingreso({
-                correlativo: idReingresoEnEdicion ? baseDatosReingresos.find(r => r.id === idReingresoEnEdicion)?.correlativo : await obtenerSiguienteCorrelativoReingreso(),
+                correlativo: registroEnEdicionActual ? registroEnEdicionActual.correlativo : await obtenerSiguienteCorrelativoReingreso(),
                 fecha: document.getElementById('re-fecha').value,
                 solicitante: document.getElementById('re-solicitante').value,
                 local: document.getElementById('re-local').value,
+                localSalida: document.getElementById('re-local-salida')?.value || '',
                 entregado: document.getElementById('re-entregado').value,
-                expedientes
+                expedientes,
+                estado: registroEnEdicionActual ? registroEnEdicionActual.estado : 'GENERADO',
+                auditoriaGeneracion: registroEnEdicionActual ? registroEnEdicionActual.auditoriaGeneracion : null,
+                auditoriaVigilanciaSalida: registroEnEdicionActual ? registroEnEdicionActual.auditoriaVigilanciaSalida : null,
+                auditoriaVigilanciaIngreso: registroEnEdicionActual ? registroEnEdicionActual.auditoriaVigilanciaIngreso : null,
+                auditoriaRecepcion: registroEnEdicionActual ? registroEnEdicionActual.auditoriaRecepcion : null
             });
         };
 
@@ -2281,8 +2639,14 @@
                 fecha: registro.fecha,
                 solicitante: registro.solicitante,
                 local: registro.local,
+                localSalida: registro.localSalida || '',
                 entregado: registro.entregado,
-                expedientes: registro.expedientes || []
+                expedientes: registro.expedientes || [],
+                estado: registro.estado || 'GENERADO',
+                auditoriaGeneracion: registro.auditoriaGeneracion,
+                auditoriaVigilanciaSalida: registro.auditoriaVigilanciaSalida,
+                auditoriaVigilanciaIngreso: registro.auditoriaVigilanciaIngreso,
+                auditoriaRecepcion: registro.auditoriaRecepcion
             });
         };
 

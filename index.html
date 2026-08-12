@@ -75,6 +75,9 @@
                     <i class="bi bi-arrow-return-left"></i> Reingresos
                 </a>
                 <a class="nav-link" data-view="view-consultas-reingresos" onclick="switchView('view-consultas-reingresos', 'Consultar Historial de Reingresos')"><i class="bi bi-search"></i> Consultar Reingresos</a>
+                <a class="nav-link" id="menu-link-verificacion-reingresos" href="#" data-view="view-verificacion-reingresos" onclick="switchView('view-verificacion-reingresos', 'Verificación de Reingresos')" style="display: none;">
+                    <i class="bi bi-patch-check-fill"></i> Verificación de Reingresos
+                </a>
                 <a class="nav-link" href="#" data-view="view-traslados" onclick="window.iniciarNuevoTraslado()"><i class="bi bi-truck"></i> Formato de Traslado</a>
                 <a class="nav-link" href="#" data-view="view-consultas-traslados" onclick="switchView('view-consultas-traslados', 'Consultar Historial de Traslados')"><i class="bi bi-search"></i> Consultar Traslados</a>
                 <a class="nav-link" id="menu-link-microformas" href="#" onclick="switchView('view-microformas', 'Control de Producción de Microformas')" style="display: none;">
@@ -287,6 +290,17 @@
                             <input type="date" class="form-control form-control-sm" id="filtro-re-fecha" onchange="filtrarHistorialReingresos()">
                         </div>
                         <div class="col-12 col-md-3">
+                            <label class="form-label small">Estado</label>
+                            <select class="form-select form-select-sm" id="filtro-re-estado" onchange="filtrarHistorialReingresos()">
+                                <option value="">Todos</option>
+                                <option value="GENERADO">Generado</option>
+                                <option value="VERIF_SALIDA">Pend. Vigilancia Salida</option>
+                                <option value="VERIF_INGRESO">Pend. Vigilancia Ingreso</option>
+                                <option value="RECEPCION">Pend. Recepción</option>
+                                <option value="COMPLETADO">Completado</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-3">
                             <label class="form-label small">Búsqueda libre</label>
                             <input type="text" id="busqueda-reingresos" class="form-control form-control-sm"
                                    placeholder="🔍 Local, paquete, expediente..."
@@ -294,7 +308,7 @@
                         </div>
                     </div>
                     <div class="text-end mt-2">
-                        <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('filtro-re-solicitante').value='';document.getElementById('filtro-re-entregado').value='';document.getElementById('filtro-re-fecha').value='';document.getElementById('busqueda-reingresos').value='';filtrarHistorialReingresos()">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('filtro-re-solicitante').value='';document.getElementById('filtro-re-entregado').value='';document.getElementById('filtro-re-fecha').value='';document.getElementById('filtro-re-estado').value='';document.getElementById('busqueda-reingresos').value='';filtrarHistorialReingresos()">
                             <i class="bi bi-x-circle"></i> Limpiar filtros
                         </button>
                     </div>
@@ -317,10 +331,43 @@
                                     <th>Local</th>
                                     <th>Entregado por</th>
                                     <th>Cantidad</th>
+                                    <th>Estado</th>
                                     <th class="text-end">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="tabla-historial-reingresos">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- BANDEJA DE VERIFICACIÓN DE REINGRESOS (Vigilancia Salida / Ingreso / Recepción) -->
+            <section id="view-verificacion-reingresos" class="view-section">
+                <div class="card p-3 p-md-4 border-0 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold m-0 text-dark">
+                            <i class="bi bi-patch-check-fill me-2 text-primary"></i>Reingresos Pendientes de tu Verificación
+                        </h6>
+                        <button class="btn btn-primary btn-sm" onclick="window.cargarBandejaVerificacionReingresos()">
+                            <i class="bi bi-arrow-clockwise"></i> Actualizar
+                        </button>
+                    </div>
+                    <p class="text-muted small">Aquí aparecen únicamente los reingresos que están esperando tu visto bueno (vigilancia de salida, vigilancia de ingreso o recepción), según tu usuario.</p>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle border" style="font-size: 0.85rem;">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>N°</th>
+                                    <th>Fecha</th>
+                                    <th>Local Salida</th>
+                                    <th>Local Ingreso</th>
+                                    <th>Cantidad</th>
+                                    <th>Estado</th>
+                                    <th class="text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-bandeja-verificacion-reingresos">
                             </tbody>
                         </table>
                     </div>
@@ -735,11 +782,18 @@
                     <div class="row g-3">
                         <div class="col-12 col-md-3"><label class="form-label small fw-bold">Fecha</label><input type="date" class="form-control bg-light" id="re-fecha"></div>
                         <div class="col-12 col-md-3"><label class="form-label small fw-bold">Solicitante</label><select id="re-solicitante" class="form-select bg-light"></select></div>
-                        <div class="col-12 col-md-3"><label class="form-label small fw-bold">Local Reingreso</label><select id="re-local" class="form-select bg-light"></select></div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small fw-bold">Local de Salida (origen)</label>
+                            <select id="re-local-salida" class="form-select bg-light"></select>
+                        </div>
+                        <div class="col-12 col-md-3"><label class="form-label small fw-bold">Local Reingreso (destino)</label><select id="re-local" class="form-select bg-light"></select></div>
                         <div class="col-12 col-md-3">
                             <label class="form-label small fw-bold">Entregado por</label>
                             <input type="text" class="form-control bg-light fw-bold text-dark" id="re-entregado" readonly style="cursor: not-allowed;">
                         </div>
+                    </div>
+                    <div class="alert alert-warning py-2 px-3 mt-3 mb-0 small">
+                        <i class="bi bi-info-circle me-1"></i> Al guardar, el registro inicia el flujo de aprobación: Vigilancia de Salida → Vigilancia de Ingreso → Recepción. Los repositorios sin vigilante asignado (Sáenz Peña, Dunas, Domus) saltan ese paso automáticamente.
                     </div>
                 </div>
 
