@@ -55,10 +55,18 @@
             // ⚠️ IMPORTANTE: reemplazar estos nombres/alias por los usuarios reales que se
             // creen en Firebase Auth para cada vigilante (ej: "vigilante.sotano@pj.gob.pe").
             vigilancia_repositorios: {
-                "SÓTANO NCPP": ["VIGILANTE SOTANO NCPP", "VSOTANO"],
-                "SAENZ PEÑA": ["VIGILANTE SAENZ PEÑA", "VSAENZPENA"],
-                "PADILLA": ["VIGILANTE PADILLA", "VPADILLA"]
+                "SÓTANO NCPP": ["VIGILANTE SOTANO NCPP", "VSOTANO", "VIGILANCIA SOTANO"],
+                "SAENZ PEÑA": ["VIGILANTE SAENZ PEÑA", "VSAENZPENA", "VIGILANCIA SAENZ PEÑA"],
+                "PADILLA": ["VIGILANTE PADILLA", "VPADILLA", "VIGILANCIA PADILLA"]
             },
+            // NUEVO: quién puede EDITAR o ELIMINAR un reingreso YA GUARDADO desde la
+            // vista "Consultar Historial de Reingresos". Es más restrictivo que
+            // reingresos_escritura (que solo habilita CREAR nuevos registros): por
+            // pedido explícito, únicamente Jorge Izquierdo y Manuel Barandiaran (además
+            // del administrador) pueden editar/eliminar reingresos ya existentes. El
+            // resto del personal (Roberto Dávila, Jorge Desposorio, Luis Epifanía,
+            // Teófilo Gabino, Raúl Rodriguez) y los vigilantes solo pueden ver/descargar.
+            reingresos_edicion_historial: ["ALFREDO CRUZADO", "ACRUZADO", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"],
             // NUEVO: quién puede dar el visto bueno final de RECEPCIÓN. Por defecto se asume
             // el mismo personal de archivo que puede generar reingresos.
             recepcion_reingresos: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"]
@@ -90,6 +98,12 @@
             return PERMISOS.recepcion_reingresos.map(n => normalizarTexto(n)).includes(normalizarTexto(nombreUsuario));
         }
 
+        // Permiso para EDITAR/ELIMINAR un reingreso ya guardado (vista Consultar
+        // Historial). Distinto de "puedeReingresos" (crear), ver PERMISOS.reingresos_edicion_historial.
+        function puedeEditarEliminarReingresoGuardado(nombreUsuario) {
+            return PERMISOS.reingresos_edicion_historial.map(n => normalizarTexto(n)).includes(normalizarTexto(nombreUsuario));
+        }
+
         // La RECEPCIÓN de un reingreso es un visto bueno personal: solo el usuario que
         // figura como "solicitante" en ESE registro puede confirmar que lo recibió.
         // (puedeRecepcionarReingreso, arriba, sólo se usa como heurística general para
@@ -116,9 +130,7 @@
 
         // Usuario actual (nombre normalizado), usado por las funciones de vistos buenos.
         function obtenerNombreUsuarioActual() {
-            const u = auth.currentUser;
-            if (!u) return 'DESCONOCIDO';
-            return normalizarTexto(u.displayName ? u.displayName : u.email.split('@')[0]);
+            return obtenerNombreCanonicoDeUsuario(auth.currentUser);
         }
 
         // Indica si el usuario actual tiene ALGUNA verificación pendiente que atender
@@ -155,6 +167,55 @@
             return texto.trim().toUpperCase()
                 .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes/diacríticos (Á->A, Ñ->N, etc.)
                 .replace(/\s+/g, ' ');
+        }
+
+        // ===== MAPEO DE ALIAS DE LOGIN -> NOMBRE CANÓNICO A MOSTRAR =====
+        // Varias cuentas inician sesión con un alias corto (ej. "JIZQUIERDO") en vez
+        // de su nombre completo. Este mapa centraliza la resolución para que, en toda
+        // la aplicación (perfil, campos "Entregado por", auditorías, coincidencia con
+        // el "Solicitante" de un reingreso, etc.), se use siempre el mismo nombre
+        // canónico sin importar con qué alias inició sesión la persona.
+        const ALIAS_A_NOMBRE_COMPLETO = {
+            "VSOTANO": "VIGILANCIA SOTANO",
+            "VSAENZPENA": "VIGILANCIA SAENZ PEÑA",
+            "VPADILLA": "VIGILANCIA PADILLA",
+            "IROCHA": "IVÁN ROCHA",
+            "JIZQUIERDO": "JORGE IZQUIERDO",
+            "RDAVILA": "ROBERTO DÁVILA",
+            "JDESPOSORIO": "JORGE DESPOSORIO",
+            "MBARANDIARAN": "MANUEL BARANDIARAN",
+            "ARODRIGUEZ": "RAÚL RODRIGUEZ",
+            "TGABINO": "TEÓFILO GABINO",
+            "LEPIFANIA": "LUIS EPIFANÍA"
+        };
+
+        // Dado un nombre "crudo" (tal cual viene de Firebase, con o sin tildes), lo
+        // resuelve a su nombre canónico si es un alias conocido; si no, lo devuelve
+        // sin cambios (ya es un nombre completo u otro usuario no mapeado).
+        function resolverNombreCanonico(nombreCrudo) {
+            const clave = normalizarTexto(nombreCrudo);
+            return ALIAS_A_NOMBRE_COMPLETO[clave] || nombreCrudo;
+        }
+
+        // Punto único para obtener el nombre canónico de un usuario de Firebase Auth
+        // (objeto currentUser). Reemplaza el patrón repetido de "displayName o email"
+        // agregando además la resolución de alias -> nombre completo.
+        function obtenerNombreCanonicoDeUsuario(userObj) {
+            if (!userObj) return 'DESCONOCIDO';
+            const crudo = userObj.displayName ? userObj.displayName : (userObj.email ? userObj.email.split('@')[0] : '');
+            return resolverNombreCanonico(normalizarTexto(crudo));
+        }
+
+        // Todo usuario que inicia sesión con uno de los alias mapeados en
+        // ALIAS_A_NOMBRE_COMPLETO tiene el cambio de nombre de perfil BLOQUEADO,
+        // para evitar que se desvincule del alias con el que fue dado de alta
+        // (vigilantes VSOTANO/VSAENZPENA/VPADILLA y personal de archivo con alias
+        // corto: IROCHA, JIZQUIERDO, RDAVILA, JDESPOSORIO, MBARANDIARAN,
+        // ARODRIGUEZ, TGABINO, LEPIFANIA).
+        const NOMBRES_CANONICOS_BLOQUEADOS = Object.values(ALIAS_A_NOMBRE_COMPLETO).map(normalizarTexto);
+
+        function usuarioTieneNombreBloqueado(nombreUsuario) {
+            return NOMBRES_CANONICOS_BLOQUEADOS.includes(normalizarTexto(nombreUsuario));
         }
 
         function esUsuarioAdministradorLog(nombreUsuario) {
@@ -580,7 +641,7 @@
         function switchView(viewId, titleText = "Dashboard Principal") {
             cerrarMenuMovil();
 
-            const userTitleGuard = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
+            const userTitleGuard = auth.currentUser ? obtenerNombreCanonicoDeUsuario(auth.currentUser) : '';
             if (esUsuarioVigilanciaExclusiva(userTitleGuard) && !VISTAS_PERMITIDAS_VIGILANCIA.includes(viewId)) {
                 viewId = 'view-verificacion-reingresos';
                 titleText = 'Verificación de Reingresos';
@@ -600,7 +661,7 @@
             }
 
             if (viewId === 'view-traslados') {
-                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
+                const userTitle = auth.currentUser ? obtenerNombreCanonicoDeUsuario(auth.currentUser) : '';
                 inicializarSelectsTraslados(userTitle);
             }
 
@@ -648,7 +709,7 @@
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
                 
-                const userTitle = normalizarTexto(user.displayName ? user.displayName : user.email.split('@')[0]);
+                const userTitle = obtenerNombreCanonicoDeUsuario(user);
                 document.getElementById('user-display-name').innerText = userTitle;
                 document.getElementById('user-display-role').innerText = listaPersonalRoles[userTitle] || "Personal de Archivo";
                 document.getElementById('inv-registra').value = userTitle;
@@ -666,16 +727,18 @@
                 if (campoEntregadoTr) campoEntregadoTr.value = userTitle;
 
                 document.getElementById('perf-email').value = user.email || '';
-                document.getElementById('perf-nombre').value = user.displayName || '';
+                document.getElementById('perf-nombre').value = userTitle;
                 const formClave = document.getElementById('form-perfil-clave');
                 if (formClave) formClave.reset();
 
-                // Restringe el cambio de nombre para los usuarios de vigilancia exclusiva
-                // (VSOTANO, VSAENZPENA, VPADILLA): el campo queda bloqueado y no editable.
+                // Restringe el cambio de nombre para los usuarios cuyo alias de login
+                // está mapeado a un nombre canónico (vigilantes VSOTANO/VSAENZPENA/
+                // VPADILLA y personal de archivo IROCHA/JIZQUIERDO/RDAVILA/JDESPOSORIO/
+                // MBARANDIARAN/ARODRIGUEZ/TGABINO/LEPIFANIA): el campo queda bloqueado.
                 const campoPerfNombre = document.getElementById('perf-nombre');
                 const btnPerfDatos = document.querySelector('#form-perfil-datos button[type="submit"]');
                 if (campoPerfNombre) {
-                    const nombreBloqueado = esUsuarioVigilanciaExclusiva(userTitle);
+                    const nombreBloqueado = usuarioTieneNombreBloqueado(userTitle);
                     campoPerfNombre.disabled = nombreBloqueado;
                     campoPerfNombre.readOnly = nombreBloqueado;
                     if (btnPerfDatos) btnPerfDatos.disabled = nombreBloqueado;
@@ -724,8 +787,8 @@
             const nuevoNombre = normalizarTexto(document.getElementById('perf-nombre').value);
             if (!user) return;
 
-            const nombreActual = normalizarTexto(user.displayName ? user.displayName : user.email.split('@')[0]);
-            if (esUsuarioVigilanciaExclusiva(nombreActual)) {
+            const nombreActual = obtenerNombreCanonicoDeUsuario(user);
+            if (usuarioTieneNombreBloqueado(nombreActual)) {
                 Swal.fire('Acción no permitida', 'Este usuario no tiene permitido cambiar su nombre.', 'warning');
                 return;
             }
@@ -939,7 +1002,7 @@
 
         window.guardarMicroforma = async function() {
             const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
 
             if (!puedeEditarMicroformas(currentUserName)) {
                 Swal.fire('Acceso denegado', 'No cuenta con autorización para registrar o modificar bloques de microformas.', 'error');
@@ -1049,7 +1112,7 @@
             let sumaExpedientes = 0;
 
             const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : '';
+            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
             const esEditor = puedeEditarMicroformas(currentUserName);
 
             registrosPaginados.forEach(item => {
@@ -1134,7 +1197,7 @@
 
         window.eliminarMicroforma = async function(id) {
             const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
 
             if (!puedeEditarMicroformas(currentUserName)) {
                 Swal.fire('Acceso denegado', 'No cuenta con autorización para eliminar bloques de microformas.', 'error');
@@ -1379,7 +1442,7 @@
             }
 
             const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
 
             const consolidadoLote = {
                 repositorio: document.getElementById('inv-repositorio').value,
@@ -1580,7 +1643,7 @@
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     const currentUserObj = auth.currentUser;
-                    const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+                    const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
 
                     await updateDoc(doc(db, "censo_institucional", id), {
                         activo: false,
@@ -2039,7 +2102,7 @@
 
             try {
                 const currentUserObj = auth.currentUser;
-                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+                const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
 
                 if (idTrasladoEnEdicion) {
                     const datosActualizados = {
@@ -2086,8 +2149,8 @@
         };
 
         window.editarReingreso = function(id) {
-            if (esUsuarioVigilanciaExclusiva(obtenerNombreUsuarioActual())) {
-                Swal.fire('Acceso de solo consulta', 'Los usuarios de vigilancia solo pueden visualizar y descargar reingresos.', 'info');
+            if (!puedeEditarEliminarReingresoGuardado(obtenerNombreUsuarioActual())) {
+                Swal.fire('Acceso de solo consulta', 'Tu usuario no tiene permiso para editar reingresos ya guardados.', 'info');
                 return;
             }
 
@@ -2182,8 +2245,8 @@
         }
 
         window.eliminarReingreso = async function(id) {
-            if (esUsuarioVigilanciaExclusiva(obtenerNombreUsuarioActual())) {
-                Swal.fire('Acceso de solo consulta', 'Los usuarios de vigilancia solo pueden visualizar y descargar reingresos.', 'info');
+            if (!puedeEditarEliminarReingresoGuardado(obtenerNombreUsuarioActual())) {
+                Swal.fire('Acceso de solo consulta', 'Tu usuario no tiene permiso para eliminar reingresos ya guardados.', 'info');
                 return;
             }
 
@@ -2200,7 +2263,7 @@
 
             try {
                 const currentUserObj = auth.currentUser;
-                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+                const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
 
                 await updateDoc(doc(db, "reingresos", id), {
                     activo: false,
@@ -2231,7 +2294,7 @@
 
             try {
                 const currentUserObj = auth.currentUser;
-                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+                const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
 
                 await updateDoc(doc(db, "traslados", id), {
                     activo: false,
@@ -2323,9 +2386,11 @@
                 return;
             }
 
-            // Los vigilantes acceden a esta vista en modo SOLO CONSULTA: pueden ver y
-            // descargar el PDF de cada reingreso, pero nunca editar ni eliminar.
-            const soloLectura = esUsuarioVigilanciaExclusiva(obtenerNombreUsuarioActual());
+            // Solo quienes tienen permiso explícito (Alfredo Cruzado, Jorge Izquierdo,
+            // Manuel Barandiaran) ven Editar/Eliminar. Todos los demás (resto de
+            // personal de archivo y vigilantes) están en modo SOLO CONSULTA: ver y
+            // descargar el PDF de cada reingreso.
+            const soloLectura = !puedeEditarEliminarReingresoGuardado(obtenerNombreUsuarioActual());
 
             registros.forEach(data => {
                 const estado = data.estado || 'GENERADO';
@@ -3285,7 +3350,7 @@
             }
 
             const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
 
             const tarjetaLote = {
                 anioIngreso,
