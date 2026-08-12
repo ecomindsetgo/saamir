@@ -148,6 +148,104 @@
             return u === "ROBERTO DÁVILA" || u === "ROBERTO DAVILA" || u === "RDAVILA" || u === "JORGE DESPOSORIO" || u === "JDESPOSORIO" || esUsuarioAdministradorLog(u);
         }
 
+        // ===== CONTROL DE ACCESO A MÓDULOS POR USUARIO =====
+        // Todas las vistas (secciones) que existen en el sistema.
+        const TODAS_LAS_VISTAS = [
+            'view-dashboard', 'view-tarjetas', 'view-consultas-tarjetas', 'view-inventario',
+            'view-consultas', 'view-reingresos', 'view-consultas-reingresos',
+            'view-verificacion-reingresos', 'view-traslados', 'view-consultas-traslados',
+            'view-microformas', 'view-perfil', 'view-configuracion', 'view-auditoria'
+        ];
+
+        // Subconjunto de módulos operativos para el acceso "limitado" (sin Dashboard,
+        // sin Control de Microformas y sin Auditoría de Cambios).
+        const VISTAS_ACCESO_LIMITADO = [
+            'view-tarjetas', 'view-consultas-tarjetas', 'view-inventario', 'view-consultas',
+            'view-reingresos', 'view-consultas-reingresos', 'view-verificacion-reingresos',
+            'view-traslados', 'view-consultas-traslados', 'view-perfil', 'view-configuracion'
+        ];
+
+        // Título por defecto de cada vista, usado para redirigir al iniciar sesión.
+        const TITULOS_VISTAS = {
+            'view-dashboard': 'Dashboard Principal',
+            'view-tarjetas': 'Generador de Tarjetas de Paquetes',
+            'view-consultas-tarjetas': 'Consultar Historial de Tarjetas',
+            'view-inventario': 'Carga de Inventario de Existencias',
+            'view-consultas': 'Consultar Consolidados por Repositorio',
+            'view-reingresos': 'Módulo Reingresos',
+            'view-consultas-reingresos': 'Consultar Historial de Reingresos',
+            'view-verificacion-reingresos': 'Verificación de Reingresos',
+            'view-traslados': 'Módulo Formato de Traslado',
+            'view-consultas-traslados': 'Consultar Historial de Traslados',
+            'view-microformas': 'Control de Producción de Microformas',
+            'view-perfil': 'Mi Perfil de Usuario',
+            'view-configuracion': 'Consola de Configuración',
+            'view-auditoria': 'Historial y Trazabilidad del Sistema'
+        };
+
+        // Roles explícitos de acceso a módulos, según lo definido por la coordinación.
+        const ROLES_ACCESO_MODULOS = {
+            // Acceso total: absolutamente todos los módulos, incluida Auditoría de Cambios.
+            ACCESO_TOTAL: ["ALFREDO CRUZADO", "ACRUZADO"],
+            // Todos los módulos EXCEPTO Auditoría de Cambios.
+            ACCESO_SIN_AUDITORIA: ["ROBERTO DÁVILA", "ROBERTO DAVILA", "RDAVILA", "JORGE DESPOSORIO", "JDESPOSORIO"],
+            // Acceso restringido a un subconjunto operativo de módulos (ver VISTAS_ACCESO_LIMITADO).
+            ACCESO_LIMITADO: [
+                "MANUEL BARANDIARAN", "MBARANDIARAN",
+                "JORGE IZQUIERDO", "JIZQUIERDO",
+                "IVÁN ROCHA", "IVAN ROCHA", "IROCHA",
+                "TEÓFILO GABINO", "TEOFILO GABINO", "TGABINO",
+                "RAÚL RODRIGUEZ", "RAUL RODRIGUEZ", "ARODRIGUEZ"
+            ]
+        };
+
+        // Devuelve la lista de vistas permitidas para un usuario según su rol explícito,
+        // o null si el usuario no tiene un rol explícito asignado (en cuyo caso se aplican
+        // las reglas heredadas basadas en las funciones de permiso individuales).
+        function obtenerVistasPermitidas(nombreUsuario) {
+            const u = normalizarTexto(nombreUsuario);
+
+            // Los usuarios de vigilancia exclusiva sólo ven Verificación de Reingresos
+            // (y su propio Perfil, para poder gestionar su contraseña).
+            if (esUsuarioVigilanciaExclusiva(u)) {
+                return VISTAS_PERMITIDAS_VIGILANCIA;
+            }
+
+            if (ROLES_ACCESO_MODULOS.ACCESO_TOTAL.map(normalizarTexto).includes(u)) {
+                return TODAS_LAS_VISTAS;
+            }
+
+            if (ROLES_ACCESO_MODULOS.ACCESO_SIN_AUDITORIA.map(normalizarTexto).includes(u)) {
+                return TODAS_LAS_VISTAS.filter(v => v !== 'view-auditoria');
+            }
+
+            if (ROLES_ACCESO_MODULOS.ACCESO_LIMITADO.map(normalizarTexto).includes(u)) {
+                return VISTAS_ACCESO_LIMITADO;
+            }
+
+            return null;
+        }
+
+        // Punto único de verificación de acceso a una vista, usado tanto para mostrar/ocultar
+        // el menú lateral como para bloquear la navegación directa (switchView).
+        function usuarioPuedeAccederVista(nombreUsuario, viewId) {
+            const vistasExplicitas = obtenerVistasPermitidas(nombreUsuario);
+            if (vistasExplicitas !== null) {
+                return vistasExplicitas.includes(viewId);
+            }
+            // Reglas heredadas para el resto del personal de archivo (sin rol explícito).
+            switch (viewId) {
+                case 'view-auditoria':
+                    return esUsuarioAdministradorLog(nombreUsuario);
+                case 'view-microformas':
+                    return esUsuarioMicroformasVisualizador(nombreUsuario);
+                case 'view-verificacion-reingresos':
+                    return usuarioTienePermisoDeVerificacion(nombreUsuario);
+                default:
+                    return true;
+            }
+        }
+
         function aplicarPermisos(nombreUsuario) {
             const usuarioLimpio = normalizarTexto(nombreUsuario);
             
@@ -235,16 +333,19 @@
                 btnAgregarRango.classList.toggle('opacity-50', !puedeInventario);
             }
 
-            // ===== RESTRICCIÓN PARA USUARIOS DE VIGILANCIA EXCLUSIVA =====
-            // Si el usuario solo existe para dar vistos buenos (no es personal de archivo),
-            // se le oculta todo el menú excepto "Verificación de Reingresos" y "Mi Perfil".
+            // ===== ACCESO A MÓDULOS SEGÚN ROL EXPLÍCITO =====
+            // Si el usuario tiene un rol explícito asignado (vigilancia exclusiva, acceso
+            // total, acceso sin auditoría o acceso limitado), se aplica esa lista de vistas
+            // permitidas al menú lateral, ocultando cualquier otro módulo.
+            const vistasPermitidas = obtenerVistasPermitidas(usuarioLimpio);
+            if (vistasPermitidas !== null) {
+                document.querySelectorAll('#sidebar .nav-link[data-view]').forEach(enlace => {
+                    const vista = enlace.dataset.view;
+                    enlace.style.setProperty('display', vistasPermitidas.includes(vista) ? 'flex' : 'none', 'important');
+                });
+            }
+
             const esSoloVigilancia = esUsuarioVigilanciaExclusiva(usuarioLimpio);
-            document.querySelectorAll('#sidebar .nav-link').forEach(enlace => {
-                if (esSoloVigilancia) {
-                    const permitido = enlace.id === 'menu-link-verificacion-reingresos' || enlace.id === 'menu-link-perfil';
-                    enlace.style.setProperty('display', permitido ? 'flex' : 'none', 'important');
-                }
-            });
             const badgeRolSidebar = document.getElementById('user-display-role');
             if (badgeRolSidebar && esSoloVigilancia) {
                 badgeRolSidebar.innerText = 'Vigilancia';
@@ -465,22 +566,17 @@
                 viewId = 'view-verificacion-reingresos';
                 titleText = 'Verificación de Reingresos';
             }
-            
+
+            if (userTitleGuard && !usuarioPuedeAccederVista(userTitleGuard, viewId)) {
+                Swal.fire('Acceso Denegado', 'No cuenta con autorización para visualizar este módulo.', 'error');
+                return;
+            }
+
             if (viewId === 'view-auditoria') {
-                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
-                if (!esUsuarioAdministradorLog(userTitle)) {
-                    Swal.fire('Acceso Denegado', 'No cuenta con privilegios para ver el log de auditoría.', 'error');
-                    return;
-                }
                 cargarHistorialAuditoriaGlobal();
             }
 
             if (viewId === 'view-microformas') {
-                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
-                if (!esUsuarioMicroformasVisualizador(userTitle)) {
-                    Swal.fire('Acceso Denegado', 'No cuenta con autorización para visualizar este módulo.', 'error');
-                    return;
-                }
                 cargarMicroformasDesdeCloud();
             }
 
@@ -502,11 +598,6 @@
             }
 
             if (viewId === 'view-verificacion-reingresos') {
-                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
-                if (!usuarioTienePermisoDeVerificacion(userTitle)) {
-                    Swal.fire('Acceso Denegado', 'No cuenta con autorización para verificar reingresos.', 'error');
-                    return;
-                }
                 window.cargarBandejaVerificacionReingresos();
             }
 
@@ -576,6 +667,12 @@
                 }
                 if (esUsuarioVigilanciaExclusiva(userTitle)) {
                     switchView('view-verificacion-reingresos', 'Verificación de Reingresos');
+                } else {
+                    const vistasPermitidasInicio = obtenerVistasPermitidas(userTitle);
+                    if (vistasPermitidasInicio && !vistasPermitidasInicio.includes('view-dashboard')) {
+                        const primeraVista = vistasPermitidasInicio[0];
+                        switchView(primeraVista, TITULOS_VISTAS[primeraVista] || '');
+                    }
                 }
                 await cargarHistorialTrasladosParaDashboard().catch(err => console.error(err));
                 await cargarMicroformasDesdeCloud().catch(err => console.error(err));

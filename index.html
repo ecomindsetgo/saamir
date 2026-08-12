@@ -56,7 +56,7 @@
             </div>
             
             <nav class="nav flex-column mt-2 flex-grow-1" style="font-size: 0.9rem;">
-                <a class="nav-link active" id="menu-link-dashboard" href="#" onclick="switchView('view-dashboard', 'Dashboard Principal')">
+                <a class="nav-link active" id="menu-link-dashboard" href="#" data-view="view-dashboard" onclick="switchView('view-dashboard', 'Dashboard Principal')">
                     <i class="bi bi-grid-1x2-fill"></i> Dashboard Global
                 </a>
                 <a class="nav-link" href="#" data-view="view-tarjetas" onclick="switchView('view-tarjetas', 'Generador de Tarjetas de Paquetes')">
@@ -68,7 +68,7 @@
                 <a class="nav-link" href="#" data-view="view-inventario" onclick="window.iniciarNuevoInventario()">
                     <i class="bi bi-journal-plus"></i> Cargar Inventario
                 </a>
-                <a class="nav-link" id="menu-link-consultas-lotes" href="#" onclick="switchView('view-consultas', 'Consultar Consolidados por Repositorio')">
+                <a class="nav-link" id="menu-link-consultas-lotes" href="#" data-view="view-consultas" onclick="switchView('view-consultas', 'Consultar Consolidados por Repositorio')">
                     <i class="bi bi-search"></i> Consultar Lotes
                 </a>
                 <a class="nav-link" href="#" data-view="view-reingresos" onclick="window.iniciarNuevoReingreso()">
@@ -80,16 +80,16 @@
                 </a>
                 <a class="nav-link" href="#" data-view="view-traslados" onclick="window.iniciarNuevoTraslado()"><i class="bi bi-truck"></i> Formato de Traslado</a>
                 <a class="nav-link" href="#" data-view="view-consultas-traslados" onclick="switchView('view-consultas-traslados', 'Consultar Historial de Traslados')"><i class="bi bi-search"></i> Consultar Traslados</a>
-                <a class="nav-link" id="menu-link-microformas" href="#" onclick="switchView('view-microformas', 'Control de Producción de Microformas')" style="display: none;">
+                <a class="nav-link" id="menu-link-microformas" href="#" data-view="view-microformas" onclick="switchView('view-microformas', 'Control de Producción de Microformas')" style="display: none;">
                     <i class="bi bi-file-earmark-spreadsheet-fill"></i> Control Microformas
                 </a>
-                <a class="nav-link" id="menu-link-perfil" href="#" onclick="switchView('view-perfil', 'Mi Perfil de Usuario')">
+                <a class="nav-link" id="menu-link-perfil" href="#" data-view="view-perfil" onclick="switchView('view-perfil', 'Mi Perfil de Usuario')">
                     <i class="bi bi-person-gear"></i> Mi Perfil / Cuenta
                 </a>
-                <a class="nav-link" id="menu-link-configuracion" href="#" onclick="switchView('view-configuracion', 'Consola de Configuración')">
+                <a class="nav-link" id="menu-link-configuracion" href="#" data-view="view-configuracion" onclick="switchView('view-configuracion', 'Consola de Configuración')">
                     <i class="bi bi-gear-fill"></i> Configuración
                 </a>
-                <a class="nav-link" id="menu-link-auditoria" href="#" onclick="switchView('view-auditoria', 'Historial y Trazabilidad del Sistema')" style="display: none;">
+                <a class="nav-link" id="menu-link-auditoria" href="#" data-view="view-auditoria" onclick="switchView('view-auditoria', 'Historial y Trazabilidad del Sistema')" style="display: none;">
                     <i class="bi bi-clock-history"></i> Auditoría de Cambios
                 </a>
             </nav>
