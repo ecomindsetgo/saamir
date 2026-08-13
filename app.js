@@ -1,22 +1,29 @@
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDaVsm4cs9O-R0plj1hk62Iy1uU2IYZLfc",
-            authDomain: "sipa-d4ec9.firebaseapp.com",
-            projectId: "sipa-d4ec9",
-            storageBucket: "sipa-d4ec9.firebasestorage.app",
-            messagingSenderId: "560354492263",
-            appId: "1:560354492263:web:653ac26f811153537c79c2"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyDaVsm4cs9O-R0plj1hk62Iy1uU2IYZLfc",
+    authDomain: "sipa-d4ec9.firebaseapp.com",
+    projectId: "sipa-d4ec9",
+    storageBucket: "sipa-d4ec9.firebasestorage.app",
+    messagingSenderId: "560354492263",
+    appId: "1:560354492263:web:653ac26f811153537c79c2"
+};
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
 
-        const NOMBRE_SUPERVISOR_LPMD = "ALFREDO CRUZADO PALACIOS";
-        const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
+// App Check — pega aquí tu Site Key de reCAPTCHA v3 (paso 3 de la guía anterior)
+initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider("TU_SITE_KEY_DE_RECAPTCHA_AQUI"),
+    isTokenAutoRefreshEnabled: true
+});
+
+const auth = getAuth(app);
+const db = getFirestore(app);
+const NOMBRE_SUPERVISOR_LPMD = "ALFREDO CRUZADO PALACIOS";
+const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
         const repositorios = ["SÓTANO NCPP", "SAENZ PEÑA", "PADILLA", "DUNAS", "DOMUS"];
         const listaPersonalRoles = {
