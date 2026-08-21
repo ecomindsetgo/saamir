@@ -191,19 +191,56 @@
         let paginaActualAuditoria = 1;
         const registrosPorPagina = 10;
 
+        // Cache en memoria: la imagen solo se descarga y convierte UNA vez por sesión,
+        // en lugar de repetir la descarga cada vez que se genera un PDF.
+        let _logoArchivoBase64Cache = null;
+        let _logoArchivoIntentoFallido = false;
+
         function obtenerLogoArchivoBase64() {
+            // Si ya lo tenemos en cache, devolverlo de inmediato (sin red).
+            if (_logoArchivoBase64Cache) return Promise.resolve(_logoArchivoBase64Cache);
+            // Si ya falló antes en esta sesión, no reintentar cada vez (evita colgar la UI repetidamente).
+            if (_logoArchivoIntentoFallido) return Promise.resolve(null);
+
             return new Promise((resolve) => {
+                let resuelto = false;
+                const finalizar = (valor) => {
+                    if (resuelto) return; // evita doble-resolve si onload/onerror/timeout coinciden
+                    resuelto = true;
+                    if (valor) {
+                        _logoArchivoBase64Cache = valor;
+                    } else {
+                        _logoArchivoIntentoFallido = true;
+                    }
+                    resolve(valor);
+                };
+
+                // Salvavidas: si en 4s no cargó (red bloqueada, dominio externo lento, etc.),
+                // continuamos SIN logo en vez de dejar el PDF colgado indefinidamente.
+                const timeoutId = setTimeout(() => finalizar(null), 4000);
+
                 const img = new Image();
                 img.crossOrigin = 'Anonymous';
                 img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    resolve(canvas.toDataURL('image/png'));
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        clearTimeout(timeoutId);
+                        finalizar(canvas.toDataURL('image/png'));
+                    } catch (err) {
+                        // Canvas "contaminado" por CORS u otro error: no dejar la promesa colgada.
+                        console.error('No se pudo procesar el logo (CORS/canvas):', err);
+                        clearTimeout(timeoutId);
+                        finalizar(null);
+                    }
                 };
-                img.onerror = function() { resolve(null); };
+                img.onerror = function() {
+                    clearTimeout(timeoutId);
+                    finalizar(null);
+                };
                 img.src = 'https://ecomindsetgo.github.io/saamir/LOGO%20ARCHIVO.png';
             });
         }
