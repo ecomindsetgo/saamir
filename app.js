@@ -1,29 +1,22 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyDaVsm4cs9O-R0plj1hk62Iy1uU2IYZLfc",
-    authDomain: "sipa-d4ec9.firebaseapp.com",
-    projectId: "sipa-d4ec9",
-    storageBucket: "sipa-d4ec9.firebasestorage.app",
-    messagingSenderId: "560354492263",
-    appId: "1:560354492263:web:653ac26f811153537c79c2"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyDaVsm4cs9O-R0plj1hk62Iy1uU2IYZLfc",
+            authDomain: "sipa-d4ec9.firebaseapp.com",
+            projectId: "sipa-d4ec9",
+            storageBucket: "sipa-d4ec9.firebasestorage.app",
+            messagingSenderId: "560354492263",
+            appId: "1:560354492263:web:653ac26f811153537c79c2"
+        };
 
-const app = initializeApp(firebaseConfig);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-// App Check — pega aquí tu Site Key de reCAPTCHA v3 (paso 3 de la guía anterior)
-initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider("6Lfrq4QtAAAAAJUubozaJmp-DXEwvSuwSyzsNi1X"),
-    isTokenAutoRefreshEnabled: true
-});
-
-const auth = getAuth(app);
-const db = getFirestore(app);
-const NOMBRE_SUPERVISOR_LPMD = "ALFREDO CRUZADO PALACIOS";
-const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
+        const NOMBRE_SUPERVISOR_LPMD = "ALFREDO CRUZADO PALACIOS";
+        const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
         const repositorios = ["SÓTANO NCPP", "SAENZ PEÑA", "PADILLA", "DUNAS", "DOMUS"];
         const listaPersonalRoles = {
@@ -53,176 +46,12 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
         const PERMISOS = {
             reingresos_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"],
             inventario_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN", "TEOFILO GABINO", "TGABINO"],
-            microformas_escritura: ["ALFREDO CRUZADO", "ACRUZADO"],
-            // NUEVO: usuarios de vigilancia habilitados para dar visto bueno de SALIDA e INGRESO
-            // por cada repositorio. Solo se listan aquí los repositorios que SÍ cuentan con
-            // vigilante asignado (Sótano NCPP, Sáenz Peña y Padilla). Los repositorios que
-            // no aparecen en este mapa (Dunas, Domus) se consideran "sin vigilancia" y ese
-            // paso del flujo se salta automáticamente.
-            // ⚠️ IMPORTANTE: reemplazar estos nombres/alias por los usuarios reales que se
-            // creen en Firebase Auth para cada vigilante (ej: "vigilante.sotano@pj.gob.pe").
-            vigilancia_repositorios: {
-                "SÓTANO NCPP": ["VIGILANTE SOTANO NCPP", "VSOTANO", "VIGILANCIA SOTANO"],
-                "SAENZ PEÑA": ["VIGILANTE SAENZ PEÑA", "VSAENZPENA", "VIGILANCIA SAENZ PEÑA"],
-                "PADILLA": ["VIGILANTE PADILLA", "VPADILLA", "VIGILANCIA PADILLA"]
-            },
-            // NUEVO: quién puede EDITAR o ELIMINAR un reingreso YA GUARDADO desde la
-            // vista "Consultar Historial de Reingresos". Es más restrictivo que
-            // reingresos_escritura (que solo habilita CREAR nuevos registros): por
-            // pedido explícito, únicamente Jorge Izquierdo y Manuel Barandiaran (además
-            // del administrador) pueden editar/eliminar reingresos ya existentes. El
-            // resto del personal (Roberto Dávila, Jorge Desposorio, Luis Epifanía,
-            // Teófilo Gabino, Raúl Rodriguez) y los vigilantes solo pueden ver/descargar.
-            reingresos_edicion_historial: ["ALFREDO CRUZADO", "ACRUZADO", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"],
-            // NUEVO: quién puede dar el visto bueno final de RECEPCIÓN. Por defecto se asume
-            // el mismo personal de archivo que puede generar reingresos.
-            recepcion_reingresos: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"]
+            microformas_escritura: ["ALFREDO CRUZADO", "ACRUZADO"]
         };
-
-        // ===== FLUJO DE APROBACIÓN DE REINGRESOS =====
-        // Orden de etapas. Las etapas de vigilancia se saltan automáticamente si el
-        // repositorio correspondiente no tiene vigilante asignado (ver PERMISOS.vigilancia_repositorios).
-        const ORDEN_ESTADOS_REINGRESO = ["GENERADO", "VERIF_SALIDA", "VERIF_INGRESO", "RECEPCION", "COMPLETADO"];
-
-        const ETIQUETAS_ESTADO_REINGRESO = {
-            GENERADO: { texto: "Generado", clase: "secondary", icono: "bi-pencil-square" },
-            VERIF_SALIDA: { texto: "Pend. Vigilancia Salida", clase: "warning", icono: "bi-shield-exclamation" },
-            VERIF_INGRESO: { texto: "Pend. Vigilancia Ingreso", clase: "warning", icono: "bi-shield-exclamation" },
-            RECEPCION: { texto: "Pend. Recepción", clase: "info", icono: "bi-inbox" },
-            COMPLETADO: { texto: "Completado", clase: "success", icono: "bi-check-circle" }
-        };
-
-        function repositorioTieneVigilancia(repo) {
-            return Object.prototype.hasOwnProperty.call(PERMISOS.vigilancia_repositorios, repo);
-        }
-
-        function puedeVigilarRepositorio(nombreUsuario, repo) {
-            const lista = (PERMISOS.vigilancia_repositorios[repo] || []).map(n => normalizarTexto(n));
-            return lista.includes(normalizarTexto(nombreUsuario));
-        }
-
-        function puedeRecepcionarReingreso(nombreUsuario) {
-            return PERMISOS.recepcion_reingresos.map(n => normalizarTexto(n)).includes(normalizarTexto(nombreUsuario));
-        }
-
-        // Permiso para EDITAR/ELIMINAR un reingreso ya guardado (vista Consultar
-        // Historial). Distinto de "puedeReingresos" (crear), ver PERMISOS.reingresos_edicion_historial.
-        function puedeEditarEliminarReingresoGuardado(nombreUsuario) {
-            return PERMISOS.reingresos_edicion_historial.map(n => normalizarTexto(n)).includes(normalizarTexto(nombreUsuario));
-        }
-
-        // La RECEPCIÓN de un reingreso es un visto bueno personal: solo el usuario que
-        // figura como "solicitante" en ESE registro puede confirmar que lo recibió.
-        // (puedeRecepcionarReingreso, arriba, sólo se usa como heurística general para
-        // decidir si se muestra el enlace de menú "Verificación de Reingresos").
-        function puedeRecepcionarRegistro(nombreUsuario, registro) {
-            if (!registro || !registro.solicitante) return false;
-            return normalizarTexto(nombreUsuario) === normalizarTexto(registro.solicitante);
-        }
-
-        // Dado un registro (con localSalida y local) y su estado actual, calcula el
-        // siguiente estado saltando las etapas de vigilancia sin vigilante asignado.
-        function calcularSiguienteEstadoReingreso(registro, estadoActual) {
-            let idx = ORDEN_ESTADOS_REINGRESO.indexOf(estadoActual);
-            if (idx === -1) idx = 0;
-            idx++;
-            while (idx < ORDEN_ESTADOS_REINGRESO.length - 1) {
-                const etapa = ORDEN_ESTADOS_REINGRESO[idx];
-                if (etapa === "VERIF_SALIDA" && !repositorioTieneVigilancia(registro.localSalida)) { idx++; continue; }
-                if (etapa === "VERIF_INGRESO" && !repositorioTieneVigilancia(registro.local)) { idx++; continue; }
-                break;
-            }
-            return ORDEN_ESTADOS_REINGRESO[idx];
-        }
-
-        // Usuario actual (nombre normalizado), usado por las funciones de vistos buenos.
-        function obtenerNombreUsuarioActual() {
-            return obtenerNombreCanonicoDeUsuario(auth.currentUser);
-        }
-
-        // Indica si el usuario actual tiene ALGUNA verificación pendiente que atender
-        // (para decidir si se le muestra el enlace "Verificación de Reingresos").
-        function usuarioTienePermisoDeVerificacion(nombreUsuario) {
-            const esVigilante = Object.keys(PERMISOS.vigilancia_repositorios).some(repo => puedeVigilarRepositorio(nombreUsuario, repo));
-            return esVigilante || puedeRecepcionarReingreso(nombreUsuario);
-        }
-
-        // NUEVO: un usuario "vigilancia exclusiva" es aquel que SOLO existe para dar vistos
-        // buenos de vigilancia (guardianía) por repositorio — VSOTANO, VSAENZPENA, VPADILLA,
-        // etc. Se detecta de forma EXPLÍCITA (no por descarte) comparando contra la propia
-        // lista de vigilantes autorizados por repositorio (PERMISOS.vigilancia_repositorios),
-        // que es la fuente de verdad de quién es "solo vigilancia". Esto evita que el personal
-        // de archivo (que inicia sesión con su alias, no con su nombre completo) sea
-        // confundido con un vigilante exclusivo solo por tener algún permiso de verificación.
-        // Los vigilantes, además de su bandeja de verificación, pueden CONSULTAR el
-        // historial de reingresos (solo lectura: ver y descargar PDF). No se les da
-        // 'view-reingresos' (creación) — la protección de edición/eliminación en la
-        // vista de consulta se aplica en renderTablaHistorialReingresos().
-        const VISTAS_PERMITIDAS_VIGILANCIA = ['view-verificacion-reingresos', 'view-consultas-reingresos', 'view-perfil'];
-
-        function esUsuarioVigilanciaExclusiva(nombreUsuario) {
-            const u = normalizarTexto(nombreUsuario);
-            if (esUsuarioAdministradorLog(u)) return false;
-            const listaVigilanciaDedicada = Object.values(PERMISOS.vigilancia_repositorios)
-                .flat()
-                .map(n => normalizarTexto(n));
-            return listaVigilanciaDedicada.includes(u);
-        }
 
         function normalizarTexto(texto) {
             if (!texto) return '';
-            return texto.trim().toUpperCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes/diacríticos (Á->A, Ñ->N, etc.)
-                .replace(/\s+/g, ' ');
-        }
-
-        // ===== MAPEO DE ALIAS DE LOGIN -> NOMBRE CANÓNICO A MOSTRAR =====
-        // Varias cuentas inician sesión con un alias corto (ej. "JIZQUIERDO") en vez
-        // de su nombre completo. Este mapa centraliza la resolución para que, en toda
-        // la aplicación (perfil, campos "Entregado por", auditorías, coincidencia con
-        // el "Solicitante" de un reingreso, etc.), se use siempre el mismo nombre
-        // canónico sin importar con qué alias inició sesión la persona.
-        const ALIAS_A_NOMBRE_COMPLETO = {
-            "VSOTANO": "VIGILANCIA SOTANO",
-            "VSAENZPENA": "VIGILANCIA SAENZ PEÑA",
-            "VPADILLA": "VIGILANCIA PADILLA",
-            "IROCHA": "IVÁN ROCHA",
-            "JIZQUIERDO": "JORGE IZQUIERDO",
-            "RDAVILA": "ROBERTO DÁVILA",
-            "JDESPOSORIO": "JORGE DESPOSORIO",
-            "MBARANDIARAN": "MANUEL BARANDIARAN",
-            "ARODRIGUEZ": "RAÚL RODRIGUEZ",
-            "TGABINO": "TEÓFILO GABINO",
-            "LEPIFANIA": "LUIS EPIFANÍA"
-        };
-
-        // Dado un nombre "crudo" (tal cual viene de Firebase, con o sin tildes), lo
-        // resuelve a su nombre canónico si es un alias conocido; si no, lo devuelve
-        // sin cambios (ya es un nombre completo u otro usuario no mapeado).
-        function resolverNombreCanonico(nombreCrudo) {
-            const clave = normalizarTexto(nombreCrudo);
-            return ALIAS_A_NOMBRE_COMPLETO[clave] || nombreCrudo;
-        }
-
-        // Punto único para obtener el nombre canónico de un usuario de Firebase Auth
-        // (objeto currentUser). Reemplaza el patrón repetido de "displayName o email"
-        // agregando además la resolución de alias -> nombre completo.
-        function obtenerNombreCanonicoDeUsuario(userObj) {
-            if (!userObj) return 'DESCONOCIDO';
-            const crudo = userObj.displayName ? userObj.displayName : (userObj.email ? userObj.email.split('@')[0] : '');
-            return resolverNombreCanonico(normalizarTexto(crudo));
-        }
-
-        // Todo usuario que inicia sesión con uno de los alias mapeados en
-        // ALIAS_A_NOMBRE_COMPLETO tiene el cambio de nombre de perfil BLOQUEADO,
-        // para evitar que se desvincule del alias con el que fue dado de alta
-        // (vigilantes VSOTANO/VSAENZPENA/VPADILLA y personal de archivo con alias
-        // corto: IROCHA, JIZQUIERDO, RDAVILA, JDESPOSORIO, MBARANDIARAN,
-        // ARODRIGUEZ, TGABINO, LEPIFANIA).
-        const NOMBRES_CANONICOS_BLOQUEADOS = Object.values(ALIAS_A_NOMBRE_COMPLETO).map(normalizarTexto);
-
-        function usuarioTieneNombreBloqueado(nombreUsuario) {
-            return NOMBRES_CANONICOS_BLOQUEADOS.includes(normalizarTexto(nombreUsuario));
+            return texto.trim().toUpperCase().replace(/\s+/g, ' ');
         }
 
         function esUsuarioAdministradorLog(nombreUsuario) {
@@ -233,104 +62,6 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
         function esUsuarioMicroformasVisualizador(nombreUsuario) {
             const u = normalizarTexto(nombreUsuario);
             return u === "ROBERTO DÁVILA" || u === "ROBERTO DAVILA" || u === "RDAVILA" || u === "JORGE DESPOSORIO" || u === "JDESPOSORIO" || esUsuarioAdministradorLog(u);
-        }
-
-        // ===== CONTROL DE ACCESO A MÓDULOS POR USUARIO =====
-        // Todas las vistas (secciones) que existen en el sistema.
-        const TODAS_LAS_VISTAS = [
-            'view-dashboard', 'view-tarjetas', 'view-consultas-tarjetas', 'view-inventario',
-            'view-consultas', 'view-reingresos', 'view-consultas-reingresos',
-            'view-verificacion-reingresos', 'view-traslados', 'view-consultas-traslados',
-            'view-microformas', 'view-perfil', 'view-configuracion', 'view-auditoria'
-        ];
-
-        // Subconjunto de módulos operativos para el acceso "limitado" (sin Dashboard,
-        // sin Control de Microformas y sin Auditoría de Cambios).
-        const VISTAS_ACCESO_LIMITADO = [
-            'view-tarjetas', 'view-consultas-tarjetas', 'view-inventario', 'view-consultas',
-            'view-reingresos', 'view-consultas-reingresos', 'view-verificacion-reingresos',
-            'view-traslados', 'view-consultas-traslados', 'view-perfil', 'view-configuracion'
-        ];
-
-        // Título por defecto de cada vista, usado para redirigir al iniciar sesión.
-        const TITULOS_VISTAS = {
-            'view-dashboard': 'Dashboard Principal',
-            'view-tarjetas': 'Generador de Tarjetas de Paquetes',
-            'view-consultas-tarjetas': 'Consultar Historial de Tarjetas',
-            'view-inventario': 'Carga de Inventario de Existencias',
-            'view-consultas': 'Consultar Consolidados por Repositorio',
-            'view-reingresos': 'Módulo Reingresos',
-            'view-consultas-reingresos': 'Consultar Historial de Reingresos',
-            'view-verificacion-reingresos': 'Verificación de Reingresos',
-            'view-traslados': 'Módulo Formato de Traslado',
-            'view-consultas-traslados': 'Consultar Historial de Traslados',
-            'view-microformas': 'Control de Producción de Microformas',
-            'view-perfil': 'Mi Perfil de Usuario',
-            'view-configuracion': 'Consola de Configuración',
-            'view-auditoria': 'Historial y Trazabilidad del Sistema'
-        };
-
-        // Roles explícitos de acceso a módulos, según lo definido por la coordinación.
-        const ROLES_ACCESO_MODULOS = {
-            // Acceso total: absolutamente todos los módulos, incluida Auditoría de Cambios.
-            ACCESO_TOTAL: ["ALFREDO CRUZADO", "ACRUZADO"],
-            // Todos los módulos EXCEPTO Auditoría de Cambios.
-            ACCESO_SIN_AUDITORIA: ["ROBERTO DÁVILA", "ROBERTO DAVILA", "RDAVILA", "JORGE DESPOSORIO", "JDESPOSORIO"],
-            // Acceso restringido a un subconjunto operativo de módulos (ver VISTAS_ACCESO_LIMITADO).
-            ACCESO_LIMITADO: [
-                "MANUEL BARANDIARAN", "MBARANDIARAN",
-                "JORGE IZQUIERDO", "JIZQUIERDO",
-                "IVÁN ROCHA", "IVAN ROCHA", "IROCHA",
-                "TEÓFILO GABINO", "TEOFILO GABINO", "TGABINO",
-                "RAÚL RODRIGUEZ", "RAUL RODRIGUEZ", "ARODRIGUEZ"
-            ]
-        };
-
-        // Devuelve la lista de vistas permitidas para un usuario según su rol explícito,
-        // o null si el usuario no tiene un rol explícito asignado (en cuyo caso se aplican
-        // las reglas heredadas basadas en las funciones de permiso individuales).
-        function obtenerVistasPermitidas(nombreUsuario) {
-            const u = normalizarTexto(nombreUsuario);
-
-            // Los usuarios de vigilancia exclusiva sólo ven Verificación de Reingresos
-            // (y su propio Perfil, para poder gestionar su contraseña).
-            if (esUsuarioVigilanciaExclusiva(u)) {
-                return VISTAS_PERMITIDAS_VIGILANCIA;
-            }
-
-            if (ROLES_ACCESO_MODULOS.ACCESO_TOTAL.map(normalizarTexto).includes(u)) {
-                return TODAS_LAS_VISTAS;
-            }
-
-            if (ROLES_ACCESO_MODULOS.ACCESO_SIN_AUDITORIA.map(normalizarTexto).includes(u)) {
-                return TODAS_LAS_VISTAS.filter(v => v !== 'view-auditoria');
-            }
-
-            if (ROLES_ACCESO_MODULOS.ACCESO_LIMITADO.map(normalizarTexto).includes(u)) {
-                return VISTAS_ACCESO_LIMITADO;
-            }
-
-            return null;
-        }
-
-        // Punto único de verificación de acceso a una vista, usado tanto para mostrar/ocultar
-        // el menú lateral como para bloquear la navegación directa (switchView).
-        function usuarioPuedeAccederVista(nombreUsuario, viewId) {
-            const vistasExplicitas = obtenerVistasPermitidas(nombreUsuario);
-            if (vistasExplicitas !== null) {
-                return vistasExplicitas.includes(viewId);
-            }
-            // Reglas heredadas para el resto del personal de archivo (sin rol explícito).
-            switch (viewId) {
-                case 'view-auditoria':
-                    return esUsuarioAdministradorLog(nombreUsuario);
-                case 'view-microformas':
-                    return esUsuarioMicroformasVisualizador(nombreUsuario);
-                case 'view-verificacion-reingresos':
-                    return usuarioTienePermisoDeVerificacion(nombreUsuario);
-                default:
-                    return true;
-            }
         }
 
         function aplicarPermisos(nombreUsuario) {
@@ -354,11 +85,6 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             const menuAuditoria = document.getElementById('menu-link-auditoria');
             if (menuAuditoria) {
                 menuAuditoria.style.display = esAdminLog ? 'flex' : 'none';
-            }
-
-            const menuVerificacion = document.getElementById('menu-link-verificacion-reingresos');
-            if (menuVerificacion) {
-                menuVerificacion.style.display = usuarioTienePermisoDeVerificacion(usuarioLimpio) ? 'flex' : 'none';
             }
 
             const btnImprimirDash = document.getElementById('btn-imprimir-dashboard');
@@ -418,24 +144,6 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
                 btnAgregarRango.disabled = !puedeInventario;
                 btnAgregarRango.style.pointerEvents = puedeInventario ? 'auto' : 'none';
                 btnAgregarRango.classList.toggle('opacity-50', !puedeInventario);
-            }
-
-            // ===== ACCESO A MÓDULOS SEGÚN ROL EXPLÍCITO =====
-            // Si el usuario tiene un rol explícito asignado (vigilancia exclusiva, acceso
-            // total, acceso sin auditoría o acceso limitado), se aplica esa lista de vistas
-            // permitidas al menú lateral, ocultando cualquier otro módulo.
-            const vistasPermitidas = obtenerVistasPermitidas(usuarioLimpio);
-            if (vistasPermitidas !== null) {
-                document.querySelectorAll('#sidebar .nav-link[data-view]').forEach(enlace => {
-                    const vista = enlace.dataset.view;
-                    enlace.style.setProperty('display', vistasPermitidas.includes(vista) ? 'flex' : 'none', 'important');
-                });
-            }
-
-            const esSoloVigilancia = esUsuarioVigilanciaExclusiva(usuarioLimpio);
-            const badgeRolSidebar = document.getElementById('user-display-role');
-            if (badgeRolSidebar && esSoloVigilancia) {
-                badgeRolSidebar.innerText = 'Vigilancia';
             }
         }
 
@@ -550,12 +258,10 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
         function inicializarSelectsReingresos() {
             const sSolicitante = document.getElementById('re-solicitante');
             const sLocal = document.getElementById('re-local');
-            const sLocalSalida = document.getElementById('re-local-salida');
             const fSolicitante = document.getElementById('filtro-re-solicitante');
             const fEntregado = document.getElementById('filtro-re-entregado');
 
             sSolicitante.innerHTML = sLocal.innerHTML = '<option value="">Seleccione...</option>';
-            if (sLocalSalida) sLocalSalida.innerHTML = '<option value="">Seleccione...</option>';
             if (fSolicitante) fSolicitante.innerHTML = '<option value="">Todos</option>';
             if (fEntregado) fEntregado.innerHTML = '<option value="">Todos</option>';
 
@@ -567,10 +273,6 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
             dataMaestra.repositorios.forEach(r => {
                 sLocal.innerHTML += `<option value="${r}">${r}</option>`;
-                if (sLocalSalida) {
-                    const etiquetaVigilancia = repositorioTieneVigilancia(r) ? '' : ' (sin vigilancia)';
-                    sLocalSalida.innerHTML += `<option value="${r}">${r}${etiquetaVigilancia}</option>`;
-                }
             });
         }
 
@@ -599,14 +301,12 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             const fFecha = document.getElementById('re-fecha');
             const fSolicitante = document.getElementById('re-solicitante');
             const fLocal = document.getElementById('re-local');
-            const fLocalSalida = document.getElementById('re-local-salida');
             const tbody = document.querySelector('#tabla-reingresos tbody');
             const btnGuardar = document.getElementById('btn-guardar-reingreso');
 
             if (fFecha) fFecha.valueAsDate = new Date();
             if (fSolicitante) fSolicitante.value = '';
             if (fLocal) fLocal.value = '';
-            if (fLocalSalida) fLocalSalida.value = '';
             if (tbody) tbody.innerHTML = '';
             if (btnGuardar) btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Registro';
         }
@@ -647,28 +347,27 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
         function switchView(viewId, titleText = "Dashboard Principal") {
             cerrarMenuMovil();
-
-            const userTitleGuard = auth.currentUser ? obtenerNombreCanonicoDeUsuario(auth.currentUser) : '';
-            if (esUsuarioVigilanciaExclusiva(userTitleGuard) && !VISTAS_PERMITIDAS_VIGILANCIA.includes(viewId)) {
-                viewId = 'view-verificacion-reingresos';
-                titleText = 'Verificación de Reingresos';
-            }
-
-            if (userTitleGuard && !usuarioPuedeAccederVista(userTitleGuard, viewId)) {
-                Swal.fire('Acceso Denegado', 'No cuenta con autorización para visualizar este módulo.', 'error');
-                return;
-            }
-
+            
             if (viewId === 'view-auditoria') {
+                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
+                if (!esUsuarioAdministradorLog(userTitle)) {
+                    Swal.fire('Acceso Denegado', 'No cuenta con privilegios para ver el log de auditoría.', 'error');
+                    return;
+                }
                 cargarHistorialAuditoriaGlobal();
             }
 
             if (viewId === 'view-microformas') {
+                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
+                if (!esUsuarioMicroformasVisualizador(userTitle)) {
+                    Swal.fire('Acceso Denegado', 'No cuenta con autorización para visualizar este módulo.', 'error');
+                    return;
+                }
                 cargarMicroformasDesdeCloud();
             }
 
             if (viewId === 'view-traslados') {
-                const userTitle = auth.currentUser ? obtenerNombreCanonicoDeUsuario(auth.currentUser) : '';
+                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
                 inicializarSelectsTraslados(userTitle);
             }
 
@@ -682,10 +381,6 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
             if (viewId === 'view-consultas-reingresos') {
                 cargarHistorialReingresos();
-            }
-
-            if (viewId === 'view-verificacion-reingresos') {
-                window.cargarBandejaVerificacionReingresos();
             }
 
             if (viewId === 'view-consultas-traslados') {
@@ -711,12 +406,12 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             }
         });
 
-        onAuthStateChanged(auth, async (user) => {
+        onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
                 
-                const userTitle = obtenerNombreCanonicoDeUsuario(user);
+                const userTitle = normalizarTexto(user.displayName ? user.displayName : user.email.split('@')[0]);
                 document.getElementById('user-display-name').innerText = userTitle;
                 document.getElementById('user-display-role').innerText = listaPersonalRoles[userTitle] || "Personal de Archivo";
                 document.getElementById('inv-registra').value = userTitle;
@@ -734,49 +429,40 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
                 if (campoEntregadoTr) campoEntregadoTr.value = userTitle;
 
                 document.getElementById('perf-email').value = user.email || '';
-                document.getElementById('perf-nombre').value = userTitle;
+                document.getElementById('perf-nombre').value = user.displayName || '';
                 const formClave = document.getElementById('form-perfil-clave');
                 if (formClave) formClave.reset();
 
-                // Restringe el cambio de nombre para los usuarios cuyo alias de login
-                // está mapeado a un nombre canónico (vigilantes VSOTANO/VSAENZPENA/
-                // VPADILLA y personal de archivo IROCHA/JIZQUIERDO/RDAVILA/JDESPOSORIO/
-                // MBARANDIARAN/ARODRIGUEZ/TGABINO/LEPIFANIA): el campo queda bloqueado.
-                const campoPerfNombre = document.getElementById('perf-nombre');
-                const btnPerfDatos = document.querySelector('#form-perfil-datos button[type="submit"]');
-                if (campoPerfNombre) {
-                    const nombreBloqueado = usuarioTieneNombreBloqueado(userTitle);
-                    campoPerfNombre.disabled = nombreBloqueado;
-                    campoPerfNombre.readOnly = nombreBloqueado;
-                    if (btnPerfDatos) btnPerfDatos.disabled = nombreBloqueado;
-                }
-
                 cargarDataMaestra(userTitle);
                 aplicarPermisos(userTitle);
-                sincronizarUsuarioEnFirestore(user, userTitle);
-                registrarInicioSesionEnCloud(user, userTitle);
                 inicializarSelectsReingresos();
                 inicializarSelectsTraslados(userTitle);
                 resetFormularioReingreso();
                 resetFormularioTraslado();
-                
-                await cargarInventariosDesdeCloud().catch(err => console.error(err));
-                await cargarHistorialReingresosParaDashboard().catch(err => console.error(err));
-                if (usuarioTienePermisoDeVerificacion(userTitle)) {
-                    await window.cargarBandejaVerificacionReingresos().catch(err => console.error(err));
-                }
-                if (esUsuarioVigilanciaExclusiva(userTitle)) {
-                    switchView('view-verificacion-reingresos', 'Verificación de Reingresos');
-                } else {
-                    const vistasPermitidasInicio = obtenerVistasPermitidas(userTitle);
-                    if (vistasPermitidasInicio && !vistasPermitidasInicio.includes('view-dashboard')) {
-                        const primeraVista = vistasPermitidasInicio[0];
-                        switchView(primeraVista, TITULOS_VISTAS[primeraVista] || '');
-                    }
-                }
-                await cargarHistorialTrasladosParaDashboard().catch(err => console.error(err));
-                await cargarMicroformasDesdeCloud().catch(err => console.error(err));
-                await cargarHistorialTarjetas().catch(err => console.error(err));
+
+                // Las operaciones de auditoría no deben bloquear la finalización
+                // del callback de autenticación ni la carga del documento.
+                setTimeout(() => {
+                    sincronizarUsuarioEnFirestore(user, userTitle).catch(err => console.error(err));
+                    registrarInicioSesionEnCloud(user, userTitle).catch(err => console.error(err));
+                }, 0);
+
+                // Cargar los módulos en paralelo y fuera del callback de autenticación.
+                // Así la pestaña no queda esperando a que terminen las consultas.
+                setTimeout(() => {
+                    Promise.allSettled([
+                        cargarInventariosDesdeCloud(),
+                        cargarHistorialReingresosParaDashboard(),
+                        cargarHistorialTrasladosParaDashboard(),
+                        cargarMicroformasDesdeCloud(),
+                        cargarHistorialTarjetas()
+                    ]).then(resultados => {
+                        const errores = resultados.filter(r => r.status === 'rejected');
+                        if (errores.length) {
+                            console.error('SAAMIR: algunas cargas iniciales no pudieron completarse:', errores);
+                        }
+                    });
+                }, 0);
             } else {
                 document.getElementById('app-container').style.display = 'none';
                 document.getElementById('login-container').style.display = 'flex';
@@ -793,13 +479,6 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             const user = auth.currentUser;
             const nuevoNombre = normalizarTexto(document.getElementById('perf-nombre').value);
             if (!user) return;
-
-            const nombreActual = obtenerNombreCanonicoDeUsuario(user);
-            if (usuarioTieneNombreBloqueado(nombreActual)) {
-                Swal.fire('Acción no permitida', 'Este usuario no tiene permitido cambiar su nombre.', 'warning');
-                return;
-            }
-
             try {
                 await updateProfile(user, { displayName: nuevoNombre });
                 document.getElementById('user-display-name').innerText = nuevoNombre;
@@ -1009,7 +688,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
         window.guardarMicroforma = async function() {
             const currentUserObj = auth.currentUser;
-            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
+            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
             if (!puedeEditarMicroformas(currentUserName)) {
                 Swal.fire('Acceso denegado', 'No cuenta con autorización para registrar o modificar bloques de microformas.', 'error');
@@ -1119,7 +798,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             let sumaExpedientes = 0;
 
             const currentUserObj = auth.currentUser;
-            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
+            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : '';
             const esEditor = puedeEditarMicroformas(currentUserName);
 
             registrosPaginados.forEach(item => {
@@ -1204,7 +883,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
         window.eliminarMicroforma = async function(id) {
             const currentUserObj = auth.currentUser;
-            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
+            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
             if (!puedeEditarMicroformas(currentUserName)) {
                 Swal.fire('Acceso denegado', 'No cuenta con autorización para eliminar bloques de microformas.', 'error');
@@ -1449,7 +1128,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             }
 
             const currentUserObj = auth.currentUser;
-            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
+            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
             const consolidadoLote = {
                 repositorio: document.getElementById('inv-repositorio').value,
@@ -1650,7 +1329,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     const currentUserObj = auth.currentUser;
-                    const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
+                    const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
                     await updateDoc(doc(db, "censo_institucional", id), {
                         activo: false,
@@ -1997,34 +1676,17 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
                 return;
             }
 
-            const localSalida = document.getElementById('re-local-salida')?.value || '';
-            const localDestino = document.getElementById('re-local').value;
-
-            if (!localSalida) {
-                Swal.fire('Atención', 'Seleccione el Local de Salida antes de guardar.', 'warning');
-                return;
-            }
-
             try {
                 const currentUserObj = auth.currentUser;
-                const currentUserName = obtenerNombreUsuarioActual();
+                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
                 if (idReingresoEnEdicion) {
-                    const registroPrevio = baseDatosReingresos.find(r => r.id === idReingresoEnEdicion);
-
-                    // Al editar (normalmente porque fue observado/devuelto), el registro
-                    // vuelve a iniciar el flujo de aprobación desde cero con los datos corregidos.
                     const datosActualizados = {
                         fecha: document.getElementById('re-fecha').value,
                         solicitante: document.getElementById('re-solicitante').value,
-                        local: localDestino,
-                        localSalida,
+                        local: document.getElementById('re-local').value,
                         entregado: document.getElementById('re-entregado').value,
                         expedientes,
-                        estado: calcularSiguienteEstadoReingreso({ localSalida, local: localDestino }, "GENERADO"),
-                        auditoriaVigilanciaSalida: null,
-                        auditoriaVigilanciaIngreso: null,
-                        auditoriaRecepcion: null,
                         auditoriaEdicion: {
                             uid: currentUserObj?.uid || null,
                             nombre: currentUserName,
@@ -2033,30 +1695,18 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
                     };
 
                     await updateDoc(doc(db, "reingresos", idReingresoEnEdicion), datosActualizados);
-                    Swal.fire({ icon: 'success', title: 'Reingreso Actualizado', text: 'Los cambios se guardaron y el flujo de verificación se reinició.' });
+                    Swal.fire({ icon: 'success', title: 'Reingreso Actualizado', text: 'Los cambios se guardaron correctamente.' });
                 } else {
                     const correlativo = await obtenerSiguienteCorrelativoReingreso();
                     const datos = {
                         correlativo,
                         fecha: document.getElementById('re-fecha').value,
                         solicitante: document.getElementById('re-solicitante').value,
-                        local: localDestino,
-                        localSalida,
+                        local: document.getElementById('re-local').value,
                         entregado: document.getElementById('re-entregado').value,
                         expedientes,
                         createdAt: Date.now(),
                         activo: true,
-                        estado: calcularSiguienteEstadoReingreso({ localSalida, local: localDestino }, "GENERADO"),
-                        auditoriaGeneracion: {
-                            uid: currentUserObj?.uid || null,
-                            nombre: currentUserName,
-                            timestamp: Date.now()
-                        },
-                        auditoriaVigilanciaSalida: null,
-                        auditoriaVigilanciaIngreso: null,
-                        auditoriaRecepcion: null,
-                        historialObservaciones: [],
-                        // Se mantiene por compatibilidad con reportes/lógica anterior
                         auditoria: {
                             uid: currentUserObj?.uid || null,
                             nombre: currentUserName,
@@ -2065,7 +1715,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
                     };
 
                     await addDoc(collection(db, "reingresos"), datos);
-                    Swal.fire({ icon: 'success', title: 'Registro guardado con éxito', text: 'Estado actual: ' + ETIQUETAS_ESTADO_REINGRESO[datos.estado].texto + '.' });
+                    Swal.fire({ icon: 'success', title: 'Registro guardado con éxito' });
                 }
 
                 resetFormularioReingreso();
@@ -2109,7 +1759,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
             try {
                 const currentUserObj = auth.currentUser;
-                const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
+                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
                 if (idTrasladoEnEdicion) {
                     const datosActualizados = {
@@ -2156,25 +1806,13 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
         };
 
         window.editarReingreso = function(id) {
-            if (!puedeEditarEliminarReingresoGuardado(obtenerNombreUsuarioActual())) {
-                Swal.fire('Acceso de solo consulta', 'Tu usuario no tiene permiso para editar reingresos ya guardados.', 'info');
-                return;
-            }
-
             const registro = baseDatosReingresos.find(r => r.id === id);
             if (!registro) return;
-
-            if (registro.estado && registro.estado !== 'GENERADO') {
-                Swal.fire('No editable', 'Este reingreso ya está en verificación y no puede editarse mientras no sea observado/devuelto.', 'info');
-                return;
-            }
 
             idReingresoEnEdicion = id;
             document.getElementById('re-fecha').value = registro.fecha || '';
             document.getElementById('re-solicitante').value = registro.solicitante || '';
             document.getElementById('re-local').value = registro.local || '';
-            const campoLocalSalidaEdit = document.getElementById('re-local-salida');
-            if (campoLocalSalidaEdit) campoLocalSalidaEdit.value = registro.localSalida || '';
             document.getElementById('re-entregado').value = registro.entregado || '';
 
             const tbody = document.querySelector('#tabla-reingresos tbody');
@@ -2252,11 +1890,6 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
         }
 
         window.eliminarReingreso = async function(id) {
-            if (!puedeEditarEliminarReingresoGuardado(obtenerNombreUsuarioActual())) {
-                Swal.fire('Acceso de solo consulta', 'Tu usuario no tiene permiso para eliminar reingresos ya guardados.', 'info');
-                return;
-            }
-
             const registro = baseDatosReingresos.find(r => r.id === id);
             const confirmacion = await Swal.fire({
                 icon: 'warning',
@@ -2270,7 +1903,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
             try {
                 const currentUserObj = auth.currentUser;
-                const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
+                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
                 await updateDoc(doc(db, "reingresos", id), {
                     activo: false,
@@ -2301,7 +1934,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
             try {
                 const currentUserObj = auth.currentUser;
-                const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
+                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
                 await updateDoc(doc(db, "traslados", id), {
                     activo: false,
@@ -2352,17 +1985,15 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             const fSolicitante = document.getElementById('filtro-re-solicitante')?.value || '';
             const fEntregado = document.getElementById('filtro-re-entregado')?.value || '';
             const fFecha = document.getElementById('filtro-re-fecha')?.value || '';
-            const fEstado = document.getElementById('filtro-re-estado')?.value || '';
             const fTexto = (document.getElementById('busqueda-reingresos')?.value || '').toLowerCase().trim();
 
             const filtrados = baseDatosReingresos.filter(r => {
                 const mSolicitante = fSolicitante === '' || r.solicitante === fSolicitante;
                 const mEntregado = fEntregado === '' || r.entregado === fEntregado;
                 const mFecha = fFecha === '' || r.fecha === fFecha;
-                const mEstado = fEstado === '' || (r.estado || 'GENERADO') === fEstado;
-                const mTexto = fTexto === '' || (r.local || '').toLowerCase().includes(fTexto) || (r.localSalida || '').toLowerCase().includes(fTexto) ||
+                const mTexto = fTexto === '' || (r.local || '').toLowerCase().includes(fTexto) ||
                     (r.expedientes || []).some(e => (e.paquete || '').toLowerCase().includes(fTexto) || (e.exp || '').toLowerCase().includes(fTexto));
-                return mSolicitante && mEntregado && mFecha && mEstado && mTexto;
+                return mSolicitante && mEntregado && mFecha && mTexto;
             });
 
             renderTablaHistorialReingresos(filtrados);
@@ -2389,25 +2020,18 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             if(!tbody) return;
             tbody.innerHTML = '';
             if (registros.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">Sin reingresos registrados.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Sin reingresos registrados.</td></tr>`;
                 return;
             }
-
-            // Solo quienes tienen permiso explícito (Alfredo Cruzado, Jorge Izquierdo,
-            // Manuel Barandiaran) ven Editar/Eliminar. Todos los demás (resto de
-            // personal de archivo y vigilantes) están en modo SOLO CONSULTA: ver y
-            // descargar el PDF de cada reingreso.
-            const soloLectura = !puedeEditarEliminarReingresoGuardado(obtenerNombreUsuarioActual());
-
             registros.forEach(data => {
-                const estado = data.estado || 'GENERADO';
-                const etiqueta = ETIQUETAS_ESTADO_REINGRESO[estado] || ETIQUETAS_ESTADO_REINGRESO.GENERADO;
-                const badgeEstado = `<span class="badge bg-${etiqueta.clase}"><i class="bi ${etiqueta.icono} me-1"></i>${etiqueta.texto}</span>`;
-                const botonesAccion = soloLectura
-                    ? `<button class="btn btn-sm btn-danger py-1 px-2" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver / Descargar PDF">
-                            <i class="bi bi-file-pdf"></i>
-                        </button>`
-                    : `<button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF">
+                const fila = `<tr>
+                    <td>${data.fecha || 'N/A'}</td>
+                    <td>${data.solicitante || 'N/A'}</td>
+                    <td>${data.local || 'N/A'}</td>
+                    <td>${data.entregado || 'N/A'}</td>
+                    <td>${data.expedientes ? data.expedientes.length : 0}</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF">
                             <i class="bi bi-file-pdf"></i>
                         </button>
                         <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarReingreso('${data.id}')" title="Editar Registro">
@@ -2415,15 +2039,8 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
                         </button>
                         <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarReingreso('${data.id}')" title="Eliminar Registro">
                             <i class="bi bi-trash"></i>
-                        </button>`;
-                const fila = `<tr>
-                    <td>${data.fecha || 'N/A'}</td>
-                    <td>${resolverNombreCanonico(data.solicitante) || 'N/A'}</td>
-                    <td>${data.local || 'N/A'}</td>
-                    <td>${resolverNombreCanonico(data.entregado) || 'N/A'}</td>
-                    <td>${data.expedientes ? data.expedientes.length : 0}</td>
-                    <td>${badgeEstado}</td>
-                    <td class="text-end">${botonesAccion}</td>
+                        </button>
+                    </td>
                 </tr>`;
                 tbody.insertAdjacentHTML('beforeend', fila);
             });
@@ -2441,7 +2058,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
                 const totalPaqSuma = (data.paquetes || []).reduce((acc, p) => acc + (parseInt(p.cantidad, 10) || 1), 0);
                 const fila = `<tr>
                     <td>${data.fecha || 'N/A'}</td>
-                    <td>${resolverNombreCanonico(data.entregado) || 'N/A'}</td>
+                    <td>${data.entregado || 'N/A'}</td>
                     <td>${totalPaqSuma}</td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFTrasladoDesdeRegistro('${data.id}')" title="Ver PDF">
@@ -2459,184 +2076,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             });
         }
 
-        // ===== BANDEJA DE VERIFICACIÓN DE REINGRESOS (Vigilancia Salida / Ingreso / Recepción) =====
-        window.cargarBandejaVerificacionReingresos = async function() {
-            try {
-                const querySnapshot = await getDocs(collection(db, "reingresos"));
-                baseDatosReingresos = [];
-                querySnapshot.forEach((doc) => {
-                    const data = { id: doc.id, ...doc.data() };
-                    if (data.activo !== false) baseDatosReingresos.push(data);
-                });
-                baseDatosReingresos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-                const nombreActual = obtenerNombreUsuarioActual();
-                const pendientes = baseDatosReingresos.filter(r => {
-                    const estado = r.estado || 'GENERADO';
-                    if (estado === 'VERIF_SALIDA') return puedeVigilarRepositorio(nombreActual, r.localSalida);
-                    if (estado === 'VERIF_INGRESO') return puedeVigilarRepositorio(nombreActual, r.local);
-                    if (estado === 'RECEPCION') return puedeRecepcionarRegistro(nombreActual, r);
-                    return false;
-                });
-
-                renderBandejaVerificacionReingresos(pendientes);
-            } catch (error) {
-                console.error(error);
-            }
-        };
-
-        function renderBandejaVerificacionReingresos(registros) {
-            const tbody = document.getElementById('tabla-bandeja-verificacion-reingresos');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            if (registros.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-check2-circle me-1"></i>No tienes reingresos pendientes de verificación.</td></tr>`;
-                return;
-            }
-            registros.forEach(data => {
-                const estado = data.estado || 'GENERADO';
-                const etiqueta = ETIQUETAS_ESTADO_REINGRESO[estado] || ETIQUETAS_ESTADO_REINGRESO.GENERADO;
-                const fila = `<tr>
-                    <td>${String(data.correlativo ?? '-').toString().padStart(3, '0')}</td>
-                    <td>${data.fecha || 'N/A'}</td>
-                    <td>${data.localSalida || 'N/A'}</td>
-                    <td>${data.local || 'N/A'}</td>
-                    <td>${data.expedientes ? data.expedientes.length : 0}</td>
-                    <td><span class="badge bg-${etiqueta.clase}"><i class="bi ${etiqueta.icono} me-1"></i>${etiqueta.texto}</span></td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-success py-1 px-2 me-1" onclick="window.darVistoBuenoReingreso('${data.id}')" title="Dar Visto Bueno">
-                            <i class="bi bi-check-lg"></i> Visto Bueno
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger py-1 px-2 me-1" onclick="window.observarReingreso('${data.id}')" title="Observar">
-                            <i class="bi bi-x-lg"></i> Observar
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF">
-                            <i class="bi bi-file-pdf"></i>
-                        </button>
-                    </td>
-                </tr>`;
-                tbody.insertAdjacentHTML('beforeend', fila);
-            });
-        }
-
-        window.darVistoBuenoReingreso = async function(id) {
-            const registro = baseDatosReingresos.find(r => r.id === id);
-            if (!registro) return;
-
-            const estadoActual = registro.estado || 'GENERADO';
-            const currentUserObj = auth.currentUser;
-            const currentUserName = obtenerNombreUsuarioActual();
-
-            let campoAuditoria = null;
-            let autorizado = false;
-
-            if (estadoActual === 'VERIF_SALIDA') {
-                campoAuditoria = 'auditoriaVigilanciaSalida';
-                autorizado = puedeVigilarRepositorio(currentUserName, registro.localSalida);
-            } else if (estadoActual === 'VERIF_INGRESO') {
-                campoAuditoria = 'auditoriaVigilanciaIngreso';
-                autorizado = puedeVigilarRepositorio(currentUserName, registro.local);
-            } else if (estadoActual === 'RECEPCION') {
-                campoAuditoria = 'auditoriaRecepcion';
-                autorizado = puedeRecepcionarRegistro(currentUserName, registro);
-            }
-
-            if (!campoAuditoria) {
-                Swal.fire('Atención', 'Este reingreso no tiene una verificación pendiente en este momento.', 'info');
-                return;
-            }
-            if (!autorizado) {
-                Swal.fire('Sin permiso', 'Tu usuario no está autorizado para dar el visto bueno en esta etapa.', 'error');
-                return;
-            }
-
-            const { value: observaciones, isConfirmed } = await Swal.fire({
-                title: 'Confirmar Visto Bueno',
-                text: `Reingreso N° ${String(registro.correlativo ?? '-').toString().padStart(3, '0')} — ${ETIQUETAS_ESTADO_REINGRESO[estadoActual].texto}`,
-                input: 'textarea',
-                inputLabel: 'Observaciones (opcional)',
-                inputPlaceholder: 'Ej: conforme, sin novedad...',
-                showCancelButton: true,
-                confirmButtonText: 'Dar Visto Bueno',
-                confirmButtonColor: '#198754'
-            });
-            if (!isConfirmed) return;
-
-            const siguienteEstado = calcularSiguienteEstadoReingreso(registro, estadoActual);
-
-            try {
-                await updateDoc(doc(db, "reingresos", id), {
-                    estado: siguienteEstado,
-                    [campoAuditoria]: {
-                        uid: currentUserObj?.uid || null,
-                        nombre: currentUserName,
-                        timestamp: Date.now(),
-                        observaciones: observaciones || ''
-                    }
-                });
-                Swal.fire({ icon: 'success', title: 'Visto bueno registrado', text: 'Nuevo estado: ' + ETIQUETAS_ESTADO_REINGRESO[siguienteEstado].texto, timer: 2000, showConfirmButton: false });
-                await window.cargarBandejaVerificacionReingresos();
-                await cargarHistorialReingresosParaDashboard();
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            }
-        };
-
-        window.observarReingreso = async function(id) {
-            const registro = baseDatosReingresos.find(r => r.id === id);
-            if (!registro) return;
-
-            const estadoActual = registro.estado || 'GENERADO';
-            const currentUserName = obtenerNombreUsuarioActual();
-
-            let autorizado = false;
-            if (estadoActual === 'VERIF_SALIDA') autorizado = puedeVigilarRepositorio(currentUserName, registro.localSalida);
-            else if (estadoActual === 'VERIF_INGRESO') autorizado = puedeVigilarRepositorio(currentUserName, registro.local);
-            else if (estadoActual === 'RECEPCION') autorizado = puedeRecepcionarRegistro(currentUserName, registro);
-
-            if (!autorizado) {
-                Swal.fire('Sin permiso', 'Tu usuario no está autorizado para observar en esta etapa.', 'error');
-                return;
-            }
-
-            const { value: motivo } = await Swal.fire({
-                title: '¿Observar este reingreso?',
-                text: 'El registro volverá a estado "Generado" para que el solicitante corrija los datos. Se perderán los vistos buenos previos.',
-                input: 'textarea',
-                inputLabel: 'Motivo de la observación',
-                inputPlaceholder: 'Describe el problema encontrado...',
-                inputValidator: (v) => !v ? 'Debes indicar el motivo' : undefined,
-                showCancelButton: true,
-                confirmButtonText: 'Observar',
-                confirmButtonColor: '#dc3545'
-            });
-            if (!motivo) return;
-
-            try {
-                const historialPrevio = Array.isArray(registro.historialObservaciones) ? registro.historialObservaciones : [];
-                const nuevoHistorial = historialPrevio.concat([{
-                    etapa: estadoActual,
-                    nombre: currentUserName,
-                    motivo,
-                    timestamp: Date.now()
-                }]);
-
-                await updateDoc(doc(db, "reingresos", id), {
-                    estado: "GENERADO",
-                    auditoriaVigilanciaSalida: null,
-                    auditoriaVigilanciaIngreso: null,
-                    auditoriaRecepcion: null,
-                    historialObservaciones: nuevoHistorial
-                });
-                Swal.fire({ icon: 'info', title: 'Reingreso observado', text: 'Se devolvió al solicitante para corrección.' });
-                await window.cargarBandejaVerificacionReingresos();
-                await cargarHistorialReingresosParaDashboard();
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            }
-        };
-
-        async function construirPDFReingreso({ correlativo, fecha, solicitante, local, localSalida, entregado, expedientes, estado, auditoriaGeneracion, auditoriaVigilanciaSalida, auditoriaVigilanciaIngreso, auditoriaRecepcion }) {
+        async function construirPDFReingreso({ correlativo, fecha, solicitante, local, entregado, expedientes }) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
@@ -2658,11 +2098,9 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             doc.setFont("Inter", "bold"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
             doc.text(`Correlativo (ID): ${String(correlativo).padStart(3, '0')}`, 15, 34);
             doc.text(`Fecha: ${fecha}`, pageWidth - 15, 34, { align: "right" });
-            doc.text(`Solicitante: ${resolverNombreCanonico(solicitante)}`, 15, 40);
-            doc.text(`Estado: ${(ETIQUETAS_ESTADO_REINGRESO[estado || 'GENERADO'] || ETIQUETAS_ESTADO_REINGRESO.GENERADO).texto}`, pageWidth - 15, 40, { align: "right" });
-            doc.text(`Local de Salida: ${localSalida || 'N/A'}`, 15, 46);
-            doc.text(`Local de Reingreso: ${local}`, pageWidth - 15, 46, { align: "right" });
-            doc.text(`Entregado por: ${resolverNombreCanonico(entregado)}`, 15, 52);
+            doc.text(`Solicitante: ${solicitante}`, 15, 40);
+            doc.text(`Local de Reingreso: ${local}`, pageWidth - 15, 40, { align: "right" });
+            doc.text(`Entregado por: ${entregado}`, 15, 46);
 
             let totalTransitorio = 0;
             let totalDefinitivo = 0;
@@ -2686,7 +2124,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             });
 
             doc.autoTable({
-                startY: 56,
+                startY: 50,
                 margin: { left: 15, right: 15 },
                 theme: 'grid',
                 head: [['N°', 'N° Paquete', 'N° Expediente', 'Folios', 'Juzgado', 'Tipo', 'Acompañados', 'Repositorio']],
@@ -2705,67 +2143,17 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             currentY += 5;
             doc.text(`Total Acompañados: ${totalAcompanados}`, 15, currentY);
 
-            // ===== BLOQUE DE FIRMAS / VISTOS BUENOS DEL FLUJO DE APROBACIÓN =====
-            // 1) Generó  2) Vigilancia Salida  3) Vigilancia Ingreso  4) Recepción
             currentY += 20;
-            if (currentY > 235) { doc.addPage(); currentY = 30; }
-
-            const formatearVB = (auditoriaObj) => {
-                if (!auditoriaObj || !auditoriaObj.nombre) return { nombre: 'PENDIENTE', fecha: '' };
-                const f = auditoriaObj.timestamp ? new Date(auditoriaObj.timestamp).toLocaleDateString('es-PE') : '';
-                // Se resuelve el alias a su nombre canónico al momento de MOSTRARLO,
-                // para que registros antiguos guardados con el alias crudo (ej. "VSAENZPENA")
-                // también se vean con el nombre completo (ej. "VIGILANCIA SAENZ PEÑA").
-                return { nombre: resolverNombreCanonico(auditoriaObj.nombre), fecha: f };
-            };
-
-            // El V°B° de esta columna corresponde a quien REMITE/ENTREGA físicamente el
-            // paquete (campo "entregado"), no a quien lo solicitó ni necesariamente a
-            // quien digitó el registro en el sistema. Se usa siempre el campo "entregado"
-            // como fuente de verdad; auditoriaGeneracion solo aporta la fecha si falta.
-            const vbGeneracion = formatearVB(auditoriaGeneracion);
-            vbGeneracion.nombre = resolverNombreCanonico(entregado) || resolverNombreCanonico(auditoriaGeneracion?.nombre) || 'N/A';
-
-            const vbSalidaAplica = repositorioTieneVigilancia(localSalida);
-            const vbIngresoAplica = repositorioTieneVigilancia(local);
-            const vbSalida = vbSalidaAplica ? formatearVB(auditoriaVigilanciaSalida) : { nombre: 'SIN VIGILANCIA ASIGNADA', fecha: '' };
-            const vbIngreso = vbIngresoAplica ? formatearVB(auditoriaVigilanciaIngreso) : { nombre: 'SIN VIGILANCIA ASIGNADA', fecha: '' };
-            const vbRecepcion = formatearVB(auditoriaRecepcion);
-
-            const columnasFirma = [
-                { titulo: '1. Remitió / Entregó', dato: vbGeneracion, x: 15 },
-                { titulo: '2. Vigilancia Salida', dato: vbSalida, x: 15 + (pageWidth - 30) / 4 },
-                { titulo: '3. Vigilancia Ingreso', dato: vbIngreso, x: 15 + 2 * (pageWidth - 30) / 4 },
-                { titulo: '4. Recepción', dato: vbRecepcion, x: 15 + 3 * (pageWidth - 30) / 4 }
-            ];
-            const anchoCol = (pageWidth - 30) / 4 - 6;
-
-            // Leyenda "V°B°" sobre la línea de cada columna (en lugar de "Firma"),
-            // acorde con el flujo de aprobación digital por etapas del sistema.
-            doc.setFont("Inter", "bold"); doc.setFontSize(7); doc.setTextColor(90, 90, 90);
-            columnasFirma.forEach(col => {
-                doc.text('V°B°', col.x + anchoCol / 2, currentY - 2, { align: "center" });
-            });
-            doc.setTextColor(0, 0, 0);
+            if (currentY > 255) { doc.addPage(); currentY = 30; }
 
             doc.setLineWidth(0.3);
-            columnasFirma.forEach(col => {
-                doc.line(col.x, currentY, col.x + anchoCol, currentY);
-            });
+            doc.line(35, currentY, 95, currentY);
+            doc.line(115, currentY, 175, currentY);
 
-            let yFirma = currentY + 4;
-            doc.setFont("Inter", "bold"); doc.setFontSize(7);
-            columnasFirma.forEach(col => {
-                doc.text(col.dato.nombre.toUpperCase(), col.x + anchoCol / 2, yFirma, { align: "center", maxWidth: anchoCol });
-            });
-
-            yFirma += 8;
-            doc.setFont("Inter", "normal"); doc.setFontSize(6.5); doc.setTextColor(90, 90, 90);
-            columnasFirma.forEach(col => {
-                doc.text(col.titulo, col.x + anchoCol / 2, yFirma, { align: "center" });
-                if (col.dato.fecha) doc.text(col.dato.fecha, col.x + anchoCol / 2, yFirma + 3.5, { align: "center" });
-            });
-            doc.setTextColor(0, 0, 0);
+            currentY += 4;
+            doc.setFont("Inter", "bold"); doc.setFontSize(8);
+            doc.text(`Entregado por: ${entregado}`, 65, currentY, { align: "center" });
+            doc.text(`Recibido por: ${solicitante}`, 145, currentY, { align: "center" });
 
             const blobUrl = doc.output('bloburl');
             mostrarModalPreviewPDF(blobUrl, `REINGRESOS_${String(correlativo).padStart(3, '0')}_${fecha}.pdf`);
@@ -2793,8 +2181,8 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             doc.setFont("Inter", "bold"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
             doc.text(`Correlativo (ID): ${String(correlativo).padStart(3, '0')}`, 15, 34);
             doc.text(`Fecha: ${fecha}`, pageWidth - 15, 34, { align: "right" });
-            doc.text(`Entregado por: ${resolverNombreCanonico(entregado)}`, 15, 40);
-            doc.text(`Recibido por: ${resolverNombreCanonico(recibe) || 'N/A'}`, pageWidth - 15, 40, { align: "right" });
+            doc.text(`Entregado por: ${entregado}`, 15, 40);
+            doc.text(`Recibido por: ${recibe || 'N/A'}`, pageWidth - 15, 40, { align: "right" });
 
             let sumaTotalPaq = 0;
             const filasTabla = paquetes.map((e, idx) => {
@@ -2836,8 +2224,8 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
             currentY += 4;
             doc.setFont("Inter", "bold"); doc.setFontSize(8);
-            doc.text(`Entregado por: ${resolverNombreCanonico(entregado)}`, 65, currentY, { align: "center" });
-            doc.text(`Recibido por: ${resolverNombreCanonico(recibe) || 'N/A'}`, 145, currentY, { align: "center" });
+            doc.text(`Entregado por: ${entregado}`, 65, currentY, { align: "center" });
+            doc.text(`Recibido por: ${recibe || 'N/A'}`, 145, currentY, { align: "center" });
 
             const blobUrl = doc.output('bloburl');
             mostrarModalPreviewPDF(blobUrl, `TRASLADO_${String(correlativo).padStart(3, '0')}_${fecha}.pdf`);
@@ -2854,21 +2242,13 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
                 return;
             }
 
-            const registroEnEdicionActual = idReingresoEnEdicion ? baseDatosReingresos.find(r => r.id === idReingresoEnEdicion) : null;
-
             await construirPDFReingreso({
-                correlativo: registroEnEdicionActual ? registroEnEdicionActual.correlativo : await obtenerSiguienteCorrelativoReingreso(),
+                correlativo: idReingresoEnEdicion ? baseDatosReingresos.find(r => r.id === idReingresoEnEdicion)?.correlativo : await obtenerSiguienteCorrelativoReingreso(),
                 fecha: document.getElementById('re-fecha').value,
                 solicitante: document.getElementById('re-solicitante').value,
                 local: document.getElementById('re-local').value,
-                localSalida: document.getElementById('re-local-salida')?.value || '',
                 entregado: document.getElementById('re-entregado').value,
-                expedientes,
-                estado: registroEnEdicionActual ? registroEnEdicionActual.estado : 'GENERADO',
-                auditoriaGeneracion: registroEnEdicionActual ? registroEnEdicionActual.auditoriaGeneracion : null,
-                auditoriaVigilanciaSalida: registroEnEdicionActual ? registroEnEdicionActual.auditoriaVigilanciaSalida : null,
-                auditoriaVigilanciaIngreso: registroEnEdicionActual ? registroEnEdicionActual.auditoriaVigilanciaIngreso : null,
-                auditoriaRecepcion: registroEnEdicionActual ? registroEnEdicionActual.auditoriaRecepcion : null
+                expedientes
             });
         };
 
@@ -2917,14 +2297,8 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
                 fecha: registro.fecha,
                 solicitante: registro.solicitante,
                 local: registro.local,
-                localSalida: registro.localSalida || '',
                 entregado: registro.entregado,
-                expedientes: registro.expedientes || [],
-                estado: registro.estado || 'GENERADO',
-                auditoriaGeneracion: registro.auditoriaGeneracion,
-                auditoriaVigilanciaSalida: registro.auditoriaVigilanciaSalida,
-                auditoriaVigilanciaIngreso: registro.auditoriaVigilanciaIngreso,
-                auditoriaRecepcion: registro.auditoriaRecepcion
+                expedientes: registro.expedientes || []
             });
         };
 
@@ -3360,7 +2734,7 @@ const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
             }
 
             const currentUserObj = auth.currentUser;
-            const currentUserName = obtenerNombreCanonicoDeUsuario(currentUserObj);
+            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
             const tarjetaLote = {
                 anioIngreso,
