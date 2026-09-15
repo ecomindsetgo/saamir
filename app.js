@@ -2735,9 +2735,20 @@
             const FUENTE = 'helvetica';
 
             const [logoArchivo, logoPJ] = await Promise.all([
-                obtenerImagenBase64('https://ecomindsetgo.github.io/saamir/LOGO_PJ-AD.png'),
-                obtenerImagenBase64('https://ecomindsetgo.github.io/saamir/LOGO_PJ.jpg')
+                obtenerImagenBase64('LOGO_PJ-AD.png'),
+                obtenerImagenBase64('LOGO_PJ.jpg')
             ]);
+
+            // Formatea la fecha ISO (yyyy-mm-dd) que llega del <input type="date">
+            // o que quedó guardada en la base de datos, al formato solicitado DD-MM-AA.
+            const formatearFechaDDMMAA = (fechaISO) => {
+                if (!fechaISO) return '';
+                const partes = String(fechaISO).split('-');
+                if (partes.length !== 3) return fechaISO;
+                const [anio, mes, dia] = partes;
+                return `${dia}-${mes}-${anio.slice(-2)}`;
+            };
+            const fechaRecepcionFormateada = formatearFechaDDMMAA(fechaRecepcion);
 
             const dibujarTarjeta = (x, y, dataPaquete) => {
                 const w = 130;
@@ -2777,6 +2788,21 @@
                 let cursorY = y + 24.5;
                 const altoFila = 12.5;
 
+                // Reduce progresivamente el tamaño de fuente hasta que el texto
+                // quepa dentro del ancho disponible de la casilla (evita que un
+                // Juzgado con nombre largo se salga de su recuadro).
+                const ajustarFuenteAncho = (texto, fontSizeIdeal, anchoDisponible, fontMin = 7) => {
+                    doc.setFont(FUENTE, 'bold');
+                    let fs = fontSizeIdeal;
+                    doc.setFontSize(fs);
+                    const textoStr = String(texto || '');
+                    while (fs > fontMin && doc.getTextWidth(textoStr) > anchoDisponible) {
+                        fs -= 0.5;
+                        doc.setFontSize(fs);
+                    }
+                    return fs;
+                };
+
                 const filaDato = (label, valor, fontSizeValor = 10) => {
                     doc.setFont(FUENTE, 'bold');
                     doc.setFontSize(8);
@@ -2787,15 +2813,16 @@
                     doc.setFillColor(248, 248, 248);
                     doc.rect(x + 42, cursorY, w - 47, altoFila, 'FD');
 
-                    doc.setFont(FUENTE, 'bold');
-                    doc.setFontSize(fontSizeValor);
+                    const textoValor = String(valor || '');
+                    const anchoDisponible = (w - 47) - 4;
+                    ajustarFuenteAncho(textoValor, fontSizeValor, anchoDisponible);
                     doc.setTextColor(0, 0, 0);
-                    doc.text(String(valor || ''), x + 42 + ((w - 47) / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
+                    doc.text(textoValor, x + 42 + ((w - 47) / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
                     cursorY += altoFila + 3;
                 };
 
                 filaDato("TIPO DE ARCHIVO", tipoArchivo);
-                filaDato("JUZGADO", juzgado, 13);
+                filaDato("JUZGADO", juzgado, 16);
                 filaDato("JUEZ", juez);
 
                 // Paquete N° (Doble caja año / número) - datos clave en letra
@@ -2812,10 +2839,15 @@
                 doc.rect(x + 42, cursorY, halfW, altoFila, 'FD');
                 doc.rect(x + 42 + halfW, cursorY, halfW, altoFila, 'FD');
 
+                const anchoDisponibleDoble = halfW - 4;
+                const fsAnio = ajustarFuenteAncho(anioIngreso, 18, anchoDisponibleDoble);
+                const fsPaq = ajustarFuenteAncho(dataPaquete.nroPaq, 18, anchoDisponibleDoble);
+
                 doc.setFont(FUENTE, 'bold');
-                doc.setFontSize(14);
+                doc.setFontSize(fsAnio);
                 doc.setTextColor(0, 0, 0);
                 doc.text(String(anioIngreso || ''), x + 42 + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
+                doc.setFontSize(fsPaq);
                 doc.text(String(dataPaquete.nroPaq || ''), x + 42 + halfW + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
 
                 doc.setFont(FUENTE, 'normal');
@@ -2829,7 +2861,7 @@
                 filaDato("CANT. EXPEDIENTES", dataPaquete.cantExp);
                 filaDato("AÑO EXPEDIENTES", dataPaquete.anioExp);
                 filaDato("DOC. ING. ARCHIVO", oficio);
-                filaDato("FECHA RECEPCIÓN", fechaRecepcion);
+                filaDato("FECHA RECEPCIÓN", fechaRecepcionFormateada);
                 filaDato("TRABAJADO POR", personal);
                 filaDato("REPOSITORIO", repositorio);
             };
@@ -2868,7 +2900,6 @@
             const juzgado = document.getElementById('tar-juzgado').value.trim().toUpperCase();
             const juez = document.getElementById('tar-juez').value.trim().toUpperCase();
             const fechaRecepcionRaw = document.getElementById('tar-fecha-recepcion').value;
-            const fechaRecepcion = fechaRecepcionRaw ? fechaRecepcionRaw.split('-').reverse().join('/') : '';
             const oficio = document.getElementById('tar-oficio').value.trim().toUpperCase();
 
             const filas = document.querySelectorAll('#tabla-tarjetas-detalles tbody tr:not(#tarjetas-fila-vacia)');
