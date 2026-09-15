@@ -208,6 +208,28 @@
             });
         }
 
+        // Helper genérico que además devuelve el ancho/alto reales de la
+        // imagen (en px), para poder mantener su proporción exacta al
+        // dibujarla en el PDF (usado por las tarjetas de paquetes, que llevan
+        // el logo del Archivo Desconcentrado en una esquina y el logo oficial
+        // del Poder Judicial del Perú en la otra).
+        function obtenerImagenBase64(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    resolve({ data: canvas.toDataURL('image/png'), w: img.width, h: img.height });
+                };
+                img.onerror = function() { resolve(null); };
+                img.src = url;
+            });
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             let correoGuardado = localStorage.getItem('saamir_ultimo_correo');
             if (correoGuardado) {
@@ -229,10 +251,25 @@
             if (!selectAnio) return;
             selectAnio.innerHTML = '';
             const anioActual = new Date().getFullYear();
-            for (let y = anioActual + 1; y >= 2015; y--) {
+            // Rango solicitado: desde el año 2016 hasta el año actual + 1
+            // (ej. en 2026 el rango llega hasta 2027).
+            for (let y = anioActual + 1; y >= 2016; y--) {
                 selectAnio.options.add(new Option(y, y, false, y === anioActual));
             }
         }
+
+        // El selector de Año de Ingreso solo se habilita cuando el usuario
+        // marca que el bloque corresponde a Tarjetas de Recepción.
+        window.toggleAnioIngresoTarjetas = function(checkboxEl) {
+            const selectAnio = document.getElementById('tar-anio-ingreso');
+            if (!selectAnio) return;
+            selectAnio.disabled = !checkboxEl.checked;
+            if (!checkboxEl.checked) {
+                selectAnio.value = '';
+            } else if (!selectAnio.value) {
+                selectAnio.value = new Date().getFullYear();
+            }
+        };
 
         function cargarDataMaestra(usuarioActivoNombre = "") {
             const selectRepo = document.getElementById('inv-repositorio');
@@ -2686,104 +2723,108 @@
             mostrarModalPreviewPDF(blobUrl, `REPORTE_GLOBAL_${fechaHoy}.pdf`);
         };
 
-        // MOTOR DE GENERACIÓN DE TARJETAS DE PAQUETES (PDF HORIZONTAL 2x1 AJUSTADO)
+        // MOTOR DE GENERACIÓN DE TARJETAS DE PAQUETES (PDF HORIZONTAL 2x1)
+        // Rediseñado para replicar el formato físico real: logo del Archivo
+        // Desconcentrado en la esquina superior izquierda, logo oficial del
+        // Poder Judicial del Perú en la esquina superior derecha, título
+        // institucional centrado, y tipografía/tamaños alineados al modelo.
         async function construirPDFTarjetas({ anioIngreso, personal, tipoArchivo, repositorio, juzgado, juez, fechaRecepcion, oficio, paquetesData }) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' }); // Horizontal (landscape: 297 x 210 mm)
-            
-            const logoData = await obtenerLogoArchivoBase64();
+
+            const FUENTE = 'helvetica';
+
+            const [logoArchivo, logoPJ] = await Promise.all([
+                obtenerImagenBase64('https://ecomindsetgo.github.io/saamir/LOGO_PJ-AD.png'),
+                obtenerImagenBase64('https://ecomindsetgo.github.io/saamir/LOGO_PJ.jpg')
+            ]);
 
             const dibujarTarjeta = (x, y, dataPaquete) => {
-                const w = 130; // Ancho óptimo por tarjeta
-                const h = 186; // Alto optimizado para ocupar uniformemente la página horizontal sin verse achatada
+                const w = 130;
+                const h = 190;
 
-                doc.setDrawColor(30, 30, 30);
+                doc.setDrawColor(0, 0, 0);
                 doc.setLineWidth(0.4);
                 doc.setFillColor(255, 255, 255);
                 doc.rect(x, y, w, h, 'FD');
 
-                if (logoData) {
-                    doc.addImage(logoData, 'PNG', x + 5, y + 3.5, 11, 11);
+                // Logo del Archivo Desconcentrado (esquina superior izquierda)
+                if (logoArchivo) {
+                    const lado = 20;
+                    doc.addImage(logoArchivo.data, 'PNG', x + 4, y + 3, lado, lado * (logoArchivo.h / logoArchivo.w));
                 }
 
-                // Insignia vectorial "Poder Judicial" (cuadrícula 2x2) en la
-                // esquina superior derecha, replicando el sello institucional
-                // de la tarjeta física del Archivo Desconcentrado.
-                const insigniaSize = 9;
-                const insigniaX = x + w - 5 - insigniaSize;
-                const insigniaY = y + 3;
-                const celda = insigniaSize / 2;
-                doc.setFillColor(30, 30, 30);
-                doc.rect(insigniaX, insigniaY, celda - 0.4, celda - 0.4, 'F');
-                doc.rect(insigniaX + celda + 0.4, insigniaY, celda - 0.4, celda - 0.4, 'F');
-                doc.rect(insigniaX, insigniaY + celda + 0.4, celda - 0.4, celda - 0.4, 'F');
-                doc.rect(insigniaX + celda + 0.4, insigniaY + celda + 0.4, celda - 0.4, celda - 0.4, 'F');
-                doc.setFont("Inter", "bold");
-                doc.setFontSize(3.6);
-                doc.setTextColor(70, 70, 70);
-                doc.text("PODER JUDICIAL", insigniaX + insigniaSize / 2, insigniaY + insigniaSize + 3, { align: "center" });
-                doc.text("DEL PERÚ", insigniaX + insigniaSize / 2, insigniaY + insigniaSize + 5.5, { align: "center" });
+                // Logo oficial del Poder Judicial del Perú (esquina superior derecha)
+                if (logoPJ) {
+                    const anchoLogo = 18;
+                    const altoLogo = anchoLogo * (logoPJ.h / logoPJ.w);
+                    doc.addImage(logoPJ.data, 'JPEG', x + w - 4 - anchoLogo, y + 4, anchoLogo, altoLogo);
+                }
 
-                doc.setFont("Inter", "bold");
-                doc.setFontSize(10);
-                doc.setTextColor(20, 20, 20);
-                doc.text("PODER JUDICIAL DEL PERÚ", x + w / 2, y + 6.5, { align: "center" });
+                doc.setFont(FUENTE, 'bold');
+                doc.setFontSize(11.5);
+                doc.setTextColor(0, 0, 0);
+                doc.text("PODER JUDICIAL DEL PERÚ", x + w / 2, y + 9, { align: "center" });
 
-                doc.setFontSize(6.5);
-                doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", x + w / 2, y + 10.5, { align: "center" });
-                doc.text("ARCHIVO DESCONCENTRADO", x + w / 2, y + 13.5, { align: "center" });
+                doc.setFontSize(7.5);
+                doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", x + w / 2, y + 13.5, { align: "center" });
+                doc.text("ARCHIVO DESCONCENTRADO", x + w / 2, y + 17.5, { align: "center" });
 
+                doc.setDrawColor(0, 0, 0);
                 doc.setLineWidth(0.3);
-                doc.line(x + 4, y + 16.5, x + w - 4, y + 16.5);
+                doc.line(x + 4, y + 21, x + w - 4, y + 21);
 
-                let cursorY = y + 19.5;
-                const altoFila = 11.5; // Espacio vertical generoso para evitar aplastamiento
+                let cursorY = y + 24.5;
+                const altoFila = 12.5;
 
-                const filaDato = (label, valor) => {
-                    doc.setFont("Inter", "bold");
-                    doc.setFontSize(7);
-                    doc.setTextColor(70, 70, 70);
-                    doc.text(label, x + 5, cursorY + 4);
+                const filaDato = (label, valor, fontSizeValor = 10) => {
+                    doc.setFont(FUENTE, 'bold');
+                    doc.setFontSize(8);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(label, x + 5, cursorY + 4.5);
 
-                    doc.setDrawColor(80, 80, 80);
+                    doc.setDrawColor(0, 0, 0);
                     doc.setFillColor(248, 248, 248);
-                    doc.rect(x + 40, cursorY, w - 45, altoFila, 'FD');
+                    doc.rect(x + 42, cursorY, w - 47, altoFila, 'FD');
 
-                    doc.setFont("Inter", "bold");
-                    doc.setFontSize(8.5);
-                    doc.setTextColor(10, 10, 10);
-                    doc.text(String(valor || ''), x + 40 + ((w - 45) / 2), cursorY + (altoFila / 2) + 1, { align: "center" });
-                    cursorY += altoFila + 2.5;
+                    doc.setFont(FUENTE, 'bold');
+                    doc.setFontSize(fontSizeValor);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(String(valor || ''), x + 42 + ((w - 47) / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
+                    cursorY += altoFila + 3;
                 };
 
                 filaDato("TIPO DE ARCHIVO", tipoArchivo);
-                filaDato("JUZGADO", juzgado);
+                filaDato("JUZGADO", juzgado, 13);
                 filaDato("JUEZ", juez);
 
-                // Paquete N° (Doble caja año / número)
-                doc.setFont("Inter", "bold");
-                doc.setFontSize(7);
-                doc.setTextColor(70, 70, 70);
-                doc.text("PAQUETE N°", x + 5, cursorY + 4);
+                // Paquete N° (Doble caja año / número) - datos clave en letra
+                // más grande, ya que son los campos de identificación rápida
+                // del paquete físico.
+                doc.setFont(FUENTE, 'bold');
+                doc.setFontSize(8);
+                doc.setTextColor(0, 0, 0);
+                doc.text("PAQUETE N°", x + 5, cursorY + 4.5);
 
-                const halfW = (w - 45) / 2;
-                doc.setDrawColor(80, 80, 80);
+                const halfW = (w - 47) / 2;
+                doc.setDrawColor(0, 0, 0);
                 doc.setFillColor(248, 248, 248);
-                doc.rect(x + 40, cursorY, halfW, altoFila, 'FD');
-                doc.rect(x + 40 + halfW, cursorY, halfW, altoFila, 'FD');
+                doc.rect(x + 42, cursorY, halfW, altoFila, 'FD');
+                doc.rect(x + 42 + halfW, cursorY, halfW, altoFila, 'FD');
 
-                doc.setFont("Inter", "bold");
-                doc.setFontSize(9);
-                doc.text(String(anioIngreso || ''), x + 40 + (halfW / 2), cursorY + (altoFila / 2) + 1, { align: "center" });
-                doc.text(String(dataPaquete.nroPaq || ''), x + 40 + halfW + (halfW / 2), cursorY + (altoFila / 2) + 1, { align: "center" });
+                doc.setFont(FUENTE, 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(0, 0, 0);
+                doc.text(String(anioIngreso || ''), x + 42 + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
+                doc.text(String(dataPaquete.nroPaq || ''), x + 42 + halfW + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
 
-                doc.setFont("Inter", "normal");
-                doc.setFontSize(5);
-                doc.setTextColor(100, 100, 100);
-                doc.text("AÑO DE INGRESO", x + 40 + (halfW / 2), cursorY + altoFila + 2.5, { align: "center" });
-                doc.text("NÚMERO PAQUETE", x + 40 + halfW + (halfW / 2), cursorY + altoFila + 2.5, { align: "center" });
+                doc.setFont(FUENTE, 'normal');
+                doc.setFontSize(5.5);
+                doc.setTextColor(0, 0, 0);
+                doc.text("AÑO DE INGRESO", x + 42 + (halfW / 2), cursorY + altoFila + 3, { align: "center" });
+                doc.text("NÚMERO PAQUETE", x + 42 + halfW + (halfW / 2), cursorY + altoFila + 3, { align: "center" });
 
-                cursorY += altoFila + 4.5;
+                cursorY += altoFila + 5.5;
 
                 filaDato("CANT. EXPEDIENTES", dataPaquete.cantExp);
                 filaDato("AÑO EXPEDIENTES", dataPaquete.anioExp);
@@ -2795,12 +2836,23 @@
 
             for (let i = 0; i < paquetesData.length; i += 2) {
                 if (i > 0) doc.addPage();
-                
-                const yPos = 12;
+
+                const yPos = 9;
                 dibujarTarjeta(14, yPos, paquetesData[i]);
 
                 if (i + 1 < paquetesData.length) {
                     dibujarTarjeta(153, yPos, paquetesData[i + 1]);
+
+                    // Línea punteada guía de corte, justo al centro entre
+                    // ambas tarjetas, para cortar la hoja después de
+                    // enmicarla (laminarla).
+                    const pageHeight = doc.internal.pageSize.getHeight();
+                    const xCentro = (14 + 130 + 153) / 2; // centro entre el borde derecho de la 1ra y el borde izquierdo de la 2da
+                    doc.setDrawColor(0, 0, 0);
+                    doc.setLineWidth(0.3);
+                    doc.setLineDashPattern([2, 1.5], 0);
+                    doc.line(xCentro, 0, xCentro, pageHeight);
+                    doc.setLineDashPattern([], 0); // se restablece la línea sólida para el resto del PDF
                 }
             }
 

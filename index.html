@@ -133,7 +133,11 @@
                     <div class="row g-3">
                         <div class="col-12 col-md-3">
                             <label class="form-label small fw-bold">Año de Ingreso (Ingreso)</label>
-                            <select class="form-select form-select-sm bg-light" id="tar-anio-ingreso">
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" id="tar-es-recepcion" onchange="window.toggleAnioIngresoTarjetas(this)">
+                                <label class="form-check-label small" for="tar-es-recepcion">Tarjetas de Recepción</label>
+                            </div>
+                            <select class="form-select form-select-sm bg-light" id="tar-anio-ingreso" disabled>
                                 <!-- Se autocompletará por JS -->
                             </select>
                         </div>
