@@ -183,6 +183,7 @@
         let idReingresoEnEdicion = null;
         let idTrasladoEnEdicion = null;
         let idMicroformaEnEdicion = null;
+        let idTarjetaEnEdicion = null;
         let modalInstance = null;
         let modalMicroformaInstance = null;
 
@@ -370,6 +371,39 @@
         window.iniciarNuevoTraslado = function() {
             resetFormularioTraslado();
             switchView('view-traslados', 'Módulo Formato de Traslado');
+        };
+
+        function resetFormularioTarjetas() {
+            idTarjetaEnEdicion = null;
+            const fJuzgado = document.getElementById('tar-juzgado');
+            const fJuez = document.getElementById('tar-juez');
+            const fFecha = document.getElementById('tar-fecha-recepcion');
+            const fOficio = document.getElementById('tar-oficio');
+            const chkRecepcion = document.getElementById('tar-es-recepcion');
+            const tbody = document.querySelector('#tabla-tarjetas-detalles tbody');
+            const btnGuardar = document.querySelector('button[onclick="window.guardarYGenerarPDFTarjetas()"]');
+
+            if (fJuzgado) fJuzgado.value = '';
+            if (fJuez) fJuez.value = '';
+            if (fFecha) fFecha.value = '';
+            if (fOficio) fOficio.value = '';
+            if (chkRecepcion) {
+                chkRecepcion.checked = false;
+                window.toggleAnioIngresoTarjetas(chkRecepcion);
+            }
+            if (tbody) {
+                tbody.innerHTML = `<tr id="tarjetas-fila-vacia">
+                    <td colspan="6" class="text-center text-muted py-3">
+                        Aún no ha añadido paquetes. Use los botones "+ Añadir Fila" o "+ Añadir 5 Filas".
+                    </td>
+                </tr>`;
+            }
+            if (btnGuardar) btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar y Generar PDF';
+        }
+
+        window.iniciarNuevaTarjeta = function() {
+            resetFormularioTarjetas();
+            switchView('view-tarjetas', 'Tarjetas Recepción');
         };
 
         window.toggleMenuMovil = function() {
@@ -1517,8 +1551,9 @@
                         const d = docSnap.data();
                         const totalPaq = Array.isArray(d.paquetesData) ? d.paquetesData.length : 0;
                         const detalle = `Juzgado: ${d.juzgado || 'N/A'} | Juez: ${d.juez || 'N/A'} | Repositorio: ${d.repositorio || 'N/A'} | Paquetes: ${totalPaq}`;
-                        registrarEventoDoc(d.auditoria, 'Generador de Tarjetas', 'Generación de Tarjetas', d.personal, detalle);
-                        registrarEventoDoc(d.auditoriaEliminacion, 'Generador de Tarjetas', 'Eliminación / Baja de Bloque de Tarjetas', d.personal, detalle);
+                        registrarEventoDoc(d.auditoria, 'Tarjetas Recepción', 'Generación de Tarjetas', d.personal, detalle);
+                        registrarEventoDoc(d.auditoriaEdicion, 'Tarjetas Recepción', 'Edición de Tarjetas', d.personal, detalle);
+                        registrarEventoDoc(d.auditoriaEliminacion, 'Tarjetas Recepción', 'Eliminación / Baja de Bloque de Tarjetas', d.personal, detalle);
                     });
                 } catch(err) { console.warn(err); }
 
@@ -2926,7 +2961,7 @@
             const currentUserObj = auth.currentUser;
             const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
 
-            const tarjetaLote = {
+            const datosTarjeta = {
                 anioIngreso,
                 personal,
                 tipoArchivo,
@@ -2935,18 +2970,32 @@
                 juez,
                 fechaRecepcion: fechaRecepcionRaw,
                 oficio,
-                paquetesData,
-                createdAt: Date.now(),
-                activo: true,
-                auditoria: { nombre: currentUserName, timestamp: Date.now() }
+                paquetesData
             };
 
             try {
-                await addDoc(collection(db, "tarjetas_paquetes"), tarjetaLote);
+                let tarjetaLote;
+                if (idTarjetaEnEdicion) {
+                    datosTarjeta.auditoriaEdicion = { nombre: currentUserName, timestamp: Date.now() };
+                    await updateDoc(doc(db, "tarjetas_paquetes", idTarjetaEnEdicion), datosTarjeta);
+                    tarjetaLote = datosTarjeta;
+                    Swal.fire({ icon: 'success', title: 'Bloque de Tarjetas Actualizado', text: 'Los cambios se guardaron correctamente.' });
+                } else {
+                    tarjetaLote = {
+                        ...datosTarjeta,
+                        createdAt: Date.now(),
+                        activo: true,
+                        auditoria: { nombre: currentUserName, timestamp: Date.now() }
+                    };
+                    await addDoc(collection(db, "tarjetas_paquetes"), tarjetaLote);
+                }
+
                 const blobUrl = await construirPDFTarjetas(tarjetaLote);
                 const fechaHoy = new Date().toISOString().split('T')[0];
                 mostrarModalPreviewPDF(blobUrl, `TARJETAS_PAQUETES_${fechaHoy}.pdf`);
+                resetFormularioTarjetas();
                 await cargarHistorialTarjetas();
+                switchView('view-consultas-tarjetas', 'Consultar Historial de Tarjetas');
             } catch (e) {
                 Swal.fire('Error', e.message, 'error');
             }
@@ -3003,6 +3052,9 @@
                     <td class="text-center fw-bold">${totalPaq}</td>
                     <td>${data.personal || 'N/A'}</td>
                     <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarTarjeta('${data.id}')" title="Editar Registro">
+                            <i class="bi bi-pencil"></i>
+                        </button>
                         <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.reimprimirTarjetas('${data.id}')" title="Generar PDF">
                             <i class="bi bi-file-pdf"></i>
                         </button>
@@ -3020,6 +3072,59 @@
             if (!lote) return;
             const blobUrl = await construirPDFTarjetas(lote);
             mostrarModalPreviewPDF(blobUrl, `TARJETAS_${lote.juzgado || 'LOTE'}.pdf`);
+        };
+
+        window.editarTarjeta = function(id) {
+            const registro = baseDatosTarjetas.find(t => t.id === id);
+            if (!registro) return;
+
+            idTarjetaEnEdicion = id;
+
+            const chkRecepcion = document.getElementById('tar-es-recepcion');
+            const selectAnio = document.getElementById('tar-anio-ingreso');
+            if (chkRecepcion && selectAnio) {
+                const tieneAnio = !!registro.anioIngreso;
+                chkRecepcion.checked = tieneAnio;
+                window.toggleAnioIngresoTarjetas(chkRecepcion);
+                if (tieneAnio) selectAnio.value = registro.anioIngreso;
+            }
+
+            document.getElementById('tar-juzgado').value = registro.juzgado || '';
+            document.getElementById('tar-juez').value = registro.juez || '';
+            document.getElementById('tar-fecha-recepcion').value = registro.fechaRecepcion || '';
+            document.getElementById('tar-oficio').value = registro.oficio || '';
+
+            const tbody = document.querySelector('#tabla-tarjetas-detalles tbody');
+            tbody.innerHTML = '';
+            if (registro.paquetesData && Array.isArray(registro.paquetesData) && registro.paquetesData.length > 0) {
+                registro.paquetesData.forEach((paq, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="fw-bold tar-item-nro">${idx + 1}</td>
+                        <td><input type="number" class="form-control form-control-sm text-center fw-bold tar-nro-paq" value="${paq.nroPaq || ''}" oninput="actualizarResumenTarjeta(this)"></td>
+                        <td><input type="number" class="form-control form-control-sm text-center tar-cant-exp" value="${paq.cantExp || ''}" min="1" oninput="actualizarResumenTarjeta(this)"></td>
+                        <td><input type="text" class="form-control form-control-sm text-center tar-anio-exp" value="${paq.anioExp || ''}" oninput="actualizarResumenTarjeta(this)"></td>
+                        <td class="text-start small text-muted tar-resumen">Paquete N° ${paq.nroPaq || '...'} (${paq.cantExp || '...'} exp. - Año: ${paq.anioExp || '...'})</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="this.closest('tr').remove(); reindexarTarjetas();">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = `<tr id="tarjetas-fila-vacia">
+                    <td colspan="6" class="text-center text-muted py-3">
+                        Aún no ha añadido paquetes. Use los botones "+ Añadir Fila" o "+ Añadir 5 Filas".
+                    </td>
+                </tr>`;
+            }
+
+            const btnGuardar = document.querySelector('button[onclick="window.guardarYGenerarPDFTarjetas()"]');
+            if (btnGuardar) btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Cambios';
+
+            switchView('view-tarjetas', `Editando Tarjetas de ${registro.juzgado || 'Bloque'}`);
         };
 
         window.eliminarTarjetasLote = async function(id) {

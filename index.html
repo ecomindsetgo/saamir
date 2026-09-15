@@ -75,8 +75,8 @@
                 <a class="nav-link" data-view="view-consultas-reingresos" onclick="switchView('view-consultas-reingresos', 'Consultar Historial de Reingresos')"><i class="bi bi-search"></i> Consultar Reingresos</a>
                 <a class="nav-link" href="#" data-view="view-traslados" onclick="window.iniciarNuevoTraslado()"><i class="bi bi-truck"></i> Formato de Traslado</a>
                 <a class="nav-link" href="#" data-view="view-consultas-traslados" onclick="switchView('view-consultas-traslados', 'Consultar Historial de Traslados')"><i class="bi bi-search"></i> Consultar Traslados</a>
-                <a class="nav-link" href="#" data-view="view-tarjetas" onclick="switchView('view-tarjetas', 'Generador de Tarjetas de Paquetes')">
-                    <i class="bi bi-card-checklist"></i> Generador de Tarjetas
+                <a class="nav-link" href="#" data-view="view-tarjetas" onclick="window.iniciarNuevaTarjeta()">
+                    <i class="bi bi-card-checklist"></i> Tarjetas Recepción
                 </a>
                 <a class="nav-link" href="#" data-view="view-consultas-tarjetas" onclick="switchView('view-consultas-tarjetas', 'Consultar Historial de Tarjetas')">
                     <i class="bi bi-search"></i> Consultar Tarjetas
@@ -147,20 +147,11 @@
                         </div>
                         <div class="col-12 col-md-3">
                             <label class="form-label small fw-bold">Tipo de Archivo</label>
-                            <select class="form-select form-select-sm bg-light" id="tar-tipo-archivo">
-                                <option value="DEFINITIVO" selected>DEFINITIVO</option>
-                                <option value="TRANSITORIO">TRANSITORIO</option>
-                            </select>
+                            <input type="text" class="form-control form-control-sm bg-light fw-bold text-dark" id="tar-tipo-archivo" value="DEFINITIVO" readonly style="cursor: not-allowed;">
                         </div>
                         <div class="col-12 col-md-3">
                             <label class="form-label small fw-bold">Repositorio</label>
-                            <select class="form-select form-select-sm bg-light" id="tar-repositorio">
-                                <option value="SAENZ PEÑA" selected>SAENZ PEÑA</option>
-                                <option value="SÓTANO NCPP">SÓTANO NCPP</option>
-                                <option value="PADILLA">PADILLA</option>
-                                <option value="DOMUS">DOMUS</option>
-                                <option value="DUNAS">DUNAS</option>
-                            </select>
+                            <input type="text" class="form-control form-control-sm bg-light fw-bold text-dark" id="tar-repositorio" value="SAENZ PEÑA" readonly style="cursor: not-allowed;">
                         </div>
                         <div class="col-12 col-md-4">
                             <label class="form-label small fw-bold">Juzgado</label>
@@ -229,6 +220,7 @@
                             <label class="form-label small">Repositorio</label>
                             <select class="form-select form-select-sm" id="filtro-tar-repositorio" onchange="filtrarHistorialTarjetas()">
                                 <option value="">Todos los repositorios</option>
+                                <option value="SAENZ PEÑA">SAENZ PEÑA</option>
                                 <option value="SÓTANO NCPP">SÓTANO NCPP</option>
                                 <option value="PADILLA">PADILLA</option>
                                 <option value="DOMUS">DOMUS</option>
