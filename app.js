@@ -2865,9 +2865,9 @@
                 doc.setFont(FUENTE, 'bold');
                 doc.setFontSize(fsAnio);
                 doc.setTextColor(0, 0, 0);
-                doc.text(String(anioIngreso || ''), x + 42 + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
+                doc.text(String(anioIngreso || ''), x + 42 + (halfW / 2), cursorY + (altoFila / 2) + 2, { align: "center" });
                 doc.setFontSize(fsPaq);
-                doc.text(String(dataPaquete.nroPaq || ''), x + 42 + halfW + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
+                doc.text(String(dataPaquete.nroPaq || ''), x + 42 + halfW + (halfW / 2), cursorY + (altoFila / 2) + 2, { align: "center" });
 
                 doc.setFont(FUENTE, 'normal');
                 doc.setFontSize(5.5);
