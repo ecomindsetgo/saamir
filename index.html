@@ -60,11 +60,8 @@
                 <a class="nav-link active" href="#" onclick="switchView('view-dashboard', 'Dashboard Principal')">
                     <i class="bi bi-grid-1x2-fill"></i> Dashboard Global
                 </a>
-                <a class="nav-link" href="#" data-view="view-tarjetas" onclick="switchView('view-tarjetas', 'Generador de Tarjetas de Paquetes')">
-                    <i class="bi bi-card-checklist"></i> Generador de Tarjetas
-                </a>
-                <a class="nav-link" href="#" data-view="view-consultas-tarjetas" onclick="switchView('view-consultas-tarjetas', 'Consultar Historial de Tarjetas')">
-                    <i class="bi bi-search"></i> Consultar Tarjetas
+                <a class="nav-link" id="menu-link-microformas" href="#" onclick="switchView('view-microformas', 'Control de Producción de Microformas')" style="display: none;">
+                    <i class="bi bi-file-earmark-spreadsheet-fill"></i> Control Microformas
                 </a>
                 <a class="nav-link" href="#" data-view="view-inventario" onclick="window.iniciarNuevoInventario()">
                     <i class="bi bi-journal-plus"></i> Cargar Inventario
@@ -78,8 +75,11 @@
                 <a class="nav-link" data-view="view-consultas-reingresos" onclick="switchView('view-consultas-reingresos', 'Consultar Historial de Reingresos')"><i class="bi bi-search"></i> Consultar Reingresos</a>
                 <a class="nav-link" href="#" data-view="view-traslados" onclick="window.iniciarNuevoTraslado()"><i class="bi bi-truck"></i> Formato de Traslado</a>
                 <a class="nav-link" href="#" data-view="view-consultas-traslados" onclick="switchView('view-consultas-traslados', 'Consultar Historial de Traslados')"><i class="bi bi-search"></i> Consultar Traslados</a>
-                <a class="nav-link" id="menu-link-microformas" href="#" onclick="switchView('view-microformas', 'Control de Producción de Microformas')" style="display: none;">
-                    <i class="bi bi-file-earmark-spreadsheet-fill"></i> Control Microformas
+                <a class="nav-link" href="#" data-view="view-tarjetas" onclick="switchView('view-tarjetas', 'Generador de Tarjetas de Paquetes')">
+                    <i class="bi bi-card-checklist"></i> Generador de Tarjetas
+                </a>
+                <a class="nav-link" href="#" data-view="view-consultas-tarjetas" onclick="switchView('view-consultas-tarjetas', 'Consultar Historial de Tarjetas')">
+                    <i class="bi bi-search"></i> Consultar Tarjetas
                 </a>
                 <a class="nav-link" href="#" onclick="switchView('view-perfil', 'Mi Perfil de Usuario')">
                     <i class="bi bi-person-gear"></i> Mi Perfil / Cuenta
@@ -180,7 +180,7 @@
 
                 <div class="card p-3 p-md-4 border-0 shadow-sm">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                        <h6 class="form-section-title m-0"><i class="bi bi-table me-2"></i>Detalle de Paquetes (Filas Interactivas - Vacías por defecto)</h6>
+                        <h6 class="form-section-title m-0"><i class="bi bi-table me-2"></i>Detalle de Paquetes</h6>
                         <div class="d-flex gap-2">
                             <button class="btn btn-outline-secondary btn-sm" onclick="window.agregarFilaTarjeta(5)">+ Añadir 5 Filas</button>
                             <button class="btn btn-dark btn-sm" onclick="window.agregarFilaTarjeta(1)">+ Añadir Fila</button>
@@ -199,7 +199,11 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <!-- Filas dinámicas vacías por defecto -->
+                                <tr id="tarjetas-fila-vacia">
+                                    <td colspan="6" class="text-center text-muted py-3">
+                                        Aún no ha añadido paquetes. Use los botones "+ Añadir Fila" o "+ Añadir 5 Filas".
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -925,12 +929,16 @@
                             <select class="form-select form-select-sm" id="filtro-aud-accion" onchange="filtrarAuditoria()">
                                 <option value="">Todas las acciones</option>
                                 <option value="Inicio de Sesión">Inicio de Sesión</option>
-                                <option value="Creación de Lote">Creación de Lote</option>
-                                <option value="Actualización de Lote">Actualización de Lote</option>
-                                <option value="Edición de Lote">Edición de Lote</option>
-                                <option value="Eliminación">Eliminación / Baja</option>
+                                <option value="Creación de Lote">Creación de Lote (Inventario)</option>
+                                <option value="Actualización de Lote">Actualización de Lote (Inventario)</option>
                                 <option value="Registro de Reingreso">Registro de Reingreso</option>
+                                <option value="Edición de Reingreso">Edición de Reingreso</option>
                                 <option value="Registro de Traslado">Registro de Traslado</option>
+                                <option value="Edición de Traslado">Edición de Traslado</option>
+                                <option value="Creación de Bloque">Creación de Bloque (Microformas)</option>
+                                <option value="Edición de Bloque">Edición de Bloque (Microformas)</option>
+                                <option value="Generación de Tarjetas">Generación de Tarjetas</option>
+                                <option value="Eliminación">Eliminación / Baja (cualquier módulo)</option>
                             </select>
                         </div>
                         <div class="col-12 col-md-3">

@@ -98,10 +98,15 @@
             if (lbl) lbl.textContent = sumaTotalPaquetes;
         }
 
-        // FUNCIONES PARA EL GENERADOR DE TARJETAS DE PAQUETES (CAMPOS VACÍOS POR DEFECTO)
+        // FUNCIONES PARA EL GENERADOR DE TARJETAS DE PAQUETES
+        // La tabla NO inicia con filas precargadas: el usuario agrega
+        // filas manualmente con los botones "+ Añadir Fila" / "+ Añadir 5 Filas".
         window.agregarFilaTarjeta = function(cantidad = 1) {
             const tbody = document.querySelector('#tabla-tarjetas-detalles tbody');
             if (!tbody) return;
+
+            const filaVacia = document.getElementById('tarjetas-fila-vacia');
+            if (filaVacia) filaVacia.remove();
 
             for (let i = 0; i < cantidad; i++) {
                 const idx = tbody.querySelectorAll('tr').length + 1;
@@ -124,11 +129,22 @@
         };
 
         function reindexarTarjetas() {
-            const filas = document.querySelectorAll('#tabla-tarjetas-detalles tbody tr');
+            const tbody = document.querySelector('#tabla-tarjetas-detalles tbody');
+            const filas = document.querySelectorAll('#tabla-tarjetas-detalles tbody tr:not(#tarjetas-fila-vacia)');
             filas.forEach((tr, idx) => {
                 const tdItem = tr.querySelector('.tar-item-nro');
                 if (tdItem) tdItem.textContent = idx + 1;
             });
+
+            // Si el usuario elimina todas las filas, se vuelve a mostrar el
+            // mensaje de estado vacío en lugar de dejar la tabla en blanco.
+            if (tbody && filas.length === 0 && !document.getElementById('tarjetas-fila-vacia')) {
+                tbody.innerHTML = `<tr id="tarjetas-fila-vacia">
+                    <td colspan="6" class="text-center text-muted py-3">
+                        Aún no ha añadido paquetes. Use los botones "+ Añadir Fila" o "+ Añadir 5 Filas".
+                    </td>
+                </tr>`;
+            }
         }
 
         window.actualizarResumenTarjeta = function(inputEl) {

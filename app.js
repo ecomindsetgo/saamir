@@ -219,9 +219,9 @@
                 if (inputEmail) inputEmail.value = correoGuardado;
             }
             inicializarAniosIngresoTarjetas();
-            if (document.querySelectorAll('#tabla-tarjetas-detalles tbody tr').length === 0) {
-                window.agregarFilaTarjeta(5); // Iniciar con 5 filas vacías por defecto
-            }
+            // El generador de tarjetas ya NO agrega filas vacías por defecto.
+            // El usuario decide cuántas filas necesita con los botones
+            // "+ Añadir Fila" / "+ Añadir 5 Filas".
         });
 
         function inicializarAniosIngresoTarjetas() {
@@ -1408,23 +1408,80 @@
                     });
                 } catch(err) { console.warn(err); }
 
+                // Helper genérico: agrega al log una entrada por cada evento de
+                // auditoría embebido en un documento (creación / edición / baja),
+                // para que TODAS las acciones del sistema queden trazadas, no
+                // solo el inicio de sesión.
+                const registrarEventoDoc = (evento, modulo, accionLabel, usuarioDefault, detalleTexto) => {
+                    if (!evento) return;
+                    const ts = evento.timestamp || 0;
+                    const nombreUser = evento.nombre || usuarioDefault || 'Desconocido';
+                    setUsuariosUnicos.add(nombreUser);
+                    listaLogsAuditoria.push({
+                        fechaISO: ts ? new Date(ts).toISOString().split('T')[0] : '',
+                        fecha: ts ? new Date(ts).toLocaleString() : 'N/A',
+                        timestamp: ts,
+                        modulo,
+                        accion: accionLabel,
+                        usuario: nombreUser,
+                        detalle: detalleTexto
+                    });
+                };
+
                 try {
                     const snapCenso = await getDocs(collection(db, "censo_institucional"));
                     snapCenso.forEach(docSnap => {
                         const d = docSnap.data();
-                        const timestampCreacion = d.auditoria?.timestamp || d.createdAt || 0;
-                        const userCreacion = d.auditoria?.nombre || d.registra || 'Desconocido';
-                        setUsuariosUnicos.add(userCreacion);
-                        
-                        listaLogsAuditoria.push({
-                            fechaISO: timestampCreacion ? new Date(timestampCreacion).toISOString().split('T')[0] : '',
-                            fecha: timestampCreacion ? new Date(timestampCreacion).toLocaleString() : 'N/A',
-                            timestamp: timestampCreacion,
-                            modulo: 'Inventario de Existencias',
-                            accion: d.createdAt ? 'Creación de Lote' : 'Actualización de Lote',
-                            usuario: userCreacion,
-                            detalle: `Repositorio: ${d.repositorio} | Fecha ejecución: ${d.fecha} | Total Real: ${d.totalReal}`
-                        });
+                        const detalle = `Repositorio: ${d.repositorio} | Fecha ejecución: ${d.fecha} | Total Real: ${d.totalReal}`;
+                        registrarEventoDoc(d.auditoria || (d.createdAt ? { timestamp: d.createdAt, nombre: d.registra } : null), 'Inventario de Existencias', 'Creación de Lote', d.registra, detalle);
+                        registrarEventoDoc(d.auditoriaEdicion, 'Inventario de Existencias', 'Actualización de Lote', d.registra, detalle);
+                        registrarEventoDoc(d.auditoriaEliminacion, 'Inventario de Existencias', 'Eliminación / Baja de Lote', d.registra, detalle);
+                    });
+                } catch(err) { console.warn(err); }
+
+                try {
+                    const snapReingresos = await getDocs(collection(db, "reingresos"));
+                    snapReingresos.forEach(docSnap => {
+                        const d = docSnap.data();
+                        const totalExp = Array.isArray(d.expedientes) ? d.expedientes.length : 0;
+                        const detalle = `N° ${d.correlativo || 'S/N'} | Solicitante: ${d.solicitante || 'N/A'} | Local: ${d.local || 'N/A'} | Expedientes: ${totalExp}`;
+                        registrarEventoDoc(d.auditoria, 'Reingresos', 'Registro de Reingreso', d.solicitante, detalle);
+                        registrarEventoDoc(d.auditoriaEdicion, 'Reingresos', 'Edición de Reingreso', d.solicitante, detalle);
+                        registrarEventoDoc(d.auditoriaEliminacion, 'Reingresos', 'Eliminación / Baja de Reingreso', d.solicitante, detalle);
+                    });
+                } catch(err) { console.warn(err); }
+
+                try {
+                    const snapTraslados = await getDocs(collection(db, "traslados"));
+                    snapTraslados.forEach(docSnap => {
+                        const d = docSnap.data();
+                        const totalPaq = Array.isArray(d.paquetes) ? d.paquetes.length : 0;
+                        const detalle = `N° ${d.correlativo || 'S/N'} | Recibe: ${d.recibe || 'N/A'} | Entrega: ${d.entregado || 'N/A'} | Paquetes: ${totalPaq}`;
+                        registrarEventoDoc(d.auditoria, 'Formato de Traslado', 'Registro de Traslado', d.recibe, detalle);
+                        registrarEventoDoc(d.auditoriaEdicion, 'Formato de Traslado', 'Edición de Traslado', d.recibe, detalle);
+                        registrarEventoDoc(d.auditoriaEliminacion, 'Formato de Traslado', 'Eliminación / Baja de Traslado', d.recibe, detalle);
+                    });
+                } catch(err) { console.warn(err); }
+
+                try {
+                    const snapMicroformas = await getDocs(collection(db, "control_microformas"));
+                    snapMicroformas.forEach(docSnap => {
+                        const d = docSnap.data();
+                        const detalle = `Bloque N° ${d.bloque || 'N/A'} | Juzgado: ${d.juzgado || 'N/A'} | Rango: ${d.rango || 'N/A'}`;
+                        registrarEventoDoc(d.auditoriaCreacion, 'Control de Microformas', 'Creación de Bloque', null, detalle);
+                        registrarEventoDoc(d.auditoriaEdicion, 'Control de Microformas', 'Edición de Bloque', null, detalle);
+                        registrarEventoDoc(d.auditoriaEliminacion, 'Control de Microformas', 'Eliminación / Baja de Bloque', null, detalle);
+                    });
+                } catch(err) { console.warn(err); }
+
+                try {
+                    const snapTarjetas = await getDocs(collection(db, "tarjetas_paquetes"));
+                    snapTarjetas.forEach(docSnap => {
+                        const d = docSnap.data();
+                        const totalPaq = Array.isArray(d.paquetesData) ? d.paquetesData.length : 0;
+                        const detalle = `Juzgado: ${d.juzgado || 'N/A'} | Juez: ${d.juez || 'N/A'} | Repositorio: ${d.repositorio || 'N/A'} | Paquetes: ${totalPaq}`;
+                        registrarEventoDoc(d.auditoria, 'Generador de Tarjetas', 'Generación de Tarjetas', d.personal, detalle);
+                        registrarEventoDoc(d.auditoriaEliminacion, 'Generador de Tarjetas', 'Eliminación / Baja de Bloque de Tarjetas', d.personal, detalle);
                     });
                 } catch(err) { console.warn(err); }
 
@@ -2646,21 +2703,40 @@
                 doc.rect(x, y, w, h, 'FD');
 
                 if (logoData) {
-                    doc.addImage(logoData, 'PNG', x + 5, y + 4, 12, 12);
+                    doc.addImage(logoData, 'PNG', x + 5, y + 3.5, 11, 11);
                 }
-                
+
+                // Insignia vectorial "Poder Judicial" (cuadrícula 2x2) en la
+                // esquina superior derecha, replicando el sello institucional
+                // de la tarjeta física del Archivo Desconcentrado.
+                const insigniaSize = 9;
+                const insigniaX = x + w - 5 - insigniaSize;
+                const insigniaY = y + 3;
+                const celda = insigniaSize / 2;
+                doc.setFillColor(30, 30, 30);
+                doc.rect(insigniaX, insigniaY, celda - 0.4, celda - 0.4, 'F');
+                doc.rect(insigniaX + celda + 0.4, insigniaY, celda - 0.4, celda - 0.4, 'F');
+                doc.rect(insigniaX, insigniaY + celda + 0.4, celda - 0.4, celda - 0.4, 'F');
+                doc.rect(insigniaX + celda + 0.4, insigniaY + celda + 0.4, celda - 0.4, celda - 0.4, 'F');
+                doc.setFont("Inter", "bold");
+                doc.setFontSize(3.6);
+                doc.setTextColor(70, 70, 70);
+                doc.text("PODER JUDICIAL", insigniaX + insigniaSize / 2, insigniaY + insigniaSize + 3, { align: "center" });
+                doc.text("DEL PERÚ", insigniaX + insigniaSize / 2, insigniaY + insigniaSize + 5.5, { align: "center" });
+
                 doc.setFont("Inter", "bold");
                 doc.setFontSize(10);
                 doc.setTextColor(20, 20, 20);
-                doc.text("PODER JUDICIAL DEL PERÚ", x + w / 2, y + 7, { align: "center" });
-                
+                doc.text("PODER JUDICIAL DEL PERÚ", x + w / 2, y + 6.5, { align: "center" });
+
                 doc.setFontSize(6.5);
-                doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA - ARCHIVO DESCONCENTRADO", x + w / 2, y + 11.5, { align: "center" });
+                doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", x + w / 2, y + 10.5, { align: "center" });
+                doc.text("ARCHIVO DESCONCENTRADO", x + w / 2, y + 13.5, { align: "center" });
 
                 doc.setLineWidth(0.3);
-                doc.line(x + 4, y + 14, x + w - 4, y + 14);
+                doc.line(x + 4, y + 16.5, x + w - 4, y + 16.5);
 
-                let cursorY = y + 17;
+                let cursorY = y + 19.5;
                 const altoFila = 11.5; // Espacio vertical generoso para evitar aplastamiento
 
                 const filaDato = (label, valor) => {
@@ -2743,7 +2819,7 @@
             const fechaRecepcion = fechaRecepcionRaw ? fechaRecepcionRaw.split('-').reverse().join('/') : '';
             const oficio = document.getElementById('tar-oficio').value.trim().toUpperCase();
 
-            const filas = document.querySelectorAll('#tabla-tarjetas-detalles tbody tr');
+            const filas = document.querySelectorAll('#tabla-tarjetas-detalles tbody tr:not(#tarjetas-fila-vacia)');
             if (filas.length === 0) {
                 Swal.fire('Atención', 'Agregue al menos una fila de paquete en la tabla.', 'warning');
                 return;
@@ -2874,7 +2950,17 @@
             if (!confirmacion.isConfirmed) return;
 
             try {
-                await updateDoc(doc(db, "tarjetas_paquetes", id), { activo: false });
+                const currentUserObj = auth.currentUser;
+                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
+
+                await updateDoc(doc(db, "tarjetas_paquetes", id), {
+                    activo: false,
+                    auditoriaEliminacion: {
+                        uid: currentUserObj?.uid || null,
+                        nombre: currentUserName,
+                        timestamp: Date.now()
+                    }
+                });
                 Swal.fire({ icon: 'success', title: 'Registro eliminado', timer: 1500, showConfirmButton: false });
                 await cargarHistorialTarjetas();
             } catch (e) {
