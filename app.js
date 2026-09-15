@@ -2841,14 +2841,14 @@
                 };
 
                 filaDato("TIPO DE ARCHIVO", tipoArchivo);
-                filaDato("JUZGADO", juzgado, 20);
+                filaDato("JUZGADO", juzgado, 24);
                 filaDato("JUEZ", juez);
 
                 // Paquete N° (Doble caja año / número) - datos clave en letra
                 // más grande, ya que son los campos de identificación rápida
                 // del paquete físico.
                 doc.setFont(FUENTE, 'bold');
-                doc.setFontSize(8);
+                doc.setFontSize(10);
                 doc.setTextColor(0, 0, 0);
                 doc.text("PAQUETE N°", x + 5, cursorY + 4.5);
 
@@ -2859,8 +2859,8 @@
                 doc.rect(x + 42 + halfW, cursorY, halfW, altoFila, 'FD');
 
                 const anchoDisponibleDoble = halfW - 4;
-                const fsAnio = ajustarFuenteAncho(anioIngreso, 22, anchoDisponibleDoble);
-                const fsPaq = ajustarFuenteAncho(dataPaquete.nroPaq, 22, anchoDisponibleDoble);
+                const fsAnio = ajustarFuenteAncho(anioIngreso, 26, anchoDisponibleDoble);
+                const fsPaq = ajustarFuenteAncho(dataPaquete.nroPaq, 26, anchoDisponibleDoble);
 
                 doc.setFont(FUENTE, 'bold');
                 doc.setFontSize(fsAnio);
