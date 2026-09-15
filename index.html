@@ -133,11 +133,7 @@
                     <div class="row g-3">
                         <div class="col-12 col-md-3">
                             <label class="form-label small fw-bold">Año de Ingreso (Ingreso)</label>
-                            <div class="form-check mb-1">
-                                <input class="form-check-input" type="checkbox" id="tar-es-recepcion" onchange="window.toggleAnioIngresoTarjetas(this)">
-                                <label class="form-check-label small" for="tar-es-recepcion">Tarjetas de Recepción</label>
-                            </div>
-                            <select class="form-select form-select-sm bg-light" id="tar-anio-ingreso" disabled>
+                            <select class="form-select form-select-sm bg-light" id="tar-anio-ingreso">
                                 <!-- Se autocompletará por JS -->
                             </select>
                         </div>
@@ -180,6 +176,26 @@
                             <button class="btn btn-dark btn-sm" onclick="window.agregarFilaTarjeta(1)">+ Añadir Fila</button>
                         </div>
                     </div>
+
+                    <div class="card p-2 p-md-3 bg-light border mb-3">
+                        <p class="fw-bold text-secondary mb-2" style="font-size: 0.8rem;"><i class="bi bi-collection me-1"></i>Agregar Rango Correlativo de Paquetes</p>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-6 col-md-3">
+                                <label class="form-label text-muted" style="font-size: 0.75rem;">Paquete Desde</label>
+                                <input type="number" class="form-control form-control-sm" id="tar-rango-desde" placeholder="Ej: 260">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label text-muted" style="font-size: 0.75rem;">Paquete Hasta</label>
+                                <input type="number" class="form-control form-control-sm" id="tar-rango-hasta" placeholder="Ej: 320">
+                            </div>
+                            <div class="col-12 col-md-3">
+                                <button type="button" class="btn btn-outline-dark btn-sm w-100 fw-bold" onclick="window.agregarRangoPaquetesTarjetas()">
+                                    <i class="bi bi-plus-circle me-1"></i>Agregar Rango
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover align-middle text-center" id="tabla-tarjetas-detalles" style="font-size: 0.85rem;">
                             <thead class="table-dark">

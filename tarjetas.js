@@ -157,3 +157,58 @@
                 tdResumen.textContent = `Paquete N° ${nroPaq} (${cantExp} exp. - Año: ${anioExp})`;
             }
         };
+
+        // Genera automáticamente una fila por cada número de paquete dentro de
+        // un rango correlativo (ej. del 260 al 320), para no tener que
+        // ingresar el N° de Paquete uno por uno cuando son consecutivos.
+        // Cant. Expedientes y Año de Expedientes se dejan en blanco porque
+        // suelen variar de un paquete a otro.
+        window.agregarRangoPaquetesTarjetas = function() {
+            const inputDesde = document.getElementById('tar-rango-desde');
+            const inputHasta = document.getElementById('tar-rango-hasta');
+            if (!inputDesde || !inputHasta) return;
+
+            const desde = parseInt(inputDesde.value, 10);
+            const hasta = parseInt(inputHasta.value, 10);
+
+            if (isNaN(desde) || isNaN(hasta)) {
+                Swal.fire('Atención', 'Ingrese el N° de Paquete "Desde" y "Hasta" para generar el rango.', 'warning');
+                return;
+            }
+            if (hasta < desde) {
+                Swal.fire('Atención', 'El paquete "Hasta" debe ser mayor o igual al paquete "Desde".', 'warning');
+                return;
+            }
+            if ((hasta - desde) + 1 > 500) {
+                Swal.fire('Atención', 'El rango ingresado es demasiado grande. Verifique los números.', 'warning');
+                return;
+            }
+
+            const tbody = document.querySelector('#tabla-tarjetas-detalles tbody');
+            if (!tbody) return;
+
+            const filaVacia = document.getElementById('tarjetas-fila-vacia');
+            if (filaVacia) filaVacia.remove();
+
+            for (let nroPaq = desde; nroPaq <= hasta; nroPaq++) {
+                const idx = tbody.querySelectorAll('tr').length + 1;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="fw-bold tar-item-nro">${idx}</td>
+                    <td><input type="number" class="form-control form-control-sm text-center fw-bold tar-nro-paq" value="${nroPaq}" oninput="actualizarResumenTarjeta(this)"></td>
+                    <td><input type="number" class="form-control form-control-sm text-center tar-cant-exp" value="" placeholder="" min="1" oninput="actualizarResumenTarjeta(this)"></td>
+                    <td><input type="text" class="form-control form-control-sm text-center tar-anio-exp" value="" placeholder="" oninput="actualizarResumenTarjeta(this)"></td>
+                    <td class="text-start small text-muted tar-resumen">Paquete N° ${nroPaq} (... exp. - Año: ...)</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="this.closest('tr').remove(); reindexarTarjetas();">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            inputDesde.value = '';
+            inputHasta.value = '';
+        };

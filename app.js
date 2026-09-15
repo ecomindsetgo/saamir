@@ -259,19 +259,6 @@
             }
         }
 
-        // El selector de Año de Ingreso solo se habilita cuando el usuario
-        // marca que el bloque corresponde a Tarjetas de Recepción.
-        window.toggleAnioIngresoTarjetas = function(checkboxEl) {
-            const selectAnio = document.getElementById('tar-anio-ingreso');
-            if (!selectAnio) return;
-            selectAnio.disabled = !checkboxEl.checked;
-            if (!checkboxEl.checked) {
-                selectAnio.value = '';
-            } else if (!selectAnio.value) {
-                selectAnio.value = new Date().getFullYear();
-            }
-        };
-
         function cargarDataMaestra(usuarioActivoNombre = "") {
             const selectRepo = document.getElementById('inv-repositorio');
             const selectFiltroRepo = document.getElementById('filtro-repo');
@@ -379,7 +366,7 @@
             const fJuez = document.getElementById('tar-juez');
             const fFecha = document.getElementById('tar-fecha-recepcion');
             const fOficio = document.getElementById('tar-oficio');
-            const chkRecepcion = document.getElementById('tar-es-recepcion');
+            const selectAnio = document.getElementById('tar-anio-ingreso');
             const tbody = document.querySelector('#tabla-tarjetas-detalles tbody');
             const btnGuardar = document.querySelector('button[onclick="window.guardarYGenerarPDFTarjetas()"]');
 
@@ -387,10 +374,7 @@
             if (fJuez) fJuez.value = '';
             if (fFecha) fFecha.value = '';
             if (fOficio) fOficio.value = '';
-            if (chkRecepcion) {
-                chkRecepcion.checked = false;
-                window.toggleAnioIngresoTarjetas(chkRecepcion);
-            }
+            if (selectAnio) selectAnio.value = new Date().getFullYear();
             if (tbody) {
                 tbody.innerHTML = `<tr id="tarjetas-fila-vacia">
                     <td colspan="6" class="text-center text-muted py-3">
@@ -3080,13 +3064,9 @@
 
             idTarjetaEnEdicion = id;
 
-            const chkRecepcion = document.getElementById('tar-es-recepcion');
             const selectAnio = document.getElementById('tar-anio-ingreso');
-            if (chkRecepcion && selectAnio) {
-                const tieneAnio = !!registro.anioIngreso;
-                chkRecepcion.checked = tieneAnio;
-                window.toggleAnioIngresoTarjetas(chkRecepcion);
-                if (tieneAnio) selectAnio.value = registro.anioIngreso;
+            if (selectAnio) {
+                selectAnio.value = registro.anioIngreso || new Date().getFullYear();
             }
 
             document.getElementById('tar-juzgado').value = registro.juzgado || '';
