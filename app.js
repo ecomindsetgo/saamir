@@ -15,6 +15,19 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // Las consultas de lectura nunca deben dejar a SAAMIR esperando indefinidamente.
+        // Si Firebase no responde dentro del tiempo establecido, el módulo continúa
+        // disponible y muestra su propio estado de error/carga.
+        const FIREBASE_READ_TIMEOUT = 15000;
+        function getDocsConTimeout(ref, timeoutMs = FIREBASE_READ_TIMEOUT) {
+            return Promise.race([
+                getDocs(ref),
+                new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Tiempo de espera agotado al consultar Firebase.')), timeoutMs);
+                })
+            ]);
+        }
+
         const NOMBRE_SUPERVISOR_LPMD = "ALFREDO CRUZADO PALACIOS";
         const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
 
@@ -190,7 +203,53 @@
         // Variables para Paginación de 10 registros
         let paginaActualMicroformas = 1;
         let paginaActualAuditoria = 1;
+        let cargaMicroformasPromise = null;
+        let cargaInicialDashboardPromise = null;
         const registrosPorPagina = 10;
+        const estadoPaginacionConsultas = {
+            inventario: { pagina: 1, datos: [] },
+            reingresos: { pagina: 1, datos: [] },
+            traslados: { pagina: 1, datos: [] },
+            tarjetas: { pagina: 1, datos: [] }
+        };
+
+        function renderControlesPaginacion(tipo, total) {
+            const cfg = estadoPaginacionConsultas[tipo];
+            const id = {
+                inventario: 'paginacion-inventario',
+                reingresos: 'paginacion-reingresos',
+                traslados: 'paginacion-traslados',
+                tarjetas: 'paginacion-tarjetas'
+            }[tipo];
+            const el = document.getElementById(id);
+            if (!el) return;
+            const paginas = Math.max(1, Math.ceil(total / registrosPorPagina));
+            cfg.pagina = Math.min(Math.max(1, cfg.pagina), paginas);
+            const inicio = total ? ((cfg.pagina - 1) * registrosPorPagina) + 1 : 0;
+            const fin = Math.min(cfg.pagina * registrosPorPagina, total);
+            const botones = [];
+            botones.push(`<button class="page-btn" ${cfg.pagina <= 1 ? 'disabled' : ''} onclick="window.cambiarPaginaConsulta('${tipo}', ${cfg.pagina - 1})" aria-label="Página anterior"><i class="bi bi-chevron-left"></i></button>`);
+            const desde = Math.max(1, cfg.pagina - 2);
+            const hasta = Math.min(paginas, desde + 4);
+            for (let p = desde; p <= hasta; p++) {
+                botones.push(`<button class="page-btn ${p === cfg.pagina ? 'active' : ''}" onclick="window.cambiarPaginaConsulta('${tipo}', ${p})">${p}</button>`);
+            }
+            botones.push(`<button class="page-btn" ${cfg.pagina >= paginas ? 'disabled' : ''} onclick="window.cambiarPaginaConsulta('${tipo}', ${cfg.pagina + 1})" aria-label="Página siguiente"><i class="bi bi-chevron-right"></i></button>`);
+            el.innerHTML = `
+                <div class="page-info"><strong>${inicio}–${fin}</strong> de <strong>${total}</strong> registros</div>
+                <div class="page-buttons">${botones.join('')}</div>
+                <div class="page-size-note"><i class="bi bi-layout-three-columns me-1"></i>10 registros por página</div>`;
+        }
+
+        window.cambiarPaginaConsulta = function(tipo, pagina) {
+            if (!estadoPaginacionConsultas[tipo]) return;
+            estadoPaginacionConsultas[tipo].pagina = pagina;
+            if (tipo === 'inventario') renderizarFiltrosConsultas(estadoPaginacionConsultas.inventario.datos, false);
+            if (tipo === 'reingresos') renderTablaHistorialReingresos(estadoPaginacionConsultas.reingresos.datos, false);
+            if (tipo === 'traslados') renderTablaHistorialTraslados(estadoPaginacionConsultas.traslados.datos, false);
+            if (tipo === 'tarjetas') renderTablaHistorialTarjetas(estadoPaginacionConsultas.tarjetas.datos, false);
+        };
+
 
         function obtenerLogoArchivoBase64() {
             return new Promise((resolve) => {
@@ -205,7 +264,7 @@
                     resolve(canvas.toDataURL('image/png'));
                 };
                 img.onerror = function() { resolve(null); };
-                img.src = 'https://ecomindsetgo.github.io/saamir/LOGO%20ARCHIVO.png';
+                img.src = 'LOGO_PJ-AD.png';
             });
         }
 
@@ -231,7 +290,15 @@
             });
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        function ejecutarCuandoDOMListo(fn) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', fn, { once: true });
+            } else {
+                fn();
+            }
+        }
+
+        ejecutarCuandoDOMListo(() => {
             let correoGuardado = localStorage.getItem('saamir_ultimo_correo');
             if (correoGuardado) {
                 if (correoGuardado.includes('@')) {
@@ -390,6 +457,32 @@
             switchView('view-tarjetas', 'Tarjetas Recepción');
         };
 
+        // Navegación por secciones: mantiene el menú compacto y abre automáticamente
+        // la sección correspondiente cuando se ingresa a un módulo.
+        window.toggleNavGroup = function(group, forceState = null) {
+            if (!group) return;
+            const shouldOpen = forceState === null ? !group.classList.contains('open') : !!forceState;
+            document.querySelectorAll('#sidebar .nav-group').forEach(g => {
+                if (g === group) {
+                    g.classList.toggle('open', shouldOpen);
+                    const btn = g.querySelector('.nav-group-title');
+                    if (btn) btn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+                } else {
+                    g.classList.remove('open');
+                    const btn = g.querySelector('.nav-group-title');
+                    if (btn) btn.setAttribute('aria-expanded', 'false');
+                }
+            });
+        };
+
+        function abrirGrupoDeVista(viewId) {
+            const link = Array.from(document.querySelectorAll('#sidebar .nav-link')).find(l =>
+                l.dataset.view === viewId || (l.getAttribute('onclick') && l.getAttribute('onclick').includes(viewId))
+            );
+            const group = link ? link.closest('.nav-group') : null;
+            if (group) window.toggleNavGroup(group, true);
+        }
+
         window.toggleMenuMovil = function() {
             document.getElementById('sidebar').classList.toggle('sidebar-abierto');
             document.getElementById('sidebar-backdrop').classList.toggle('show');
@@ -418,7 +511,6 @@
                     Swal.fire('Acceso Denegado', 'No cuenta con autorización para visualizar este módulo.', 'error');
                     return;
                 }
-                cargarMicroformasDesdeCloud();
             }
 
             if (viewId === 'view-traslados') {
@@ -430,22 +522,45 @@
             document.querySelectorAll('#sidebar .nav-link').forEach(l => l.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             document.getElementById('page-title').innerText = titleText;
+
+            // Microformas: la carga inicial se hace en segundo plano para no bloquear
+            // el inicio de sesión, pero al entrar al módulo debemos asegurar que la
+            // tabla se pinte con los datos ya cargados o esperar a que termine la carga.
+            if (viewId === 'view-microformas') {
+                if (baseDatosMicroformas.length > 0) {
+                    renderTablaMicroformas();
+                }
+                cargarMicroformasDesdeCloud().catch(err => {
+                    console.error('SAAMIR: error al cargar Microformas al abrir el módulo:', err);
+                });
+            }
             
             const link = Array.from(document.querySelectorAll('#sidebar .nav-link')).find(l => l.dataset.view === viewId || (l.getAttribute('onclick') && l.getAttribute('onclick').includes(viewId)));
             if(link) link.classList.add('active');
+            abrirGrupoDeVista(viewId);
+
+            if (viewId === 'view-consultas') {
+                cargarInventariosDesdeCloud().catch(err => console.error('SAAMIR: error al cargar inventario:', err));
+            }
 
             if (viewId === 'view-consultas-reingresos') {
-                cargarHistorialReingresos();
+                cargarHistorialReingresos().catch?.(err => console.error('SAAMIR: error al cargar reingresos:', err));
             }
 
             if (viewId === 'view-consultas-traslados') {
-                cargarHistorialTraslados();
+                cargarHistorialTraslados().catch?.(err => console.error('SAAMIR: error al cargar traslados:', err));
             }
 
             if (viewId === 'view-consultas-tarjetas') {
-                cargarHistorialTarjetas();
+                cargarHistorialTarjetas().catch?.(err => console.error('SAAMIR: error al cargar tarjetas:', err));
             }
         }
+
+        // Estado inicial: solo Inicio visible para mantener el menú compacto.
+        ejecutarCuandoDOMListo(() => {
+            const inicio = document.querySelector('#sidebar .nav-group');
+            if (inicio) window.toggleNavGroup(inicio, true);
+        });
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -502,22 +617,19 @@
                     registrarInicioSesionEnCloud(user, userTitle).catch(err => console.error(err));
                 }, 0);
 
-                // Cargar los módulos en paralelo y fuera del callback de autenticación.
-                // Así la pestaña no queda esperando a que terminen las consultas.
+                // SAAMIR queda disponible inmediatamente. Solo se preparan en segundo
+                // plano los datos que alimentan el Dashboard; los módulos operativos
+                // cargan sus propios datos cuando el usuario entra a ellos.
                 setTimeout(() => {
                     Promise.allSettled([
                         cargarInventariosDesdeCloud(),
                         cargarHistorialReingresosParaDashboard(),
-                        cargarHistorialTrasladosParaDashboard(),
-                        cargarMicroformasDesdeCloud(),
-                        cargarHistorialTarjetas()
+                        cargarMicroformasDesdeCloud()
                     ]).then(resultados => {
                         const errores = resultados.filter(r => r.status === 'rejected');
-                        if (errores.length) {
-                            console.error('SAAMIR: algunas cargas iniciales no pudieron completarse:', errores);
-                        }
+                        if (errores.length) console.warn('SAAMIR: algunos datos del dashboard no pudieron cargarse:', errores);
                     });
-                }, 0);
+                }, 50);
             } else {
                 document.getElementById('app-container').style.display = 'none';
                 document.getElementById('login-container').style.display = 'flex';
@@ -803,21 +915,35 @@
             }
         };
 
-        async function cargarMicroformasDesdeCloud() {
-            try {
-                const querySnapshot = await getDocs(collection(db, "control_microformas"));
-                baseDatosMicroformas = [];
-                querySnapshot.forEach((docSnap) => {
-                    const data = { id: docSnap.id, ...docSnap.data() };
-                    if (data.activo !== false) baseDatosMicroformas.push(data);
-                });
+        async function cargarMicroformasDesdeCloud({forzar = false} = {}) {
+            if (!forzar && cargaMicroformasPromise) return cargaMicroformasPromise;
+            cargaMicroformasPromise = (async () => {
+                try {
+                    const querySnapshot = await getDocsConTimeout(collection(db, "control_microformas"));
+                    const nuevos = [];
+                    querySnapshot.forEach((docSnap) => {
+                        const data = { id: docSnap.id, ...docSnap.data() };
+                        if (data.activo !== false) nuevos.push(data);
+                    });
+                    nuevos.sort((a, b) => (a.bloque || 0) - (b.bloque || 0));
+                    baseDatosMicroformas = nuevos;
 
-                baseDatosMicroformas.sort((a, b) => (a.bloque || 0) - (b.bloque || 0));
-                renderTablaMicroformas();
-                actualizarDashboardGlobal();
-            } catch (e) {
-                console.error("Error al cargar microformas:", e);
-            }
+                    // Solo reconstruimos la tabla si el usuario está viendo
+                    // Microformas. Esto evita parpadeos al actualizar el dashboard
+                    // en segundo plano.
+                    if (document.getElementById('view-microformas')?.classList.contains('active')) {
+                        renderTablaMicroformas();
+                    }
+                    actualizarDashboardGlobal();
+                    return baseDatosMicroformas;
+                } catch (e) {
+                    console.error("Error al cargar microformas:", e);
+                    throw e;
+                } finally {
+                    cargaMicroformasPromise = null;
+                }
+            })();
+            return cargaMicroformasPromise;
         }
 
         function renderTablaMicroformas() {
@@ -1236,7 +1362,7 @@
 
         async function cargarInventariosDesdeCloud() {
             try {
-                const querySnapshot = await getDocs(collection(db, "censo_institucional"));
+                const querySnapshot = await getDocsConTimeout(collection(db, "censo_institucional"));
                 baseDatosInventario = [];
                 querySnapshot.forEach((doc) => {
                     const data = { id: doc.id, ...doc.data() };
@@ -1256,7 +1382,7 @@
 
         async function cargarHistorialReingresosParaDashboard() {
             try {
-                const querySnapshot = await getDocs(collection(db, "reingresos"));
+                const querySnapshot = await getDocsConTimeout(collection(db, "reingresos"));
                 baseDatosReingresos = [];
                 querySnapshot.forEach((doc) => {
                     const data = { id: doc.id, ...doc.data() };
@@ -1271,7 +1397,7 @@
 
         async function cargarHistorialTrasladosParaDashboard() {
             try {
-                const querySnapshot = await getDocs(collection(db, "traslados"));
+                const querySnapshot = await getDocsConTimeout(collection(db, "traslados"));
                 baseDatosTraslados = [];
                 querySnapshot.forEach((doc) => {
                     const data = { id: doc.id, ...doc.data() };
@@ -1342,26 +1468,40 @@
             document.getElementById('dash-total-acompanados').innerText = totalAcompanadosCount;
         }
 
-        function renderizarFiltrosConsultas(datos) {
+        function renderizarFiltrosConsultas(datos, resetPage = true) {
             const body = document.getElementById('tabla-consultas-body');
-            document.getElementById('contador-registros').innerText = `${datos.length} Lote(s) Registrado(s)`;
+            if (!body) return;
+            estadoPaginacionConsultas.inventario.datos = datos || [];
+            if (resetPage) estadoPaginacionConsultas.inventario.pagina = 1;
+            const cfg = estadoPaginacionConsultas.inventario;
+            const totalPaginas = Math.max(1, Math.ceil(cfg.datos.length / registrosPorPagina));
+            cfg.pagina = Math.min(cfg.pagina, totalPaginas);
+            document.getElementById('contador-registros').innerText = `${cfg.datos.length} Lote(s)`;
             body.innerHTML = '';
-            if(datos.length === 0) {
-                body.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No se acoplan lotes.</td></tr>`;
-                return;
+            const inicio = (cfg.pagina - 1) * registrosPorPagina;
+            const registros = cfg.datos.slice(inicio, inicio + registrosPorPagina);
+            if (registros.length === 0) {
+                body.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-5"><i class="bi bi-inbox fs-3 d-block mb-2"></i>No hay lotes que coincidan con los filtros.</td></tr>`;
+            } else {
+                registros.forEach(l => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${l.fecha || 'N/A'}</td>
+                        <td class="fw-semibold text-primary">${l.repositorio || 'N/A'}</td>
+                        <td class="text-center fw-bold">${(l.matrizRangos || []).length}</td>
+                        <td class="text-center">${l.totalTeorico ?? 0}</td>
+                        <td class="text-center text-danger fw-bold">${l.totalFaltantes ?? 0}</td>
+                        <td class="text-center table-success fw-bold text-success">${l.totalReal ?? 0}</td>
+                        <td class="small">${l.registra || 'N/A'}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFInstitucional('${l.id}')" title="Generar PDF"><i class="bi bi-file-pdf"></i></button>
+                            <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarLoteInventario('${l.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="window.eliminarRegistroLocal('${l.id}')" title="Eliminar"><i class="bi bi-trash3"></i></button>
+                        </td>`;
+                    body.appendChild(tr);
+                });
             }
-            datos.forEach(l => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${l.fecha || 'N/A'}</td><td class="fw-semibold text-primary">${l.repositorio || 'N/A'}</td><td class="text-center fw-bold">${(l.matrizRangos || []).length}</td><td class="text-center">${l.totalTeorico ?? 0}</td><td class="text-center text-danger fw-bold">${l.totalFaltantes ?? 0}</td><td class="text-center table-success fw-bold text-success">${l.totalReal ?? 0}</td><td class="small">${l.registra || 'N/A'}</td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFInstitucional('${l.id}')"><i class="bi bi-file-pdf"></i> PDF</button>
-                        <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarLoteInventario('${l.id}')"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="window.eliminarRegistroLocal('${l.id}')"><i class="bi bi-trash3"></i></button>
-                    </td>
-                `;
-                body.appendChild(tr);
-            });
+            renderControlesPaginacion('inventario', cfg.datos.length);
         }
 
         function filtrarRegistros() {
@@ -1445,7 +1585,7 @@
                 const setUsuariosUnicos = new Set();
 
                 try {
-                    const snapLogins = await getDocs(collection(db, "auditoria_logins"));
+                    const snapLogins = await getDocsConTimeout(collection(db, "auditoria_logins"));
                     snapLogins.forEach(docSnap => {
                         const d = docSnap.data();
                         const timestamp = d.timestamp || 0;
@@ -1484,7 +1624,7 @@
                 };
 
                 try {
-                    const snapCenso = await getDocs(collection(db, "censo_institucional"));
+                    const snapCenso = await getDocsConTimeout(collection(db, "censo_institucional"));
                     snapCenso.forEach(docSnap => {
                         const d = docSnap.data();
                         const detalle = `Repositorio: ${d.repositorio} | Fecha ejecución: ${d.fecha} | Total Real: ${d.totalReal}`;
@@ -1495,7 +1635,7 @@
                 } catch(err) { console.warn(err); }
 
                 try {
-                    const snapReingresos = await getDocs(collection(db, "reingresos"));
+                    const snapReingresos = await getDocsConTimeout(collection(db, "reingresos"));
                     snapReingresos.forEach(docSnap => {
                         const d = docSnap.data();
                         const totalExp = Array.isArray(d.expedientes) ? d.expedientes.length : 0;
@@ -1507,7 +1647,7 @@
                 } catch(err) { console.warn(err); }
 
                 try {
-                    const snapTraslados = await getDocs(collection(db, "traslados"));
+                    const snapTraslados = await getDocsConTimeout(collection(db, "traslados"));
                     snapTraslados.forEach(docSnap => {
                         const d = docSnap.data();
                         const totalPaq = Array.isArray(d.paquetes) ? d.paquetes.length : 0;
@@ -1519,7 +1659,7 @@
                 } catch(err) { console.warn(err); }
 
                 try {
-                    const snapMicroformas = await getDocs(collection(db, "control_microformas"));
+                    const snapMicroformas = await getDocsConTimeout(collection(db, "control_microformas"));
                     snapMicroformas.forEach(docSnap => {
                         const d = docSnap.data();
                         const detalle = `Bloque N° ${d.bloque || 'N/A'} | Juzgado: ${d.juzgado || 'N/A'} | Rango: ${d.rango || 'N/A'}`;
@@ -1530,7 +1670,7 @@
                 } catch(err) { console.warn(err); }
 
                 try {
-                    const snapTarjetas = await getDocs(collection(db, "tarjetas_paquetes"));
+                    const snapTarjetas = await getDocsConTimeout(collection(db, "tarjetas_paquetes"));
                     snapTarjetas.forEach(docSnap => {
                         const d = docSnap.data();
                         const totalPaq = Array.isArray(d.paquetesData) ? d.paquetesData.length : 0;
@@ -2147,7 +2287,7 @@
 
         window.cargarHistorialReingresos = async function() {
             try {
-                const querySnapshot = await getDocs(collection(db, "reingresos"));
+                const querySnapshot = await getDocsConTimeout(collection(db, "reingresos"));
                 baseDatosReingresos = [];
                 querySnapshot.forEach((doc) => {
                     const data = { id: doc.id, ...doc.data() };
@@ -2162,7 +2302,7 @@
 
         window.cargarHistorialTraslados = async function() {
             try {
-                const querySnapshot = await getDocs(collection(db, "traslados"));
+                const querySnapshot = await getDocsConTimeout(collection(db, "traslados"));
                 baseDatosTraslados = [];
                 querySnapshot.forEach((doc) => {
                     const data = { id: doc.id, ...doc.data() };
@@ -2209,65 +2349,69 @@
             renderTablaHistorialTraslados(filtrados);
         };
 
-        function renderTablaHistorialReingresos(registros) {
+        function renderTablaHistorialReingresos(registros, resetPage = true) {
             const tbody = document.getElementById('tabla-historial-reingresos');
-            if(!tbody) return;
+            if (!tbody) return;
+            estadoPaginacionConsultas.reingresos.datos = registros || [];
+            if (resetPage) estadoPaginacionConsultas.reingresos.pagina = 1;
+            const cfg = estadoPaginacionConsultas.reingresos;
+            const totalPaginas = Math.max(1, Math.ceil(cfg.datos.length / registrosPorPagina));
+            cfg.pagina = Math.min(cfg.pagina, totalPaginas);
             tbody.innerHTML = '';
-            if (registros.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Sin reingresos registrados.</td></tr>`;
-                return;
+            const inicio = (cfg.pagina - 1) * registrosPorPagina;
+            const pagina = cfg.datos.slice(inicio, inicio + registrosPorPagina);
+            if (pagina.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Sin reingresos registrados.</td></tr>`;
+            } else {
+                pagina.forEach(data => {
+                    const fila = `<tr>
+                        <td>${data.fecha || 'N/A'}</td>
+                        <td>${data.solicitante || 'N/A'}</td>
+                        <td>${data.local || 'N/A'}</td>
+                        <td>${data.entregado || 'N/A'}</td>
+                        <td>${data.expedientes ? data.expedientes.length : 0}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF"><i class="bi bi-file-pdf"></i></button>
+                            <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarReingreso('${data.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarReingreso('${data.id}')" title="Eliminar"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', fila);
+                });
             }
-            registros.forEach(data => {
-                const fila = `<tr>
-                    <td>${data.fecha || 'N/A'}</td>
-                    <td>${data.solicitante || 'N/A'}</td>
-                    <td>${data.local || 'N/A'}</td>
-                    <td>${data.entregado || 'N/A'}</td>
-                    <td>${data.expedientes ? data.expedientes.length : 0}</td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF">
-                            <i class="bi bi-file-pdf"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarReingreso('${data.id}')" title="Editar Registro">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarReingreso('${data.id}')" title="Eliminar Registro">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                </tr>`;
-                tbody.insertAdjacentHTML('beforeend', fila);
-            });
+            renderControlesPaginacion('reingresos', cfg.datos.length);
         }
 
-        function renderTablaHistorialTraslados(registros) {
+        function renderTablaHistorialTraslados(registros, resetPage = true) {
             const tbody = document.getElementById('tabla-historial-traslados');
-            if(!tbody) return;
+            if (!tbody) return;
+            estadoPaginacionConsultas.traslados.datos = registros || [];
+            if (resetPage) estadoPaginacionConsultas.traslados.pagina = 1;
+            const cfg = estadoPaginacionConsultas.traslados;
+            const totalPaginas = Math.max(1, Math.ceil(cfg.datos.length / registrosPorPagina));
+            cfg.pagina = Math.min(cfg.pagina, totalPaginas);
             tbody.innerHTML = '';
-            if (registros.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">Sin traslados registrados.</td></tr>`;
-                return;
+            const inicio = (cfg.pagina - 1) * registrosPorPagina;
+            const pagina = cfg.datos.slice(inicio, inicio + registrosPorPagina);
+            if (pagina.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-5"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Sin traslados registrados.</td></tr>`;
+            } else {
+                pagina.forEach(data => {
+                    const totalPaqSuma = (data.paquetes || []).reduce((acc, p) => acc + (parseInt(p.cantidad, 10) || 1), 0);
+                    const fila = `<tr>
+                        <td>${data.fecha || 'N/A'}</td>
+                        <td>${data.entregado || 'N/A'}</td>
+                        <td>${totalPaqSuma}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFTrasladoDesdeRegistro('${data.id}')" title="Ver PDF"><i class="bi bi-file-pdf"></i></button>
+                            <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarTraslado('${data.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarTraslado('${data.id}')" title="Eliminar"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', fila);
+                });
             }
-            registros.forEach(data => {
-                const totalPaqSuma = (data.paquetes || []).reduce((acc, p) => acc + (parseInt(p.cantidad, 10) || 1), 0);
-                const fila = `<tr>
-                    <td>${data.fecha || 'N/A'}</td>
-                    <td>${data.entregado || 'N/A'}</td>
-                    <td>${totalPaqSuma}</td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFTrasladoDesdeRegistro('${data.id}')" title="Ver PDF">
-                            <i class="bi bi-file-pdf"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarTraslado('${data.id}')" title="Editar Registro">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarTraslado('${data.id}')" title="Eliminar Registro">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                </tr>`;
-                tbody.insertAdjacentHTML('beforeend', fila);
-            });
+            renderControlesPaginacion('traslados', cfg.datos.length);
         }
 
         async function construirPDFReingreso({ correlativo, fecha, solicitante, local, entregado, expedientes }) {
@@ -2841,14 +2985,14 @@
                 };
 
                 filaDato("TIPO DE ARCHIVO", tipoArchivo);
-                filaDato("JUZGADO", juzgado, 24);
+                filaDato("JUZGADO", juzgado, 16);
                 filaDato("JUEZ", juez);
 
                 // Paquete N° (Doble caja año / número) - datos clave en letra
                 // más grande, ya que son los campos de identificación rápida
                 // del paquete físico.
                 doc.setFont(FUENTE, 'bold');
-                doc.setFontSize(10);
+                doc.setFontSize(8);
                 doc.setTextColor(0, 0, 0);
                 doc.text("PAQUETE N°", x + 5, cursorY + 4.5);
 
@@ -2859,15 +3003,15 @@
                 doc.rect(x + 42 + halfW, cursorY, halfW, altoFila, 'FD');
 
                 const anchoDisponibleDoble = halfW - 4;
-                const fsAnio = ajustarFuenteAncho(anioIngreso, 26, anchoDisponibleDoble);
-                const fsPaq = ajustarFuenteAncho(dataPaquete.nroPaq, 26, anchoDisponibleDoble);
+                const fsAnio = ajustarFuenteAncho(anioIngreso, 18, anchoDisponibleDoble);
+                const fsPaq = ajustarFuenteAncho(dataPaquete.nroPaq, 18, anchoDisponibleDoble);
 
                 doc.setFont(FUENTE, 'bold');
                 doc.setFontSize(fsAnio);
                 doc.setTextColor(0, 0, 0);
-                doc.text(String(anioIngreso || ''), x + 42 + (halfW / 2), cursorY + (altoFila / 2) + 2, { align: "center" });
+                doc.text(String(anioIngreso || ''), x + 42 + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
                 doc.setFontSize(fsPaq);
-                doc.text(String(dataPaquete.nroPaq || ''), x + 42 + halfW + (halfW / 2), cursorY + (altoFila / 2) + 2, { align: "center" });
+                doc.text(String(dataPaquete.nroPaq || ''), x + 42 + halfW + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
 
                 doc.setFont(FUENTE, 'normal');
                 doc.setFontSize(5.5);
@@ -2987,7 +3131,7 @@
 
         async function cargarHistorialTarjetas() {
             try {
-                const querySnapshot = await getDocs(collection(db, "tarjetas_paquetes"));
+                const querySnapshot = await getDocsConTimeout(collection(db, "tarjetas_paquetes"));
                 baseDatosTarjetas = [];
                 querySnapshot.forEach((docSnap) => {
                     const data = { id: docSnap.id, ...docSnap.data() };
@@ -3018,45 +3162,64 @@
             renderTablaHistorialTarjetas(filtrados);
         };
 
-        function renderTablaHistorialTarjetas(registros) {
+        function renderTablaHistorialTarjetas(registros, resetPage = true) {
             const tbody = document.getElementById('tabla-historial-tarjetas');
             if (!tbody) return;
+            estadoPaginacionConsultas.tarjetas.datos = registros || [];
+            if (resetPage) estadoPaginacionConsultas.tarjetas.pagina = 1;
+            const cfg = estadoPaginacionConsultas.tarjetas;
+            const totalPaginas = Math.max(1, Math.ceil(cfg.datos.length / registrosPorPagina));
+            cfg.pagina = Math.min(cfg.pagina, totalPaginas);
             tbody.innerHTML = '';
-            if (registros.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Sin bloques de tarjetas registrados.</td></tr>`;
-                return;
+            const inicio = (cfg.pagina - 1) * registrosPorPagina;
+            const pagina = cfg.datos.slice(inicio, inicio + registrosPorPagina);
+            if (pagina.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Sin bloques de tarjetas registrados.</td></tr>`;
+            } else {
+                pagina.forEach(data => {
+                    const fechaStr = data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A';
+                    const totalPaq = data.paquetesData ? data.paquetesData.length : 0;
+                    const fila = `<tr>
+                        <td>${fechaStr}</td>
+                        <td><strong>${data.juzgado || 'N/A'}</strong><br><small class="text-muted">${data.juez || ''}</small></td>
+                        <td><span class="badge bg-secondary">${data.tipoArchivo || ''}</span><br><small>${data.repositorio || ''}</small></td>
+                        <td class="text-center fw-bold">${totalPaq}</td>
+                        <td>${data.personal || 'N/A'}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarTarjeta('${data.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.reimprimirTarjeta('${data.id}')" title="Generar PDF"><i class="bi bi-file-pdf"></i></button>
+                            <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarTarjeta('${data.id}')" title="Eliminar"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', fila);
+                });
             }
-            registros.forEach(data => {
-                const fechaStr = data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A';
-                const totalPaq = data.paquetesData ? data.paquetesData.length : 0;
-                const fila = `<tr>
-                    <td>${fechaStr}</td>
-                    <td><strong>${data.juzgado || 'N/A'}</strong><br><small class="text-muted">${data.juez || ''}</small></td>
-                    <td><span class="badge bg-secondary">${data.tipoArchivo || ''}</span><br><small>${data.repositorio || ''}</small></td>
-                    <td class="text-center fw-bold">${totalPaq}</td>
-                    <td>${data.personal || 'N/A'}</td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarTarjeta('${data.id}')" title="Editar Registro">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.reimprimirTarjetas('${data.id}')" title="Generar PDF">
-                            <i class="bi bi-file-pdf"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarTarjetasLote('${data.id}')" title="Eliminar">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                </tr>`;
-                tbody.insertAdjacentHTML('beforeend', fila);
-            });
+            renderControlesPaginacion('tarjetas', cfg.datos.length);
         }
 
-        window.reimprimirTarjetas = async function(id) {
-            const lote = baseDatosTarjetas.find(t => t.id === id);
-            if (!lote) return;
-            const blobUrl = await construirPDFTarjetas(lote);
-            mostrarModalPreviewPDF(blobUrl, `TARJETAS_${lote.juzgado || 'LOTE'}.pdf`);
-        };
+        async function abrirPDFTarjetaPorId(id) {
+            try {
+                const lote = baseDatosTarjetas.find(t => t.id === id);
+                if (!lote) {
+                    await Swal.fire('Atención', 'No se encontró el registro de la tarjeta.', 'warning');
+                    return;
+                }
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    await Swal.fire('Error', 'El generador PDF todavía no está disponible. Espere unos segundos y vuelva a intentarlo.', 'error');
+                    return;
+                }
+                const blobUrl = await construirPDFTarjetas(lote);
+                if (!blobUrl) throw new Error('No se pudo generar la vista previa del PDF.');
+                mostrarModalPreviewPDF(blobUrl, `TARJETAS_${lote.juzgado || 'LOTE'}.pdf`);
+            } catch (error) {
+                console.error('SAAMIR: error al abrir PDF de tarjeta:', error);
+                Swal.fire('Error', `No se pudo abrir el PDF: ${error.message || error}`, 'error');
+            }
+        }
+
+        // Compatibilidad con el botón de la tabla, que utiliza el nombre singular.
+        window.reimprimirTarjeta = abrirPDFTarjetaPorId;
+        window.reimprimirTarjetas = abrirPDFTarjetaPorId;
 
         window.editarTarjeta = function(id) {
             const registro = baseDatosTarjetas.find(t => t.id === id);

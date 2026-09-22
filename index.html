@@ -52,44 +52,79 @@
     <div id="app-container" style="display: none;">
         <aside id="sidebar" class="no-print">
             <div class="p-3 text-center border-bottom border-secondary border-opacity-25">
-                <h4 class="fw-bold m-0 text-white" style="letter-spacing: 1px;"><i class="bi bi-folder-symlink-fill me-2"></i>SAAMIR</h4>
-                <span class="badge bg-secondary mt-1 px-2.5 py-1" style="font-size: 0.7rem;">Archivo Desconcentrado</span>
+                <div class="brand-mark"><i class="bi bi-archive-fill"></i></div>
+                <div class="brand-name">SAAMIR</div>
+                <div class="brand-subtitle">Archivo Desconcentrado</div>
+                <div class="brand-version">Gestión documental</div>
             </div>
             
-            <nav class="nav flex-column mt-2 flex-grow-1" style="font-size: 0.9rem;">
-                <a class="nav-link active" href="#" onclick="switchView('view-dashboard', 'Dashboard Principal')">
-                    <i class="bi bi-grid-1x2-fill"></i> Dashboard Global
-                </a>
-                <a class="nav-link" id="menu-link-microformas" href="#" onclick="switchView('view-microformas', 'Control de Producción de Microformas')" style="display: none;">
-                    <i class="bi bi-file-earmark-spreadsheet-fill"></i> Control Microformas
-                </a>
-                <a class="nav-link" href="#" data-view="view-inventario" onclick="window.iniciarNuevoInventario()">
-                    <i class="bi bi-journal-plus"></i> Cargar Inventario
-                </a>
-                <a class="nav-link" href="#" onclick="switchView('view-consultas', 'Consultar Consolidados por Repositorio')">
-                    <i class="bi bi-search"></i> Consultar Lotes
-                </a>
-                <a class="nav-link" href="#" data-view="view-reingresos" onclick="window.iniciarNuevoReingreso()">
-                    <i class="bi bi-arrow-return-left"></i> Reingresos
-                </a>
-                <a class="nav-link" data-view="view-consultas-reingresos" onclick="switchView('view-consultas-reingresos', 'Consultar Historial de Reingresos')"><i class="bi bi-search"></i> Consultar Reingresos</a>
-                <a class="nav-link" href="#" data-view="view-traslados" onclick="window.iniciarNuevoTraslado()"><i class="bi bi-truck"></i> Formato de Traslado</a>
-                <a class="nav-link" href="#" data-view="view-consultas-traslados" onclick="switchView('view-consultas-traslados', 'Consultar Historial de Traslados')"><i class="bi bi-search"></i> Consultar Traslados</a>
-                <a class="nav-link" href="#" data-view="view-tarjetas" onclick="window.iniciarNuevaTarjeta()">
-                    <i class="bi bi-card-checklist"></i> Tarjetas Recepción
-                </a>
-                <a class="nav-link" href="#" data-view="view-consultas-tarjetas" onclick="switchView('view-consultas-tarjetas', 'Consultar Historial de Tarjetas')">
-                    <i class="bi bi-search"></i> Consultar Tarjetas
-                </a>
-                <a class="nav-link" href="#" onclick="switchView('view-perfil', 'Mi Perfil de Usuario')">
-                    <i class="bi bi-person-gear"></i> Mi Perfil / Cuenta
-                </a>
-                <a class="nav-link" href="#" onclick="switchView('view-configuracion', 'Consola de Configuración')">
-                    <i class="bi bi-gear-fill"></i> Configuración
-                </a>
-                <a class="nav-link" id="menu-link-auditoria" href="#" onclick="switchView('view-auditoria', 'Historial y Trazabilidad del Sistema')" style="display: none;">
-                    <i class="bi bi-clock-history"></i> Auditoría de Cambios
-                </a>
+            <nav class="saamir-nav" aria-label="Navegación principal">
+                <div class="nav-group">
+                    <button type="button" class="nav-group-title" onclick="toggleNavGroup(this.parentElement)" aria-expanded="true"><span class="nav-group-title-main"><i class="bi bi-speedometer2"></i><span>Inicio</span></span><i class="bi bi-chevron-down nav-group-chevron"></i></button>
+                    <a class="nav-link active" href="#" data-view="view-dashboard" onclick="switchView('view-dashboard', 'Dashboard Principal'); return false;">
+                        <span class="nav-icon"><i class="bi bi-grid-1x2-fill"></i></span><span>Dashboard</span>
+                    </a>
+                </div>
+
+                <div class="nav-group">
+                    <button type="button" class="nav-group-title" onclick="toggleNavGroup(this.parentElement)" aria-expanded="false"><span class="nav-group-title-main"><i class="bi bi-archive"></i><span>Microformas</span></span><i class="bi bi-chevron-down nav-group-chevron"></i></button>
+                    <a class="nav-link" id="menu-link-microformas" href="#" data-view="view-microformas" onclick="switchView('view-microformas', 'Control de Producción de Microformas'); return false;" style="display:none;">
+                        <span class="nav-icon"><i class="bi bi-file-earmark-richtext-fill"></i></span><span>Control de producción</span>
+                    </a>
+                </div>
+
+                <div class="nav-group">
+                    <button type="button" class="nav-group-title" onclick="toggleNavGroup(this.parentElement)" aria-expanded="false"><span class="nav-group-title-main"><i class="bi bi-box-seam"></i><span>Inventario</span></span><i class="bi bi-chevron-down nav-group-chevron"></i></button>
+                    <a class="nav-link" href="#" data-view="view-inventario" onclick="window.iniciarNuevoInventario(); return false;">
+                        <span class="nav-icon"><i class="bi bi-cloud-arrow-up-fill"></i></span><span>Cargar inventario</span>
+                    </a>
+                    <a class="nav-link" href="#" data-view="view-consultas" onclick="switchView('view-consultas', 'Consultar Lotes'); return false;">
+                        <span class="nav-icon"><i class="bi bi-search"></i></span><span>Consultar lotes</span>
+                    </a>
+                </div>
+
+                <div class="nav-group">
+                    <button type="button" class="nav-group-title" onclick="toggleNavGroup(this.parentElement)" aria-expanded="false"><span class="nav-group-title-main"><i class="bi bi-arrow-counterclockwise"></i><span>Reingresos</span></span><i class="bi bi-chevron-down nav-group-chevron"></i></button>
+                    <a class="nav-link" href="#" data-view="view-reingresos" onclick="window.iniciarNuevoReingreso(); return false;">
+                        <span class="nav-icon"><i class="bi bi-plus-circle"></i></span><span>Registrar reingreso</span>
+                    </a>
+                    <a class="nav-link" href="#" data-view="view-consultas-reingresos" onclick="switchView('view-consultas-reingresos', 'Consultar Reingresos'); return false;">
+                        <span class="nav-icon"><i class="bi bi-list-ul"></i></span><span>Consultar reingresos</span>
+                    </a>
+                </div>
+
+                <div class="nav-group">
+                    <button type="button" class="nav-group-title" onclick="toggleNavGroup(this.parentElement)" aria-expanded="false"><span class="nav-group-title-main"><i class="bi bi-truck"></i><span>Traslados</span></span><i class="bi bi-chevron-down nav-group-chevron"></i></button>
+                    <a class="nav-link" href="#" data-view="view-traslados" onclick="window.iniciarNuevoTraslado(); return false;">
+                        <span class="nav-icon"><i class="bi bi-file-earmark-plus"></i></span><span>Registrar traslado</span>
+                    </a>
+                    <a class="nav-link" href="#" data-view="view-consultas-traslados" onclick="switchView('view-consultas-traslados', 'Consultar Traslados'); return false;">
+                        <span class="nav-icon"><i class="bi bi-list-ul"></i></span><span>Consultar traslados</span>
+                    </a>
+                </div>
+
+                <div class="nav-group">
+                    <button type="button" class="nav-group-title" onclick="toggleNavGroup(this.parentElement)" aria-expanded="false"><span class="nav-group-title-main"><i class="bi bi-credit-card-2-front"></i><span>Tarjetas</span></span><i class="bi bi-chevron-down nav-group-chevron"></i></button>
+                    <a class="nav-link" href="#" data-view="view-tarjetas" onclick="window.iniciarNuevaTarjeta(); return false;">
+                        <span class="nav-icon"><i class="bi bi-card-heading"></i></span><span>Generar tarjetas</span>
+                    </a>
+                    <a class="nav-link" href="#" data-view="view-consultas-tarjetas" onclick="switchView('view-consultas-tarjetas', 'Consultar Tarjetas'); return false;">
+                        <span class="nav-icon"><i class="bi bi-list-ul"></i></span><span>Consultar tarjetas</span>
+                    </a>
+                </div>
+
+                <div class="nav-group nav-group-account">
+                    <button type="button" class="nav-group-title" onclick="toggleNavGroup(this.parentElement)" aria-expanded="false"><span class="nav-group-title-main"><i class="bi bi-person-gear"></i><span>Cuenta</span></span><i class="bi bi-chevron-down nav-group-chevron"></i></button>
+                    <a class="nav-link" href="#" data-view="view-perfil" onclick="switchView('view-perfil', 'Mi Perfil / Cuenta'); return false;">
+                        <span class="nav-icon"><i class="bi bi-person-vcard"></i></span><span>Perfil y contraseña</span>
+                    </a>
+                    <a class="nav-link" href="#" data-view="view-configuracion" onclick="switchView('view-configuracion', 'Configuración'); return false;">
+                        <span class="nav-icon"><i class="bi bi-sliders2"></i></span><span>Configuración</span>
+                    </a>
+                    <a class="nav-link" id="menu-link-auditoria" href="#" data-view="view-auditoria" onclick="switchView('view-auditoria', 'Auditoría y trazabilidad'); return false;" style="display:none;">
+                        <span class="nav-icon"><i class="bi bi-clock-history"></i></span><span>Auditoría</span>
+                    </a>
+                </div>
             </nav>
 
             <div class="p-2 border-top border-secondary border-opacity-25">
@@ -107,7 +142,10 @@
                     <button class="btn btn-outline-dark btn-sm btn-menu-movil no-print" onclick="toggleMenuMovil()" aria-label="Abrir menú">
                         <i class="bi bi-list fs-5"></i>
                     </button>
-                    <h5 class="m-0 fw-semibold text-secondary" id="page-title">Dashboard Principal</h5>
+                    <div class="top-title-wrap">
+                        <span class="top-title-kicker">SAAMIR</span>
+                        <h5 class="m-0 fw-semibold text-dark" id="page-title">Dashboard</h5>
+                    </div>
                 </div>
                 <div class="d-flex align-items-center gap-3" style="cursor: pointer;" onclick="switchView('view-perfil', 'Mi Perfil de Usuario')">
                     <div class="text-end d-none d-sm-block">
@@ -124,7 +162,7 @@
             <section id="view-tarjetas" class="view-section">
                 <div class="card p-3 p-md-4 border-0 shadow-sm mb-4">
                     <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom">
-                        <img src="https://ecomindsetgo.github.io/saamir/LOGO%20ARCHIVO.png" alt="Logo Archivo CSJSA" style="max-height: 50px; object-fit: contain;" onerror="this.style.display='none'">
+                        <img src="LOGO_PJ-AD.png" alt="Logo Archivo CSJSA" style="max-height: 50px; object-fit: contain;" onerror="this.style.display='none'">
                         <div>
                             <h6 class="form-section-title m-0 p-0 border-0"><i class="bi bi-card-checklist me-2"></i>Parámetros Generales del Bloque de Tarjetas</h6>
                             <small class="text-muted">Corte Superior de Justicia del Santa - Archivo Desconcentrado</small>
@@ -278,6 +316,7 @@
                             <tbody id="tabla-historial-tarjetas">
                             </tbody>
                         </table>
+                    <div id="paginacion-tarjetas" class="saamir-pagination mt-3" aria-label="Paginación de tarjetas"></div>
                     </div>
                 </div>
             </section>
@@ -339,6 +378,7 @@
                             <tbody id="tabla-historial-reingresos">
                             </tbody>
                         </table>
+                    <div id="paginacion-reingresos" class="saamir-pagination mt-3" aria-label="Paginación de reingresos"></div>
                     </div>
                 </div>
             </section>
@@ -393,20 +433,25 @@
                             <tbody id="tabla-historial-traslados">
                             </tbody>
                         </table>
+                    <div id="paginacion-traslados" class="saamir-pagination mt-3" aria-label="Paginación de traslados"></div>
                     </div>
                 </div>
             </section>
 
             <!-- DASHBOARD GLOBAL -->
             <section id="view-dashboard" class="view-section active">
-                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom flex-wrap gap-2">
-                    <div>
-                        <h4 class="fw-bold text-dark m-0"><i class="bi bi-grid-1x2-fill me-2 text-primary"></i>Dashboard Global Institucional</h4>
-                        <p class="text-muted small m-0">Corte Superior de Justicia del Santa - Archivo Desconcentrado</p>
+                <div class="dashboard-hero mb-4">
+                    <div class="dashboard-hero-content">
+                        <div class="eyebrow"><i class="bi bi-buildings me-1"></i> Corte Superior de Justicia del Santa · Archivo Desconcentrado</div>
+                        <h1>SAAMIR</h1>
+                        <p>Sistema de Administración de Archivos, Microformas, Inventario y Reportes</p>
+                        <span class="hero-status"><i class="bi bi-shield-check"></i> Plataforma de gestión y trazabilidad documental</span>
                     </div>
-                    <button class="btn btn-danger btn-sm d-flex align-items-center gap-2 no-print" id="btn-imprimir-dashboard" onclick="window.generarPDFDashboardGlobal()">
-                        <i class="bi bi-file-pdf"></i> Generar PDF
-                    </button>
+                    <div class="dashboard-hero-actions">
+                        <button class="btn btn-light btn-sm d-flex align-items-center gap-2 no-print" id="btn-imprimir-dashboard" onclick="window.generarPDFDashboardGlobal()">
+                            <i class="bi bi-file-earmark-pdf"></i> Generar reporte
+                        </button>
+                    </div>
                 </div>
 
                 <div class="seccion-inventario-box">
@@ -876,6 +921,7 @@
                             </thead>
                             <tbody id="tabla-consultas-body"></tbody>
                         </table>
+                    <div id="paginacion-inventario" class="saamir-pagination mt-3" aria-label="Paginación de lotes"></div>
                     </div>
                 </div>
             </section>
@@ -1193,13 +1239,27 @@
     </div>
 
     <!-- SCRIPTS EXTERNOS OBLIGATORIOS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <div id="saamir-boot-error" style="display:none; position:fixed; inset:auto 20px 20px 20px; z-index:99999; background:#fff3cd; color:#664d03; border:1px solid #ffecb5; border-radius:12px; padding:14px 18px; box-shadow:0 8px 30px rgba(0,0,0,.12);">
+        <strong>SAAMIR no pudo iniciar completamente.</strong> Verifique la conexión y vuelva a cargar la página.
+    </div>
 
     <!-- INICIO DEL MOTOR LOGICO ASOCIADO A FIREBASE -->
-    <script type="module" src="app.js"></script>
-    <script src="tarjetas.js"></script>
+    <script type="module">
+        // Cargar el motor de SAAMIR después de que la interfaz HTML esté lista.
+        // Así las importaciones de Firebase no mantienen la página en estado de carga.
+        window.addEventListener('DOMContentLoaded', () => {
+            import('./app.js').catch(error => {
+                console.error('SAAMIR: no se pudo iniciar el motor:', error);
+                const aviso = document.getElementById('saamir-boot-error');
+                if (aviso) aviso.style.display = 'block';
+            });
+        }, { once: true });
+    </script>
+    <script defer src="tarjetas.js"></script>
 </body>
 </html>
