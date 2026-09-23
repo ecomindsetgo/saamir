@@ -1,3305 +1,2804 @@
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, updateDoc, setDoc, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-lite.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
+  EmailAuthProvider, reauthenticateWithCredential, updatePassword
+} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, deleteDoc, query, collection, where, limit, getDocs, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { firebaseConfig, ADMIN_UID } from "./firebase-config.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDaVsm4cs9O-R0plj1hk62Iy1uU2IYZLfc",
-            authDomain: "sipa-d4ec9.firebaseapp.com",
-            projectId: "sipa-d4ec9",
-            storageBucket: "sipa-d4ec9.firebasestorage.app",
-            messagingSenderId: "560354492263",
-            appId: "1:560354492263:web:653ac26f811153537c79c2"
-        };
+const appFirebase = initializeApp(firebaseConfig);
+const auth = getAuth(appFirebase);
+const db = getFirestore(appFirebase);
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // Las consultas de lectura nunca deben dejar a SAAMIR esperando indefinidamente.
-        // Si Firebase no responde dentro del tiempo establecido, el módulo continúa
-        // disponible y muestra su propio estado de error/carga.
-        const FIREBASE_READ_TIMEOUT = 15000;
-        function getDocsConTimeout(ref, timeoutMs = FIREBASE_READ_TIMEOUT) {
-            return Promise.race([
-                getDocs(ref),
-                new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('Tiempo de espera agotado al consultar Firebase.')), timeoutMs);
-                })
-            ]);
-        }
-
-        const NOMBRE_SUPERVISOR_LPMD = "ALFREDO CRUZADO PALACIOS";
-        const DOMINIO_INSTITUCIONAL = "pj.gob.pe";
-
-        const repositorios = ["SÓTANO NCPP", "SAENZ PEÑA", "PADILLA", "DUNAS", "DOMUS"];
-        const listaPersonalRoles = {
-            "JORGE DESPOSORIO": "Responsable de Archivo",
-            "ROBERTO DÁVILA": "Personal de Archivo",
-            "ALFREDO CRUZADO": "Personal de Archivo",
-            "LUIS EPIFANÍA": "Personal de Archivo",
-            "JORGE IZQUIERDO": "Personal de Archivo",
-            "MANUEL BARANDIARAN": "Personal de Archivo",
-            "RAÚL RODRIGUEZ": "Personal de Archivo",
-            "TEÓFILO GABINO": "Personal de Archivo",
-            "IVÁN ROCHA": "Personal de Archivo",
-            "ROSA CHUMBES": "Personal de Archivo"
-        };
-
-        const dataMaestra = {
-            personal: [
-                "ALFREDO CRUZADO", "RAÚL RODRIGUEZ", "JORGE DESPOSORIO", 
-                "JORGE IZQUIERDO", "LUIS EPIFANÍA", "MANUEL BARANDIARAN", 
-                "ROBERTO DÁVILA", "TEÓFILO GABINO", "IVÁN ROCHA"
-            ],
-            repositorios: [
-                "SÓTANO NCPP", "SAENZ PEÑA", "PADILLA", "DUNAS", "DOMUS"
-            ]
-        };
-
-        const PERMISOS = {
-            reingresos_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN"],
-            inventario_escritura: ["ALFREDO CRUZADO", "ACRUZADO", "ROBERTO DAVILA", "RDAVILA", "JORGE IZQUIERDO", "JIZQUIERDO", "MANUEL BARANDIARAN", "MBARANDIARAN", "TEOFILO GABINO", "TGABINO"],
-            microformas_escritura: ["ALFREDO CRUZADO", "ACRUZADO"]
-        };
-
-        function normalizarTexto(texto) {
-            if (!texto) return '';
-            return texto.trim().toUpperCase().replace(/\s+/g, ' ');
-        }
-
-        function esUsuarioAdministradorLog(nombreUsuario) {
-            const u = normalizarTexto(nombreUsuario);
-            return u === "ALFREDO CRUZADO" || u === "ACRUZADO";
-        }
-
-        function esUsuarioMicroformasVisualizador(nombreUsuario) {
-            const u = normalizarTexto(nombreUsuario);
-            return u === "ROBERTO DÁVILA" || u === "ROBERTO DAVILA" || u === "RDAVILA" || u === "JORGE DESPOSORIO" || u === "JDESPOSORIO" || esUsuarioAdministradorLog(u);
-        }
-
-        function aplicarPermisos(nombreUsuario) {
-            const usuarioLimpio = normalizarTexto(nombreUsuario);
-            
-            const reingresosLimpios = PERMISOS.reingresos_escritura.map(n => normalizarTexto(n));
-            const inventarioLimpios = PERMISOS.inventario_escritura.map(n => normalizarTexto(n));
-            const microformasLimpios = PERMISOS.microformas_escritura.map(n => normalizarTexto(n));
-
-            const puedeReingresos = reingresosLimpios.includes(usuarioLimpio);
-            const puedeInventario = inventarioLimpios.includes(usuarioLimpio);
-            const puedeMicroformasEscritura = microformasLimpios.includes(usuarioLimpio);
-            const puedeVerMicroformas = esUsuarioMicroformasVisualizador(usuarioLimpio);
-            const esAdminLog = esUsuarioAdministradorLog(usuarioLimpio);
-
-            const menuMicroformas = document.getElementById('menu-link-microformas');
-            if (menuMicroformas) {
-                menuMicroformas.style.display = puedeVerMicroformas ? 'flex' : 'none';
-            }
-
-            const menuAuditoria = document.getElementById('menu-link-auditoria');
-            if (menuAuditoria) {
-                menuAuditoria.style.display = esAdminLog ? 'flex' : 'none';
-            }
-
-            const btnImprimirDash = document.getElementById('btn-imprimir-dashboard');
-            if (btnImprimirDash) {
-                if (esAdminLog) {
-                    btnImprimirDash.style.setProperty('display', 'flex', 'important');
-                } else {
-                    btnImprimirDash.style.setProperty('display', 'none', 'important');
-                }
-            }
-
-            const btnNuevaMicroforma = document.getElementById('btn-nueva-microforma');
-            if (btnNuevaMicroforma) {
-                btnNuevaMicroforma.style.display = puedeMicroformasEscritura ? 'flex' : 'none';
-            }
-
-            document.getElementById('btn-guardar-reingreso')?.toggleAttribute('disabled', !puedeReingresos);
-            
-            const btnAgregarExpediente = document.querySelector('button[onclick="agregarFilaReingreso()"]');
-            if (btnAgregarExpediente) {
-                btnAgregarExpediente.disabled = !puedeReingresos;
-                btnAgregarExpediente.style.pointerEvents = puedeReingresos ? 'auto' : 'none';
-                btnAgregarExpediente.classList.toggle('opacity-50', !puedeReingresos);
-            }
-
-            const btnGenerarPDF = document.querySelector('button[onclick="generarReporteReingresoPDF()"]');
-            if (btnGenerarPDF) {
-                btnGenerarPDF.disabled = !puedeReingresos;
-                btnGenerarPDF.style.pointerEvents = puedeReingresos ? 'auto' : 'none';
-                btnGenerarPDF.classList.toggle('opacity-50', !puedeReingresos);
-            }
-
-            document.querySelectorAll('#view-reingresos input, #view-reingresos select').forEach(el => el.disabled = !puedeReingresos);
-
-            document.getElementById('btn-guardar-traslado')?.removeAttribute('disabled');
-            
-            const btnAgregarTraslado = document.querySelector('button[onclick="agregarFilaTraslado()"]');
-            if (btnAgregarTraslado) {
-                btnAgregarTraslado.disabled = false;
-                btnAgregarTraslado.style.pointerEvents = 'auto';
-                btnAgregarTraslado.classList.remove('opacity-50');
-            }
-
-            const btnGenerarPDFTraslado = document.querySelector('button[onclick="generarReporteTrasladoPDF()"]');
-            if (btnGenerarPDFTraslado) {
-                btnGenerarPDFTraslado.disabled = false;
-                btnGenerarPDFTraslado.style.pointerEvents = 'auto';
-                btnGenerarPDFTraslado.classList.remove('opacity-50');
-            }
-
-            document.querySelectorAll('#view-traslados input, #view-traslados select').forEach(el => el.disabled = false);
-
-            document.getElementById('form-inventario')?.querySelectorAll('input, select, button[type=submit]').forEach(el => el.disabled = !puedeInventario);
-
-            const btnAgregarRango = document.querySelector('button[onclick="abrirModalRango()"]');
-            if (btnAgregarRango) {
-                btnAgregarRango.disabled = !puedeInventario;
-                btnAgregarRango.style.pointerEvents = puedeInventario ? 'auto' : 'none';
-                btnAgregarRango.classList.toggle('opacity-50', !puedeInventario);
-            }
-        }
-
-        async function sincronizarUsuarioEnFirestore(user, nombreUsuario) {
-            try {
-                await setDoc(doc(db, "usuarios", user.uid), {
-                    nombre: nombreUsuario,
-                    email: user.email || '',
-                    rol: listaPersonalRoles[nombreUsuario] || "Personal de Archivo",
-                    actualizadoEn: Date.now()
-                }, { merge: true });
-            } catch (e) {
-                console.error("No se pudo sincronizar usuarios/{uid}:", e);
-            }
-        }
-
-        async function registrarInicioSesionEnCloud(user, nombreUsuario) {
-            try {
-                await addDoc(collection(db, "auditoria_logins"), {
-                    email: user.email || '',
-                    nombre: nombreUsuario,
-                    timestamp: Date.now()
-                });
-            } catch (e) {
-                console.error("Error al registrar login en Cloud:", e);
-            }
-        }
-
-        let baseDatosInventario = []; 
-        let listaRangosCenso = [];    
-        let listaFaltantesModal = []; 
-        let baseDatosReingresos = [];
-        let baseDatosTraslados = [];
-        let baseDatosMicroformas = [];
-        let baseDatosTarjetas = [];
-        let listaLogsAuditoria = [];
-        let idReingresoEnEdicion = null;
-        let idTrasladoEnEdicion = null;
-        let idMicroformaEnEdicion = null;
-        let idTarjetaEnEdicion = null;
-        let modalInstance = null;
-        let modalMicroformaInstance = null;
-
-        // Variables para Paginación de 10 registros
-        let paginaActualMicroformas = 1;
-        let paginaActualAuditoria = 1;
-        let cargaMicroformasPromise = null;
-        let cargaInicialDashboardPromise = null;
-        const registrosPorPagina = 10;
-        const estadoPaginacionConsultas = {
-            inventario: { pagina: 1, datos: [] },
-            reingresos: { pagina: 1, datos: [] },
-            traslados: { pagina: 1, datos: [] },
-            tarjetas: { pagina: 1, datos: [] }
-        };
-
-        function renderControlesPaginacion(tipo, total) {
-            const cfg = estadoPaginacionConsultas[tipo];
-            const id = {
-                inventario: 'paginacion-inventario',
-                reingresos: 'paginacion-reingresos',
-                traslados: 'paginacion-traslados',
-                tarjetas: 'paginacion-tarjetas'
-            }[tipo];
-            const el = document.getElementById(id);
-            if (!el) return;
-            const paginas = Math.max(1, Math.ceil(total / registrosPorPagina));
-            cfg.pagina = Math.min(Math.max(1, cfg.pagina), paginas);
-            const inicio = total ? ((cfg.pagina - 1) * registrosPorPagina) + 1 : 0;
-            const fin = Math.min(cfg.pagina * registrosPorPagina, total);
-            const botones = [];
-            botones.push(`<button class="page-btn" ${cfg.pagina <= 1 ? 'disabled' : ''} onclick="window.cambiarPaginaConsulta('${tipo}', ${cfg.pagina - 1})" aria-label="Página anterior"><i class="bi bi-chevron-left"></i></button>`);
-            const desde = Math.max(1, cfg.pagina - 2);
-            const hasta = Math.min(paginas, desde + 4);
-            for (let p = desde; p <= hasta; p++) {
-                botones.push(`<button class="page-btn ${p === cfg.pagina ? 'active' : ''}" onclick="window.cambiarPaginaConsulta('${tipo}', ${p})">${p}</button>`);
-            }
-            botones.push(`<button class="page-btn" ${cfg.pagina >= paginas ? 'disabled' : ''} onclick="window.cambiarPaginaConsulta('${tipo}', ${cfg.pagina + 1})" aria-label="Página siguiente"><i class="bi bi-chevron-right"></i></button>`);
-            el.innerHTML = `
-                <div class="page-info"><strong>${inicio}–${fin}</strong> de <strong>${total}</strong> registros</div>
-                <div class="page-buttons">${botones.join('')}</div>
-                <div class="page-size-note"><i class="bi bi-layout-three-columns me-1"></i>10 registros por página</div>`;
-        }
-
-        window.cambiarPaginaConsulta = function(tipo, pagina) {
-            if (!estadoPaginacionConsultas[tipo]) return;
-            estadoPaginacionConsultas[tipo].pagina = pagina;
-            if (tipo === 'inventario') renderizarFiltrosConsultas(estadoPaginacionConsultas.inventario.datos, false);
-            if (tipo === 'reingresos') renderTablaHistorialReingresos(estadoPaginacionConsultas.reingresos.datos, false);
-            if (tipo === 'traslados') renderTablaHistorialTraslados(estadoPaginacionConsultas.traslados.datos, false);
-            if (tipo === 'tarjetas') renderTablaHistorialTarjetas(estadoPaginacionConsultas.tarjetas.datos, false);
-        };
+const ICONOS = {
+  lupa: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg>',
+  rotar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 3v5h-5"/></svg>',
+  ver: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  descargar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17"/></svg>',
+  nube: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5a4 4 0 0 1-.5-7.97A5 5 0 0 1 16 8.5a3.75 3.75 0 0 1 1 7.38"/><path d="M9.5 18.5h7.5"/></svg>',
+  actualizar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8 8 0 1 0 18 16"/><path d="M20 5v6h-6"/></svg>',
+  candado: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="10.5" width="13" height="9.5" rx="1.6"/><path d="M8.5 10.5V7a3.5 3.5 0 0 1 7 0v3.5"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>'
+};
 
 
-        function obtenerLogoArchivoBase64() {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.crossOrigin = 'Anonymous';
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    resolve(canvas.toDataURL('image/png'));
-                };
-                img.onerror = function() { resolve(null); };
-                img.src = 'LOGO_PJ-AD.png';
-            });
-        }
 
-        // Helper genérico que además devuelve el ancho/alto reales de la
-        // imagen (en px), para poder mantener su proporción exacta al
-        // dibujarla en el PDF (usado por las tarjetas de paquetes, que llevan
-        // el logo del Archivo Desconcentrado en una esquina y el logo oficial
-        // del Poder Judicial del Perú en la otra).
-        function obtenerImagenBase64(url) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.crossOrigin = 'Anonymous';
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    resolve({ data: canvas.toDataURL('image/png'), w: img.width, h: img.height });
-                };
-                img.onerror = function() { resolve(null); };
-                img.src = url;
-            });
-        }
 
-        function ejecutarCuandoDOMListo(fn) {
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', fn, { once: true });
-            } else {
-                fn();
-            }
-        }
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
 
-        ejecutarCuandoDOMListo(() => {
-            let correoGuardado = localStorage.getItem('saamir_ultimo_correo');
-            if (correoGuardado) {
-                if (correoGuardado.includes('@')) {
-                    correoGuardado = correoGuardado.split('@')[0];
-                    localStorage.setItem('saamir_ultimo_correo', correoGuardado);
-                }
-                const inputEmail = document.getElementById("login-alias");
-                if (inputEmail) inputEmail.value = correoGuardado;
-            }
-            inicializarAniosIngresoTarjetas();
-            // El generador de tarjetas ya NO agrega filas vacías por defecto.
-            // El usuario decide cuántas filas necesita con los botones
-            // "+ Añadir Fila" / "+ Añadir 5 Filas".
+// NOTA v15: SAMICERT ya NO archiva el PDF certificado (ni el provisional ni
+// el final firmado) en Firestore. Ambos PDFs quedan únicamente en la
+// carpeta compartida (guardados en disco por el certificador y por Mesa de
+// Partes respectivamente). Esto evita las subidas en chunks a Firestore,
+// que eran lentas y hacían crecer la base de datos sin necesidad; Firestore
+// solo guarda los metadatos de cada certificación.
+const MESA_PARTES_EMAIL = "archivocsjsanta@pj.gob.pe";
+
+function esUsuarioMesaPartes(user = usuarioActual) {
+  return !!user && (user.email || "").toLowerCase() === MESA_PARTES_EMAIL;
+}
+
+// Se conserva eliminarPdfPendiente por compatibilidad con registros
+// antiguos que sí llegaron a archivar chunks en pendientesFirma/pdfChunks
+// o certificaciones/pdfChunks en versiones previas de SAMICERT.
+async function eliminarPdfPendiente(pendienteId, totalChunks = 0) {
+  if (!totalChunks) return;
+  for (let i = 0; i < totalChunks; i++) {
+    await deleteDoc(doc(db, "pendientesFirma", pendienteId, "pdfChunks", String(i)));
+  }
+}
+
+const $ = id => document.getElementById(id);
+
+const loginScreen = $("loginScreen");
+const appScreen = $("app");
+const loginForm = $("loginForm");
+const loginError = $("loginError");
+const btnLogin = $("btnLogin");
+const btnCerrarSesion = $("btnCerrarSesion");
+const btnCambiarPassword = $("btnCambiarPassword");
+const passwordForm = $("passwordForm");
+const btnGuardarPassword = $("btnGuardarPassword");
+const btnLimpiarPassword = $("btnLimpiarPassword");
+const passwordMessage = $("passwordMessage");
+
+const idConsultaInicial = new URLSearchParams(window.location.search).get("consulta");
+if (idConsultaInicial) {
+  const parrafoLogin = document.querySelector(".login-card p");
+  if (parrafoLogin) {
+    parrafoLogin.insertAdjacentHTML(
+      "afterend",
+      `<div class="login-consulta-aviso">Enlace de consulta de certificación: <strong>${escapeHtml(idConsultaInicial.trim().toUpperCase())}</strong>. Inicie sesión para ver el detalle.</div>`
+    );
+  }
+}
+
+const drop = $("drop");
+const btnAplicar = $("btnAplicar");
+const btnLimpiar = $("btnLimpiar");
+const lista = $("lista");
+const panelFirma = $("panelFirma");
+const inputPdfFirmado = $("inputPdfFirmado");
+const archivoPdfFirmadoNombre = $("archivoPdfFirmadoNombre");
+const btnRegistrarFirmado = $("btnRegistrarFirmado");
+const btnCancelarFirma = $("btnCancelarFirma");
+
+let archivoSeleccionado = null;
+let resultadoBlob = null;
+let nombreSalida = null;
+let paginasSeleccionadas = new Set();
+let totalPaginas = 0;
+let pdfVista = null;
+let usuarioActual = null;
+let perfilActual = null;
+let selloBytes = null;
+let procesoFirmaPendiente = null;
+let pdfFirmadoSeleccionado = null;
+let temporizadorHashResultado = null;
+let temporizadorHashResultadoMesa = null;
+const TIEMPO_MENSAJE_EXITO_MS = 12000;
+
+// El sello físico mide 5x5 cm. En pruebas de impresión, 90pt se imprimió
+// como 2.9x2.9 cm (la escala real de impresión depende del PDF/impresora,
+// no coincide 1:1 con 1cm = 28.35pt). Usando esa proporción observada
+// (90pt → 2.9cm), 109pt equivale a ≈3.5x3.5 cm impresos: más visible que
+// antes sin llegar al tamaño real del sello físico. Si al probarlo aún se
+// ve pequeño, subir a ~124pt (≈4x4 cm); si se ve grande, bajar hacia 90-100pt.
+const TAMANO_SELLO_PT = 109;
+const MARGEN_SELLO_PT = 3;
+const ESQUINA_SELLO = "inferior-derecha";
+let esAdministradorActual = false;
+
+const USUARIOS_AUTORIZADOS = {
+  "wBCSJ3XfHVaUZPLmC2yJddh5RXx1": {
+    nombre: "Jorge Luis Desposorio Castillo",
+    correo: "jdesposorio@pj.gob.pe",
+    sello: "./sello-jorge.png"
+  },
+  "4tdNYgErvlM7NB3hwP933avL3RT2": {
+    nombre: "Roberto Alexander Dávila Arquiñigo",
+    correo: "rdavilaaa@pj.gob.pe",
+    sello: "./sello-roberto.png"
+  }
+};
+
+function obtenerUsuarioAutorizado(user) {
+  if (!user) return null;
+  if (USUARIOS_AUTORIZADOS[user.uid]) return USUARIOS_AUTORIZADOS[user.uid];
+  const email = (user.email || "").toLowerCase();
+  return Object.values(USUARIOS_AUTORIZADOS).find(u => (u.correo || "").toLowerCase() === email) || null;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"
+  }[c]));
+}
+
+function fechaHoy() {
+  return new Intl.DateTimeFormat("es-PE", {
+    timeZone:"America/Lima", year:"numeric", month:"2-digit", day:"2-digit"
+  }).format(new Date());
+}
+
+function horaAhora() {
+  return new Intl.DateTimeFormat("es-PE", {
+    timeZone:"America/Lima", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
+  }).format(new Date());
+}
+
+function generarIdCertificacion() {
+  const letras = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let r = "";
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  for (const b of bytes) r += letras[b % letras.length];
+  return `CERT-${new Date().getFullYear()}-${r}`;
+}
+
+async function calcularSHA256(bytes) {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2,"0")).join("");
+}
+
+
+let duplicadosDetectados = [];   // certificaciones previas que coinciden
+let hashOrigenActual = null;     // SHA-256 del archivo original cargado
+
+async function buscarCertificacionesPrevias(hashOrigen, nombreArchivo) {
+  const encontrados = new Map(); // id → { registro, porContenido, porNombre }
+
+  const registrar = (docSnap, motivo) => {
+    const data = docSnap.data();
+    const id = data.id || docSnap.id;
+    if (!encontrados.has(id)) {
+      encontrados.set(id, { registro: data, docId: docSnap.id, porContenido: false, porNombre: false });
+    }
+    encontrados.get(id)[motivo] = true;
+  };
+
+  try {
+    if (hashOrigen) {
+      const q1 = query(
+        collection(db, "certificaciones"),
+        where("sha256Origen", "==", hashOrigen),
+        limit(20)
+      );
+      (await getDocs(q1)).forEach(d => registrar(d, "porContenido"));
+    }
+
+    if (nombreArchivo) {
+      const q2 = query(
+        collection(db, "certificaciones"),
+        where("archivoOriginal", "==", nombreArchivo),
+        limit(20)
+      );
+      (await getDocs(q2)).forEach(d => registrar(d, "porNombre"));
+    }
+  } catch (err) {
+    console.error("No se pudo consultar certificaciones previas:", err);
+    throw err;
+  }
+
+  return Array.from(encontrados.values()).sort((a, b) => {
+    const fa = `${a.registro.fecha || ""} ${a.registro.hora || ""}`;
+    const fb = `${b.registro.fecha || ""} ${b.registro.hora || ""}`;
+    return fb.localeCompare(fa);
+  });
+}
+
+/* Determina si las páginas que se van a certificar ahora se solapan con las
+   ya certificadas antes. Certificar folios distintos del mismo expediente es
+   una operación legítima; repetir los mismos folios no lo es. */
+function paginasSolapadas(previas, actuales) {
+  const set = new Set(previas || []);
+  return (actuales || []).filter(p => set.has(p));
+}
+
+function severidadDuplicado(coincidencias) {
+  if (!coincidencias.length) return "ninguna";
+  return coincidencias.some(c => c.porContenido) ? "alta" : "media";
+}
+
+function filaDuplicado(c) {
+  const r = c.registro;
+  const etiquetas = [];
+  if (c.porContenido) etiquetas.push('<span class="dup-tag dup-tag-alta">mismo contenido</span>');
+  if (c.porNombre)    etiquetas.push('<span class="dup-tag dup-tag-media">mismo nombre</span>');
+
+  const paginas = (r.paginasCertificadas || []).join(", ") || "—";
+  const recert = r.esRecertificacion
+    ? '<div class="dup-recert">Este registro ya era, a su vez, una recertificación.</div>'
+    : "";
+
+  return `
+    <div class="dup-item">
+      <div class="dup-item-head">
+        <strong>${escapeHtml(r.id || c.docId)}</strong>
+        ${etiquetas.join(" ")}
+      </div>
+      <div class="dup-item-body">
+        <span><strong>Archivo:</strong> ${escapeHtml(r.archivoOriginal || "—")}</span>
+        <span><strong>Fecha:</strong> ${escapeHtml(r.fecha || "—")} ${escapeHtml(r.hora || "")}</span>
+        <span><strong>Certificó:</strong> ${escapeHtml(r.certificadorNombre || r.certificadorEmail || "—")}</span>
+        <span><strong>Páginas certificadas:</strong> ${escapeHtml(paginas)} de ${escapeHtml(String(r.totalPaginas || "—"))}</span>
+      </div>
+      ${recert}
+    </div>`;
+}
+
+function mostrarAlertaDuplicado(coincidencias) {
+  const box = $("alertaDuplicado");
+  if (!box) return;
+
+  if (!coincidencias.length) {
+    box.classList.add("oculto");
+    box.innerHTML = "";
+    return;
+  }
+
+  const sev = severidadDuplicado(coincidencias);
+  box.className = "alerta-duplicado " + (sev === "alta" ? "alerta-alta" : "alerta-media");
+
+  const titulo = sev === "alta"
+    ? "⛔ Este documento YA FUE CERTIFICADO anteriormente"
+    : "⚠️ Ya existe una certificación con este mismo nombre de archivo";
+
+  const explicacion = sev === "alta"
+    ? "El contenido del PDF que acaba de cargar coincide exactamente (huella SHA-256) con una certificación ya registrada. Volver a certificarlo generará un segundo identificador para el mismo documento."
+    : "No se encontró coincidencia de contenido, pero sí de nombre de archivo. Puede tratarse de una redigitalización de la misma solicitud. Verifique antes de continuar.";
+
+  box.innerHTML = `
+    <div class="dup-titulo">${titulo}</div>
+    <div class="dup-nota">${explicacion}</div>
+    <div class="dup-lista">${coincidencias.map(filaDuplicado).join("")}</div>
+    <div class="dup-pie">Si la nueva certificación corresponde a folios distintos o a una versión corregida, podrá continuar registrando el motivo cuando presione «Aplicar sello y guardar».</div>`;
+  box.classList.remove("oculto");
+}
+
+function confirmarRecertificacion(coincidencias, solapadas) {
+  return new Promise(resolve => {
+    const modal   = $("modalRecert");
+    const cuerpo  = $("modalRecertCuerpo");
+    const motivo  = $("modalRecertMotivo");
+    const btnOk   = $("modalRecertConfirmar");
+    const btnNo   = $("modalRecertCancelar");
+    const errorEl = $("modalRecertError");
+
+    if (!modal) { resolve({ continuar: true, motivo: "" }); return; }
+
+    const sev = severidadDuplicado(coincidencias);
+    const aviso = solapadas.length
+      ? `<div class="dup-solape">Las páginas <strong>${solapadas.join(", ")}</strong> ya fueron certificadas en un registro anterior. Esto es una duplicación efectiva del mismo folio.</div>`
+      : `<div class="dup-nosolape">Las páginas seleccionadas ahora no coinciden con las ya certificadas. Podría tratarse de una certificación complementaria legítima.</div>`;
+
+    cuerpo.innerHTML = `
+      <div class="dup-nota">${sev === "alta"
+        ? "El archivo cargado es idéntico a uno ya certificado."
+        : "Existe una certificación previa con el mismo nombre de archivo."}</div>
+      ${aviso}
+      <div class="dup-lista">${coincidencias.map(filaDuplicado).join("")}</div>`;
+
+    motivo.value = "";
+    errorEl.classList.add("oculto");
+    modal.classList.remove("oculto");
+    setTimeout(() => motivo.focus(), 50);
+
+    const cerrar = () => {
+      modal.classList.add("oculto");
+      btnOk.onclick = null;
+      btnNo.onclick = null;
+    };
+
+    btnNo.onclick = () => { cerrar(); resolve({ continuar: false, motivo: "" }); };
+
+    btnOk.onclick = () => {
+      const txt = motivo.value.trim();
+      if (txt.length < 15) {
+        errorEl.textContent = "Debe describir el motivo con al menos 15 caracteres. Este texto queda registrado de forma permanente.";
+        errorEl.classList.remove("oculto");
+        return;
+      }
+      cerrar();
+      resolve({ continuar: true, motivo: txt });
+    };
+  });
+}
+
+function ocultarHash() {
+  if (temporizadorHashResultado) {
+    clearTimeout(temporizadorHashResultado);
+    temporizadorHashResultado = null;
+  }
+  if (temporizadorHashResultadoMesa) {
+    clearTimeout(temporizadorHashResultadoMesa);
+    temporizadorHashResultadoMesa = null;
+  }
+  $("hashResultado")?.classList.add("oculto");
+  $("hashResultadoMesa")?.classList.add("oculto");
+}
+
+function mostrarMensajeExitoTemporal(mensaje) {
+  const box = $("hashResultado");
+  if (!box) return;
+  if (temporizadorHashResultado) clearTimeout(temporizadorHashResultado);
+  box.classList.remove("oculto");
+  box.style.borderLeftColor = "#16823a";
+  box.style.background = "#f6fbf8";
+  box.innerHTML = `<div class="hash-titulo" style="color:#16823a">${escapeHtml(mensaje)}</div>`;
+  temporizadorHashResultado = setTimeout(() => {
+    box.classList.add("oculto");
+    box.innerHTML = "";
+    temporizadorHashResultado = null;
+  }, TIEMPO_MENSAJE_EXITO_MS);
+}
+
+function mostrarEstado(mensaje, tipo="ok") {
+  const box = $("hashResultado");
+  box.classList.remove("oculto");
+  box.style.borderLeftColor = tipo === "error" ? "#b42318" : "#16823a";
+  box.style.background = tipo === "error" ? "#fff7f5" : "#f6fbf8";
+  box.innerHTML = `<div class="hash-titulo" style="color:${tipo === "error" ? "#b42318" : "#16823a"}">${escapeHtml(mensaje)}</div>`;
+}
+
+function base64FromBytes(bytes) {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i=0; i<bytes.length; i+=chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i+chunk, bytes.length)));
+  }
+  return btoa(binary);
+}
+
+async function cargarSelloAutomatico() {
+  selloBytes = null;
+  const autorizado = USUARIOS_AUTORIZADOS[usuarioActual?.uid];
+
+  if (usuarioActual?.uid === ADMIN_UID || esUsuarioMesaPartes()) return;
+  if (!autorizado) throw new Error("Usuario no autorizado.");
+
+  try {
+    const response = await fetch(autorizado.sello, { cache:"no-store" });
+    if (!response.ok) throw new Error(`No se encontró ${autorizado.sello}`);
+    const buffer = await response.arrayBuffer();
+    selloBytes = new Uint8Array(buffer);
+
+    if (!selloBytes.length) throw new Error("El archivo del sello está vacío.");
+
+    console.log(`Sello automático cargado para ${autorizado.nombre}.`);
+  } catch (error) {
+    console.error(error);
+    selloBytes = null;
+    throw new Error(`No se pudo cargar automáticamente el sello de ${autorizado.nombre}. Verifique que ${autorizado.sello.replace("./","")} esté en la misma carpeta que index.html.`);
+  }
+}
+
+function renderLista() {
+  if (!archivoSeleccionado) {
+    lista.classList.add("oculto");
+    lista.innerHTML = "";
+    btnAplicar.disabled = true;
+    btnLimpiar.classList.add("oculto");
+    return;
+  }
+
+  lista.classList.remove("oculto");
+  btnLimpiar.classList.remove("oculto");
+  btnAplicar.disabled = paginasSeleccionadas.size === 0 || !selloBytes;
+
+  const estadoClase =
+    archivoSeleccionado.estado === "procesando" ? "procesando" :
+    archivoSeleccionado.estado.startsWith("listo") ? "listo" :
+    archivoSeleccionado.estado === "error" ? "error" : "pendiente";
+
+  lista.innerHTML = `
+    <div class="archivo">
+      <span>📄</span>
+      <span class="nombre">${escapeHtml(archivoSeleccionado.name)}</span>
+      <span class="estado ${estadoClase}">${escapeHtml(archivoSeleccionado.estado)}</span>
+      <button class="quitar" id="btnQuitarArchivo" title="Quitar documento">×</button>
+    </div>`;
+
+  $("btnQuitarArchivo").onclick = limpiarArchivo;
+}
+
+function actualizarResumenPaginas() {
+  const n = paginasSeleccionadas.size;
+  $("resumenPaginas").textContent =
+    `${n} de ${totalPaginas} página(s) seleccionada(s) para certificar.`;
+  btnAplicar.disabled = !archivoSeleccionado || n === 0 || !selloBytes;
+}
+
+async function cargarVisorPaginas(file) {
+  const selector = $("selectorPaginas");
+  const visor = $("visorPaginas");
+
+  selector.classList.remove("oculto");
+  visor.innerHTML = '<div class="visor-cargando">Cargando vista previa de las páginas…</div>';
+  $("resumenPaginas").textContent = "Cargando páginas…";
+
+  try {
+    const bytes = await file.arrayBuffer();
+    pdfVista = await pdfjsLib.getDocument({data:bytes}).promise;
+    totalPaginas = pdfVista.numPages;
+
+    if (!totalPaginas) {
+      throw new Error("El PDF no contiene páginas legibles.");
+    }
+
+    paginasSeleccionadas = new Set(
+      Array.from({length:totalPaginas}, (_,i) => i + 1)
+    );
+    rotacionesPagina = new Map();
+    canvasesPorPagina = new Map();
+    visor.innerHTML = "";
+
+    for (let numero=1; numero<=totalPaginas; numero++) {
+      if (totalPaginas > 1) {
+        $("resumenPaginas").textContent =
+          `Cargando vista previa… (${numero} de ${totalPaginas})`;
+      }
+
+      const card = document.createElement("div");
+      card.className = "pagina-card seleccionada";
+      card.dataset.page = String(numero);
+
+      const controles = document.createElement("div");
+      controles.className = "visor-controles";
+
+      const lupa = document.createElement("button");
+      lupa.type = "button";
+      lupa.className = "visor-lupa";
+      lupa.innerHTML = ICONOS.lupa;
+      lupa.title = "Ver página ampliada";
+      lupa.setAttribute("aria-label", `Ampliar página ${numero}`);
+
+      const rotar = document.createElement("button");
+      rotar.type = "button";
+      rotar.className = "visor-rotar";
+      rotar.innerHTML = ICONOS.rotar;
+      rotar.title = "Rotar página 90° — el giro queda guardado y se aplicará al PDF final (el archivo original no se modifica)";
+      rotar.setAttribute("aria-label", `Rotar página ${numero} para el PDF final`);
+
+      const meta = document.createElement("div");
+      meta.className = "pagina-meta";
+
+      const numeroEl = document.createElement("span");
+      numeroEl.className = "pagina-numero";
+      numeroEl.textContent = `Página ${numero}`;
+
+      const estadoEl = document.createElement("span");
+      estadoEl.className = "pagina-estado";
+      estadoEl.textContent = "Certificar";
+
+      const giroEl = document.createElement("span");
+      giroEl.className = "pagina-giro oculto";
+      giroEl.title = "Esta rotación se guardará en el PDF final";
+
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.className = "pagina-check";
+      check.checked = true;
+      check.setAttribute("aria-label", `Certificar página ${numero}`);
+
+      meta.append(numeroEl, giroEl, estadoEl);
+
+      try {
+        const pagina = await pdfVista.getPage(numero);
+        const canvas = document.createElement("canvas");
+
+        lupa.addEventListener("click", e => {
+          e.stopPropagation();
+          abrirVistaAmpliada(numero);
         });
-
-        function inicializarAniosIngresoTarjetas() {
-            const selectAnio = document.getElementById('tar-anio-ingreso');
-            if (!selectAnio) return;
-            selectAnio.innerHTML = '';
-            const anioActual = new Date().getFullYear();
-            // Rango solicitado: desde el año 2016 hasta el año actual + 1
-            // (ej. en 2026 el rango llega hasta 2027).
-            for (let y = anioActual + 1; y >= 2016; y--) {
-                selectAnio.options.add(new Option(y, y, false, y === anioActual));
-            }
-        }
-
-        function cargarDataMaestra(usuarioActivoNombre = "") {
-            const selectRepo = document.getElementById('inv-repositorio');
-            const selectFiltroRepo = document.getElementById('filtro-repo');
-            const selectRec = document.getElementById('inv-recibe');
-
-            selectRepo.innerHTML = '<option value="" selected disabled>Seleccione repositorio...</option>';
-            selectFiltroRepo.innerHTML = '<option value="">Todos los Repositorios</option>';
-
-            repositorios.forEach(r => {
-                selectRepo.options.add(new Option(r, r));
-                selectFiltroRepo.options.add(new Option(r, r));
-            });
-            
-            selectRec.innerHTML = '<option value="" selected disabled>Seleccione personal...</option>';
-            Object.keys(listaPersonalRoles).forEach(p => {
-                if (p !== usuarioActivoNombre) {
-                    selectRec.options.add(new Option(p, p));
-                }
-            });
-        }
-
-        function inicializarSelectsReingresos() {
-            const sSolicitante = document.getElementById('re-solicitante');
-            const sLocal = document.getElementById('re-local');
-            const fSolicitante = document.getElementById('filtro-re-solicitante');
-            const fEntregado = document.getElementById('filtro-re-entregado');
-
-            sSolicitante.innerHTML = sLocal.innerHTML = '<option value="">Seleccione...</option>';
-            if (fSolicitante) fSolicitante.innerHTML = '<option value="">Todos</option>';
-            if (fEntregado) fEntregado.innerHTML = '<option value="">Todos</option>';
-
-            dataMaestra.personal.forEach(p => {
-                sSolicitante.innerHTML += `<option value="${p}">${p}</option>`;
-                if (fSolicitante) fSolicitante.innerHTML += `<option value="${p}">${p}</option>`;
-                if (fEntregado) fEntregado.innerHTML += `<option value="${p}">${p}</option>`;
-            });
-
-            dataMaestra.repositorios.forEach(r => {
-                sLocal.innerHTML += `<option value="${r}">${r}</option>`;
-            });
-        }
-
-        function inicializarSelectsTraslados(usuarioActivoNombre = "") {
-            const fEntregadoTr = document.getElementById('filtro-tr-entregado');
-            if (fEntregadoTr) {
-                fEntregadoTr.innerHTML = '<option value="">Todos</option>';
-                dataMaestra.personal.forEach(p => {
-                    fEntregadoTr.innerHTML += `<option value="${p}">${p}</option>`;
-                });
-            }
-
-            const selectTrRecibe = document.getElementById('tr-recibe');
-            if (selectTrRecibe) {
-                selectTrRecibe.innerHTML = '<option value="" selected disabled>Seleccione personal...</option>';
-                Object.keys(listaPersonalRoles).forEach(p => {
-                    if (p !== usuarioActivoNombre) {
-                        selectTrRecibe.options.add(new Option(p, p));
-                    }
-                });
-            }
-        }
-
-        function resetFormularioReingreso() {
-            idReingresoEnEdicion = null;
-            const fFecha = document.getElementById('re-fecha');
-            const fSolicitante = document.getElementById('re-solicitante');
-            const fLocal = document.getElementById('re-local');
-            const tbody = document.querySelector('#tabla-reingresos tbody');
-            const btnGuardar = document.getElementById('btn-guardar-reingreso');
-
-            if (fFecha) fFecha.valueAsDate = new Date();
-            if (fSolicitante) fSolicitante.value = '';
-            if (fLocal) fLocal.value = '';
-            if (tbody) tbody.innerHTML = '';
-            if (btnGuardar) btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Registro';
-        }
-
-        function resetFormularioTraslado() {
-            idTrasladoEnEdicion = null;
-            const fFecha = document.getElementById('tr-fecha');
-            const fRecibe = document.getElementById('tr-recibe');
-            const tbody = document.querySelector('#tabla-traslados tbody');
-            const btnGuardar = document.getElementById('btn-guardar-traslado');
-
-            if (fFecha) fFecha.valueAsDate = new Date();
-            if (fRecibe) fRecibe.value = '';
-            if (tbody) tbody.innerHTML = '';
-            if (btnGuardar) btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Registro';
-            actualizarTotalTraslados();
-        }
-
-        window.iniciarNuevoReingreso = function() {
-            resetFormularioReingreso();
-            switchView('view-reingresos', 'Módulo Reingresos');
-        };
-
-        window.iniciarNuevoTraslado = function() {
-            resetFormularioTraslado();
-            switchView('view-traslados', 'Módulo Formato de Traslado');
-        };
-
-        function resetFormularioTarjetas() {
-            idTarjetaEnEdicion = null;
-            const fJuzgado = document.getElementById('tar-juzgado');
-            const fJuez = document.getElementById('tar-juez');
-            const fFecha = document.getElementById('tar-fecha-recepcion');
-            const fOficio = document.getElementById('tar-oficio');
-            const selectAnio = document.getElementById('tar-anio-ingreso');
-            const tbody = document.querySelector('#tabla-tarjetas-detalles tbody');
-            const btnGuardar = document.querySelector('button[onclick="window.guardarYGenerarPDFTarjetas()"]');
-
-            if (fJuzgado) fJuzgado.value = '';
-            if (fJuez) fJuez.value = '';
-            if (fFecha) fFecha.value = '';
-            if (fOficio) fOficio.value = '';
-            if (selectAnio) selectAnio.value = new Date().getFullYear();
-            if (tbody) {
-                tbody.innerHTML = `<tr id="tarjetas-fila-vacia">
-                    <td colspan="6" class="text-center text-muted py-3">
-                        Aún no ha añadido paquetes. Use los botones "+ Añadir Fila" o "+ Añadir 5 Filas".
-                    </td>
-                </tr>`;
-            }
-            if (btnGuardar) btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar y Generar PDF';
-        }
-
-        window.iniciarNuevaTarjeta = function() {
-            resetFormularioTarjetas();
-            switchView('view-tarjetas', 'Tarjetas Recepción');
-        };
-
-        // Navegación por secciones: mantiene el menú compacto y abre automáticamente
-        // la sección correspondiente cuando se ingresa a un módulo.
-        window.toggleNavGroup = function(group, forceState = null) {
-            if (!group) return;
-            const shouldOpen = forceState === null ? !group.classList.contains('open') : !!forceState;
-            document.querySelectorAll('#sidebar .nav-group').forEach(g => {
-                if (g === group) {
-                    g.classList.toggle('open', shouldOpen);
-                    const btn = g.querySelector('.nav-group-title');
-                    if (btn) btn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-                } else {
-                    g.classList.remove('open');
-                    const btn = g.querySelector('.nav-group-title');
-                    if (btn) btn.setAttribute('aria-expanded', 'false');
-                }
-            });
-        };
-
-        function abrirGrupoDeVista(viewId) {
-            const link = Array.from(document.querySelectorAll('#sidebar .nav-link')).find(l =>
-                l.dataset.view === viewId || (l.getAttribute('onclick') && l.getAttribute('onclick').includes(viewId))
-            );
-            const group = link ? link.closest('.nav-group') : null;
-            if (group) window.toggleNavGroup(group, true);
-        }
-
-        window.toggleMenuMovil = function() {
-            document.getElementById('sidebar').classList.toggle('sidebar-abierto');
-            document.getElementById('sidebar-backdrop').classList.toggle('show');
-        };
-
-        window.cerrarMenuMovil = function() {
-            document.getElementById('sidebar').classList.remove('sidebar-abierto');
-            document.getElementById('sidebar-backdrop').classList.remove('show');
-        };
-
-        function switchView(viewId, titleText = "Dashboard Principal") {
-            cerrarMenuMovil();
-            
-            if (viewId === 'view-auditoria') {
-                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
-                if (!esUsuarioAdministradorLog(userTitle)) {
-                    Swal.fire('Acceso Denegado', 'No cuenta con privilegios para ver el log de auditoría.', 'error');
-                    return;
-                }
-                cargarHistorialAuditoriaGlobal();
-            }
-
-            if (viewId === 'view-microformas') {
-                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
-                if (!esUsuarioMicroformasVisualizador(userTitle)) {
-                    Swal.fire('Acceso Denegado', 'No cuenta con autorización para visualizar este módulo.', 'error');
-                    return;
-                }
-            }
-
-            if (viewId === 'view-traslados') {
-                const userTitle = auth.currentUser ? normalizarTexto(auth.currentUser.displayName || auth.currentUser.email.split('@')[0]) : '';
-                inicializarSelectsTraslados(userTitle);
-            }
-
-            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('#sidebar .nav-link').forEach(l => l.classList.remove('active'));
-            document.getElementById(viewId).classList.add('active');
-            document.getElementById('page-title').innerText = titleText;
-
-            // Microformas: la carga inicial se hace en segundo plano para no bloquear
-            // el inicio de sesión, pero al entrar al módulo debemos asegurar que la
-            // tabla se pinte con los datos ya cargados o esperar a que termine la carga.
-            if (viewId === 'view-microformas') {
-                if (baseDatosMicroformas.length > 0) {
-                    renderTablaMicroformas();
-                }
-                cargarMicroformasDesdeCloud().catch(err => {
-                    console.error('SAAMIR: error al cargar Microformas al abrir el módulo:', err);
-                });
-            }
-            
-            const link = Array.from(document.querySelectorAll('#sidebar .nav-link')).find(l => l.dataset.view === viewId || (l.getAttribute('onclick') && l.getAttribute('onclick').includes(viewId)));
-            if(link) link.classList.add('active');
-            abrirGrupoDeVista(viewId);
-
-            if (viewId === 'view-consultas') {
-                cargarInventariosDesdeCloud().catch(err => console.error('SAAMIR: error al cargar inventario:', err));
-            }
-
-            if (viewId === 'view-consultas-reingresos') {
-                cargarHistorialReingresos().catch?.(err => console.error('SAAMIR: error al cargar reingresos:', err));
-            }
-
-            if (viewId === 'view-consultas-traslados') {
-                cargarHistorialTraslados().catch?.(err => console.error('SAAMIR: error al cargar traslados:', err));
-            }
-
-            if (viewId === 'view-consultas-tarjetas') {
-                cargarHistorialTarjetas().catch?.(err => console.error('SAAMIR: error al cargar tarjetas:', err));
-            }
-        }
-
-        // Estado inicial: solo Inicio visible para mantener el menú compacto.
-        ejecutarCuandoDOMListo(() => {
-            const inicio = document.querySelector('#sidebar .nav-group');
-            if (inicio) window.toggleNavGroup(inicio, true);
+        rotar.addEventListener("click", async e => {
+          e.stopPropagation();
+          await rotarPaginaParaSalida(numero);
         });
+        controles.append(lupa, rotar);
+        card.append(controles, canvas, meta, check);
+        visor.appendChild(card);
+        canvasesPorPagina.set(numero, canvas);
 
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            let entrada = document.getElementById("login-alias").value.trim().toLowerCase();
-            const password = document.getElementById('login-password').value;
-            const email = entrada.includes('@') ? entrada : `${entrada}@${DOMINIO_INSTITUCIONAL}`;
-            try {
-                localStorage.setItem('saamir_ultimo_correo', entrada);
-                await signInWithEmailAndPassword(auth, email, password);
-                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Acceso Autorizado', showConfirmButton: false, timer: 2000 });
-            } catch (error) {
-                Swal.fire('Error', 'Credenciales incorrectas.', 'error');
-            }
+        await renderMiniaturaPagina(numero);
+      } catch (errorPagina) {
+        console.error(`No se pudo previsualizar la página ${numero}:`, errorPagina);
+
+        const aviso = document.createElement("div");
+        aviso.className = "pagina-error";
+        aviso.textContent = "Sin vista previa";
+        aviso.title = "No se pudo renderizar esta página, pero puede certificarse igual.";
+
+        lupa.disabled = true;
+        lupa.title = "Vista ampliada no disponible para esta página.";
+        rotar.disabled = true;
+        rotar.title = "Rotación no disponible para esta página.";
+        controles.append(lupa, rotar);
+        card.append(controles, aviso, meta, check);
+        visor.appendChild(card);
+      }
+
+      const actualizar = () => {
+        const activa = check.checked;
+        if (activa) {
+          paginasSeleccionadas.add(numero);
+          card.classList.add("seleccionada");
+          card.classList.remove("no-seleccionada");
+          estadoEl.textContent = "Certificar";
+        } else {
+          paginasSeleccionadas.delete(numero);
+          card.classList.remove("seleccionada");
+          card.classList.add("no-seleccionada");
+          estadoEl.textContent = "No certificar";
+        }
+        actualizarResumenPaginas();
+      };
+
+      check.addEventListener("change", actualizar);
+      card.addEventListener("click", e => {
+        if (e.target === check) return;
+        check.checked = !check.checked;
+        actualizar();
+      });
+    }
+
+    actualizarResumenPaginas();
+  } catch (error) {
+    console.error(error);
+    visor.innerHTML =
+      '<div class="visor-cargando">No se pudo mostrar la vista previa del PDF.</div>';
+    $("resumenPaginas").textContent =
+      "No fue posible cargar el selector de páginas.";
+    paginasSeleccionadas.clear();
+    actualizarResumenPaginas();
+  }
+}
+
+
+let visorModalPaginaActual = null;
+let visorModalZoom = 1;
+let visorModalRotacionExtra = 0;
+let rotacionesPagina = new Map();
+let canvasesPorPagina = new Map();
+
+async function renderMiniaturaPagina(numero) {
+  const canvas = canvasesPorPagina.get(numero);
+  if (!pdfVista || !canvas) return;
+
+  const pagina = await pdfVista.getPage(numero);
+  const rotacionExtra = Number(rotacionesPagina.get(numero) || 0);
+  const rotacionTotal = (normalizarRotacionPdfJs(pagina) + rotacionExtra) % 360;
+
+  const baseViewport = pagina.getViewport({scale:1, rotation:rotacionTotal});
+  const escala = 138 / baseViewport.width;
+  const viewport = pagina.getViewport({scale:escala, rotation:rotacionTotal});
+
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+
+  await pagina.render({
+    canvasContext: canvas.getContext("2d"),
+    viewport
+  }).promise;
+}
+
+function actualizarBadgeGiro(numero) {
+  const card = visorPaginas().querySelector(`.pagina-card[data-page="${numero}"]`);
+  if (!card) return;
+  const giroEl = card.querySelector(".pagina-giro");
+  if (!giroEl) return;
+  const giro = Number(rotacionesPagina.get(numero) || 0);
+  if (giro) {
+    giroEl.innerHTML = `<span class="giro-icono">${ICONOS.rotar}</span> ${giro}°`;
+    giroEl.classList.remove("oculto");
+  } else {
+    giroEl.textContent = "";
+    giroEl.classList.add("oculto");
+  }
+}
+
+function visorPaginas() {
+  return $("visorPaginas");
+}
+
+async function abrirVistaAmpliada(numero) {
+  if (!pdfVista) return;
+  try {
+    visorModalPaginaActual = numero;
+    visorModalRotacionExtra = Number(rotacionesPagina.get(numero) || 0);
+    const pagina = await pdfVista.getPage(numero);
+    const baseViewport = pagina.getViewport({scale:1});
+    const area = $("visorModalArea");
+    const canvas = $("visorModalCanvas");
+    const anchoDisponible = Math.max(350, area.clientWidth - 70);
+    visorModalZoom = Math.max(0.8, Math.min(1.5, anchoDisponible / baseViewport.width));
+    await renderPaginaModal(pagina);
+    $("visorModalTitulo").textContent = `Página ${numero} — vista ampliada`;
+    $("visorModal").classList.remove("oculto");
+    actualizarControlesNavegacionModal();
+    actualizarBotonSeleccionModal();
+    document.body.style.overflow = "hidden";
+  } catch (error) {
+    console.error(error);
+    visorModalPaginaActual = null;
+    alert(`No se pudo ampliar la página ${numero}.`);
+  }
+}
+
+function normalizarRotacionPdfJs(pagina) {
+  const angulo = Number(pagina.rotate || 0);
+  return ((angulo % 360) + 360) % 360;
+}
+
+async function rotarVistaModal() {
+  if (!pdfVista || !visorModalPaginaActual) return;
+  const numero = visorModalPaginaActual;
+  rotacionesPagina.set(
+    numero,
+    (Number(rotacionesPagina.get(numero) || 0) + 90) % 360
+  );
+  visorModalRotacionExtra = Number(rotacionesPagina.get(numero) || 0);
+  const pagina = await pdfVista.getPage(numero);
+  await renderPaginaModal(pagina);
+  actualizarIndicadorRotacion(numero);
+
+  await renderMiniaturaPagina(numero);
+  actualizarBadgeGiro(numero);
+}
+
+function actualizarIndicadorRotacion(numero) {
+  const giro = Number(rotacionesPagina.get(numero) || 0);
+  const titulo = $("visorModalTitulo");
+  if (titulo) titulo.textContent = `Página ${numero} — vista ampliada${giro ? ` — giro adicional: ${giro}°` : ""}`;
+  actualizarControlesNavegacionModal();
+  actualizarBotonSeleccionModal();
+}
+
+function actualizarControlesNavegacionModal() {
+  const anterior = $("btnPaginaAnterior");
+  const siguiente = $("btnPaginaSiguiente");
+  if (!anterior || !siguiente || !visorModalPaginaActual) return;
+  anterior.disabled = visorModalPaginaActual <= 1;
+  siguiente.disabled = visorModalPaginaActual >= totalPaginas;
+}
+
+function actualizarBotonSeleccionModal() {
+  const boton = $("btnAlternarSeleccionModal");
+  if (!boton || !visorModalPaginaActual) return;
+  const seleccionada = paginasSeleccionadas.has(visorModalPaginaActual);
+  boton.textContent = seleccionada ? "✓ Certificar" : "○ No certificar";
+  boton.classList.toggle("activo", seleccionada);
+}
+
+async function cambiarPaginaModal(delta) {
+  if (!pdfVista || !visorModalPaginaActual) return;
+  const nueva = visorModalPaginaActual + delta;
+  if (nueva < 1 || nueva > totalPaginas) return;
+  await abrirVistaAmpliada(nueva);
+}
+
+function alternarSeleccionDesdeModal() {
+  if (!visorModalPaginaActual) return;
+  const numero = visorModalPaginaActual;
+  const card = visorPaginas().querySelector(`.pagina-card[data-page="${numero}"]`);
+  const check = card?.querySelector(".pagina-check");
+  if (!check) return;
+  check.checked = !check.checked;
+  check.dispatchEvent(new Event("change", {bubbles:true}));
+  actualizarBotonSeleccionModal();
+}
+
+async function rotarPaginaParaSalida(numero) {
+  const giro = (Number(rotacionesPagina.get(numero) || 0) + 90) % 360;
+  rotacionesPagina.set(numero, giro);
+  await renderMiniaturaPagina(numero);
+  actualizarBadgeGiro(numero);
+
+  if (!$("visorModal").classList.contains("oculto") && visorModalPaginaActual === numero) {
+    visorModalRotacionExtra = giro;
+    const pagina = await pdfVista.getPage(numero);
+    await renderPaginaModal(pagina);
+    actualizarIndicadorRotacion(numero);
+  }
+}
+
+async function renderPaginaModal(pagina) {
+  const canvas = $("visorModalCanvas");
+  const escala = visorModalZoom;
+  const rotacionBase = normalizarRotacionPdfJs(pagina);
+  const viewport = pagina.getViewport({scale:escala, rotation:rotacionBase + visorModalRotacionExtra});
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  canvas.style.width = `${Math.ceil(viewport.width)}px`;
+  canvas.style.height = `${Math.ceil(viewport.height)}px`;
+  $("visorZoomTexto").textContent = `${Math.round(escala * 100)}%`;
+  await pagina.render({
+    canvasContext: canvas.getContext("2d"),
+    viewport
+  }).promise;
+}
+
+async function cambiarZoomModal(delta) {
+  if (!pdfVista || !visorModalPaginaActual) return;
+  const nuevo = Math.max(0.5, Math.min(3.5, visorModalZoom + delta));
+  if (Math.abs(nuevo - visorModalZoom) < 0.001) return;
+  visorModalZoom = nuevo;
+  const pagina = await pdfVista.getPage(visorModalPaginaActual);
+  await renderPaginaModal(pagina);
+}
+
+async function ajustarZoomModal() {
+  if (!pdfVista || !visorModalPaginaActual) return;
+  const pagina = await pdfVista.getPage(visorModalPaginaActual);
+  const baseViewport = pagina.getViewport({scale:1});
+  const area = $("visorModalArea");
+  visorModalZoom = Math.max(0.8, Math.min(1.5, (area.clientWidth - 70) / baseViewport.width));
+  await renderPaginaModal(pagina);
+}
+
+function cerrarVistaAmpliada() {
+  $("visorModal").classList.add("oculto");
+  visorModalPaginaActual = null;
+  visorModalRotacionExtra = 0;
+  document.body.style.overflow = "";
+}
+
+$("btnZoomMas").addEventListener("click", () => cambiarZoomModal(0.25));
+$("btnZoomMenos").addEventListener("click", () => cambiarZoomModal(-0.25));
+$("btnZoomAjustar").addEventListener("click", ajustarZoomModal);
+$("btnRotarModal").addEventListener("click", rotarVistaModal);
+$("btnPaginaAnterior").addEventListener("click", () => cambiarPaginaModal(-1));
+$("btnPaginaSiguiente").addEventListener("click", () => cambiarPaginaModal(1));
+$("btnAlternarSeleccionModal").addEventListener("click", alternarSeleccionDesdeModal);
+$("btnCerrarVisorModal").addEventListener("click", cerrarVistaAmpliada);
+
+$("visorModal").addEventListener("click", e => {
+  if (e.target === $("visorModal")) cerrarVistaAmpliada();
+});
+
+document.addEventListener("keydown", e => {
+  if ($("visorModal").classList.contains("oculto")) return;
+  if (e.key === "Escape") cerrarVistaAmpliada();
+  if (e.key === "+" || e.key === "=") cambiarZoomModal(0.25);
+  if (e.key === "-") cambiarZoomModal(-0.25);
+  if (e.key === "ArrowLeft") cambiarPaginaModal(-1);
+  if (e.key === "ArrowRight") cambiarPaginaModal(1);
+});
+
+function resetearEstadoSesion() {
+  cerrarVistaAmpliada();
+  if (resultadoBlob) {
+    try { URL.revokeObjectURL(resultadoBlob); } catch (_) {}
+  }
+
+  archivoSeleccionado = null;
+  resultadoBlob = null;
+  nombreSalida = null;
+  paginasSeleccionadas = new Set();
+  totalPaginas = 0;
+  pdfVista = null;
+  selloBytes = null;
+  perfilActual = null;
+  esAdministradorActual = false;
+  actualizarAccesoAdministrador();
+
+  const inputVerificar = $("inputVerificarPdf");
+  if (inputVerificar) inputVerificar.value = "";
+  if ($("archivoVerificacionNombre")) {
+    $("archivoVerificacionNombre").textContent = "";
+    $("archivoVerificacionNombre").classList.add("oculto");
+  }
+
+  const selector = $("selectorPaginas");
+  const visor = $("visorPaginas");
+  if (selector) selector.classList.add("oculto");
+  if (visor) visor.innerHTML = "";
+  if ($("resumenPaginas")) {
+    $("resumenPaginas").textContent = "Selecciona las páginas que deseas sellar.";
+  }
+
+  ocultarHash();
+  renderLista();
+
+  if ($("resultadoConsulta")) $("resultadoConsulta").classList.add("oculto");
+  if ($("noEncontradoConsulta")) $("noEncontradoConsulta").classList.add("oculto");
+  if ($("coincidenciaHash")) {
+    $("coincidenciaHash").innerHTML = "";
+    $("coincidenciaHash").classList.add("oculto");
+  }
+  if ($("hashVerificado")) $("hashVerificado").classList.add("oculto");
+  if ($("inputConsultaId")) $("inputConsultaId").value = "";
+
+  mostrarPagina("inicio");
+}
+
+async function seleccionarPdf(file) {
+  if (!file || file.type !== "application/pdf") {
+    alert("Selecciona un archivo PDF válido.");
+    return;
+  }
+
+  archivoSeleccionado = {
+    file,
+    name:file.name,
+    estado:"pendiente"
+  };
+
+  resultadoBlob = null;
+  nombreSalida = null;
+  ocultarHash();
+  paginasSeleccionadas.clear();
+  totalPaginas = 0;
+  duplicadosDetectados = [];
+  hashOrigenActual = null;
+  $("selectorPaginas").classList.add("oculto");
+  $("visorPaginas").innerHTML = "";
+  mostrarAlertaDuplicado([]);
+
+  renderLista();
+  cargarVisorPaginas(file);
+
+  const box = $("alertaDuplicado");
+  if (box) {
+    box.className = "alerta-duplicado alerta-info";
+    box.innerHTML = '<div class="dup-nota">Verificando si este documento ya fue certificado…</div>';
+    box.classList.remove("oculto");
+  }
+
+  try {
+    const bytesOrigen = await file.arrayBuffer();
+    hashOrigenActual = await calcularSHA256(bytesOrigen);
+
+    if (!archivoSeleccionado || archivoSeleccionado.file !== file) return;
+
+    duplicadosDetectados = await buscarCertificacionesPrevias(hashOrigenActual, file.name);
+    mostrarAlertaDuplicado(duplicadosDetectados);
+  } catch (err) {
+    console.error(err);
+    if (box) {
+      box.className = "alerta-duplicado alerta-media";
+      box.innerHTML = '<div class="dup-titulo">No se pudo verificar duplicados</div>' +
+        '<div class="dup-nota">No fue posible consultar el registro de certificaciones previas. Verifique manualmente antes de continuar. Detalle: ' +
+        escapeHtml(err.message || "error desconocido") + '</div>';
+      box.classList.remove("oculto");
+    }
+  }
+}
+
+function limpiarArchivo(opciones) {
+  // Se usa tanto para el botón "Quitar documento" (opciones = evento de click,
+  // por eso se ignora si no trae la forma esperada) como, con
+  // { mantenerMensaje: true }, justo después de generar el documento para
+  // firma: en ese caso NO se debe llamar a ocultarHash(), porque borraría de
+  // inmediato el mensaje de éxito recién mostrado.
+  const mantenerMensaje = !!(opciones && opciones.mantenerMensaje);
+
+  if (resultadoBlob) URL.revokeObjectURL(resultadoBlob);
+  archivoSeleccionado = null;
+  resultadoBlob = null;
+  nombreSalida = null;
+  paginasSeleccionadas.clear();
+  totalPaginas = 0;
+  pdfVista = null;
+  duplicadosDetectados = [];
+  hashOrigenActual = null;
+  mostrarAlertaDuplicado([]);
+
+  $("selectorPaginas").classList.add("oculto");
+  $("visorPaginas").innerHTML = "";
+  $("resumenPaginas").textContent = "Selecciona las páginas que deseas sellar.";
+  if (!mantenerMensaje) ocultarHash();
+  renderLista();
+}
+
+drop.addEventListener("click", () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/pdf,.pdf";
+  input.onchange = () => {
+    if (input.files?.length) seleccionarPdf(input.files[0]);
+  };
+  input.click();
+});
+
+drop.addEventListener("dragover", e => {
+  e.preventDefault();
+  drop.classList.add("dragover");
+});
+drop.addEventListener("dragleave", () => drop.classList.remove("dragover"));
+drop.addEventListener("drop", e => {
+  e.preventDefault();
+  drop.classList.remove("dragover");
+  const f = Array.from(e.dataTransfer.files || [])[0];
+  if (f) seleccionarPdf(f);
+});
+
+btnLimpiar.addEventListener("click", limpiarArchivo);
+
+$("btnTodas").onclick = () => {
+  document.querySelectorAll(".pagina-check").forEach(c => {
+    if (!c.checked) {
+      c.checked = true;
+      c.dispatchEvent(new Event("change"));
+    }
+  });
+};
+
+$("btnNinguna").onclick = () => {
+  document.querySelectorAll(".pagina-check").forEach(c => {
+    if (c.checked) {
+      c.checked = false;
+      c.dispatchEvent(new Event("change"));
+    }
+  });
+};
+
+$("btnInvertir").onclick = () => {
+  document.querySelectorAll(".pagina-check").forEach(c => {
+    c.checked = !c.checked;
+    c.dispatchEvent(new Event("change"));
+  });
+};
+
+
+function normalizarRotacionPagina(pagina) {
+  const a = Number(pagina.getRotation()?.angle || 0);
+  return ((a % 360) + 360) % 360;
+}
+
+function centroSelloEnCoordenadasPdf(pagina, esquina, tamano, margen, rotacionFinal) {
+  const {width, height} = pagina.getSize();
+  const rot = ((Number(rotacionFinal) % 360) + 360) % 360;
+
+  const anchoVisual = (rot === 90 || rot === 270) ? height : width;
+  const altoVisual  = (rot === 90 || rot === 270) ? width : height;
+
+  const centroVisualX = esquina.includes('derecha')
+    ? anchoVisual - margen - tamano / 2
+    : margen + tamano / 2;
+  const centroVisualY = esquina.includes('inferior')
+    ? margen + tamano / 2
+    : altoVisual - margen - tamano / 2;
+
+  if (rot === 90) {
+    return { x: width - centroVisualY, y: centroVisualX };
+  }
+  if (rot === 180) {
+    return { x: width - centroVisualX, y: height - centroVisualY };
+  }
+  if (rot === 270) {
+    return { x: centroVisualY, y: height - centroVisualX };
+  }
+  return { x: centroVisualX, y: centroVisualY };
+}
+
+function pivoteParaRotar(centro, tamano, giroDeg) {
+  const rad = giroDeg * Math.PI / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const mitad = tamano / 2;
+  const rx = cos * mitad - sin * mitad;
+  const ry = sin * mitad + cos * mitad;
+  return { x: centro.x - rx, y: centro.y - ry };
+}
+
+function calcularPosicionSello(pagina, esquina, tamano, margen, rotacionFinal) {
+  const centro = centroSelloEnCoordenadasPdf(
+    pagina, esquina, tamano, margen, rotacionFinal
+  );
+
+  const rot = ((Number(rotacionFinal) % 360) + 360) % 360;
+  const giroSello = rot === 90 ? 90 : rot === 180 ? 180 : rot === 270 ? 270 : 0;
+  const pivote = pivoteParaRotar(centro, tamano, giroSello);
+
+  return {
+    x: pivote.x,
+    y: pivote.y,
+    giro: giroSello
+  };
+}
+
+function dibujarImagenSello(pagina, imagen, posicion, tamano) {
+  pagina.drawImage(imagen, {
+    x: posicion.x,
+    y: posicion.y,
+    width: tamano,
+    height: tamano,
+    rotate: PDFLib.degrees(posicion.giro)
+  });
+}
+
+async function cargarLogoParaQR() {
+  try {
+    const resp = await fetch("./logo-qr.png", { cache: "no-cache" });
+    if (!resp.ok) throw new Error("sin logo-qr.png publicado");
+    const blob = await resp.blob();
+    return await new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("logo-qr.png ilegible")); };
+      img.src = url;
+    });
+  } catch (e) {
+    console.error("El QR se generará sin emblema central:", e);
+    return null;
+  }
+}
+
+async function generarQRDataUrl(texto, tamanoPx = 1200) {
+  // QR de alta resolución, con zona de silencio de 4 módulos y corrección H.
+  // La zona de silencio mejora la apariencia y también ayuda a los lectores QR.
+  const qr = qrcode(0, "H");
+  qr.addData(texto);
+  qr.make();
+  const count = qr.getModuleCount();
+  const quietModules = 4;
+  const cell = Math.max(1, Math.floor(tamanoPx / (count + quietModules * 2)));
+  const qrSize = cell * count;
+  const quiet = cell * quietModules;
+  const size = qrSize + quiet * 2;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+
+  // Fondo blanco limpio y módulos negros de alto contraste.
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = "#111111";
+  for (let r = 0; r < count; r++) {
+    for (let c = 0; c < count; c++) {
+      if (qr.isDark(r, c)) {
+        ctx.fillRect(quiet + c * cell, quiet + r * cell, cell, cell);
+      }
+    }
+  }
+
+  const logo = await cargarLogoParaQR();
+  if (logo) {
+    // Versión refinada: el logo ocupa menos área para que el QR conserve
+    // muchos módulos visibles y el centro se perciba como parte del diseño.
+    // La corrección H se mantiene como respaldo frente al área cubierta.
+    const caja = Math.round(qrSize * 0.22);
+    const escala = Math.min(caja / logo.width, caja / logo.height);
+    const w = Math.round(logo.width * escala);
+    const h = Math.round(logo.height * escala);
+    const cx = quiet + qrSize / 2;
+    const cy = quiet + qrSize / 2;
+
+    // Medallón cuadrado con esquinas ligeramente redondeadas.
+const margen = Math.max(3, Math.round(cell * 0.6));
+const lado = Math.max(w, h) + margen * 2;
+const radioEsquina = Math.round(lado * 0.15); // 0.15 = "ligeramente" redondeado
+
+ctx.save();
+ctx.beginPath();
+ctx.roundRect(cx - lado / 2, cy - lado / 2, lado, lado, radioEsquina);
+ctx.fillStyle = "#ffffff";
+ctx.fill();
+ctx.restore();
+
+    // El logo se dibuja suavizado, pero los módulos del QR permanecen
+    // perfectamente definidos para conservar una lectura fiable.
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(logo, Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
+    ctx.restore();
+  }
+
+  return canvas.toDataURL("image/png");
+}
+
+function dataUrlABytes(dataUrl) {
+  const base64 = dataUrl.split(",")[1];
+  const binStr = atob(base64);
+  const bytes = new Uint8Array(binStr.length);
+  for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+  return bytes;
+}
+
+function envolverTexto(texto, fuente, size, maxAncho) {
+  const palabras = texto.split(/\s+/);
+  const lineas = [];
+  let actual = "";
+  for (const palabra of palabras) {
+    const prueba = actual ? actual + " " + palabra : palabra;
+    if (actual && fuente.widthOfTextAtSize(prueba, size) > maxAncho) {
+      lineas.push(actual);
+      actual = palabra;
+    } else {
+      actual = prueba;
+    }
+  }
+  if (actual) lineas.push(actual);
+  return lineas;
+}
+
+async function obtenerLogoInstitucional(pdfDoc) {
+  try {
+    // cache: "no-cache" evita usar una versión antigua del logo guardada por el navegador
+    const resp = await fetch("./logo-institucional.png", { cache: "no-cache" });
+    if (!resp.ok) throw new Error("sin logo institucional publicado");
+    const bytes = new Uint8Array(await resp.arrayBuffer());
+
+    // Se detecta el formato real por los primeros bytes del archivo y no por su extensión:
+    // un JPEG guardado con nombre ".png" hacía fallar embedPng y se caía al marcador "PJ".
+    const esPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+    const esJpg = bytes[0] === 0xFF && bytes[1] === 0xD8;
+    if (esPng) return await pdfDoc.embedPng(bytes);
+    if (esJpg) return await pdfDoc.embedJpg(bytes);
+    throw new Error("formato de logo no reconocido (se esperaba PNG o JPG)");
+  } catch (e) {
+    console.error("No se pudo incluir el logo institucional en la carátula:", e);
+    return null;
+  }
+}
+
+// ── Carátula inicial del PDF final, según el diseño institucional ──────────
+async function crearPaginaCaratula(pdfDoc, resumen) {
+  const { rgb, StandardFonts } = PDFLib;
+  const fTitulo = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const fTexto = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  const pagina = pdfDoc.insertPage(0, [595.28, 841.89]);
+  const { width, height } = pagina.getSize();
+  const margenX = 64;
+  const anchoUtil = width - margenX * 2;
+  const azul = rgb(0.02, 0.14, 0.23);
+  const gris = rgb(0.38, 0.43, 0.49);
+  const textoInk = rgb(0.14, 0.19, 0.26);
+
+  let y = height - 58;
+
+  const logo = await obtenerLogoInstitucional(pdfDoc);
+  if (logo) {
+    // El logo institucional ya incluye la leyenda "Poder Judicial del Perú",
+    // por lo que no se repite el nombre de la institución debajo.
+    const logoAncho = 150, logoAlto = 112;
+    const escala = Math.min(logoAncho / logo.width, logoAlto / logo.height);
+    const wLogo = logo.width * escala, hLogo = logo.height * escala;
+    pagina.drawImage(logo, { x: width / 2 - wLogo / 2, y: y - hLogo, width: wLogo, height: hLogo });
+    y -= hLogo + 16;
+
+    pagina.drawText(resumen.organo, {
+      x: width / 2 - fTexto.widthOfTextAtSize(resumen.organo, 9.5) / 2,
+      y, size: 9.5, font: fTexto, color: gris
+    });
+    y -= 34;
+  } else {
+    // Sin logo publicado (o ilegible): marcador "PJ" + nombre de la institución
+    const logoAncho = 96, logoAlto = 64;
+    pagina.drawRectangle({
+      x: width / 2 - logoAncho / 2, y: y - logoAlto, width: logoAncho, height: logoAlto,
+      borderColor: gris, borderWidth: 1
+    });
+    const marca = "PJ";
+    pagina.drawText(marca, {
+      x: width / 2 - fTitulo.widthOfTextAtSize(marca, 22) / 2,
+      y: y - logoAlto / 2 - 8, size: 22, font: fTitulo, color: azul
+    });
+    y -= logoAlto + 18;
+
+    pagina.drawText(resumen.institucion, {
+      x: width / 2 - fTitulo.widthOfTextAtSize(resumen.institucion, 13) / 2,
+      y, size: 13, font: fTitulo, color: azul
+    });
+    y -= 17;
+    pagina.drawText(resumen.organo, {
+      x: width / 2 - fTexto.widthOfTextAtSize(resumen.organo, 9.5) / 2,
+      y, size: 9.5, font: fTexto, color: gris
+    });
+    y -= 36;
+  }
+
+  ["CARGO DE COPIAS", "CERTIFICADAS"].forEach(linea => {
+    pagina.drawText(linea, {
+      x: width / 2 - fTitulo.widthOfTextAtSize(linea, 21) / 2,
+      y, size: 21, font: fTitulo, color: azul
+    });
+    y -= 26;
+  });
+  y -= 14;
+
+  const parrafo = "Las copias certificadas que se adjuntan al presente documento han sido certificadas mediante el Sistema de Archivo y Manejo de Información para la Certificación de Documentos – SAMICERT.";
+  for (const linea of envolverTexto(parrafo, fTexto, 10.5, anchoUtil)) {
+    pagina.drawText(linea, { x: margenX, y, size: 10.5, font: fTexto, color: textoInk });
+    y -= 15.5;
+  }
+  y -= 20;
+
+  const filas = [
+    ["CERTIFICADOR:", resumen.certificadorNombre],
+    ["FECHA DE CERTIFICACIÓN:", `${resumen.fecha} – ${resumen.hora}`],
+    ["CÓDIGO DE CERTIFICACIÓN:", resumen.certId],
+    ["TOTAL DE FOLIOS:", String(resumen.totalPaginas)],
+    ["FOLIOS CERTIFICADOS:", String(resumen.totalCertificadas)]
+  ];
+  filas.forEach(([etiqueta, valor], i) => {
+    pagina.drawText(etiqueta, { x: margenX, y, size: 10, font: fTitulo, color: azul });
+    pagina.drawText(String(valor), { x: margenX + 215, y, size: 10, font: fTexto, color: textoInk });
+    y -= (i === filas.length - 1) ? 13 : 20;
+  });
+
+  const notaEmision = "(DOCUMENTOS EMITIDOS POR LA ENTIDAD)";
+  pagina.drawText(notaEmision, {
+    x: margenX, y, size: 7.5, font: fTexto, color: gris
+  });
+  y -= 18;
+
+  const tituloConsulta = "CONSULTA DE CERTIFICACIÓN";
+  pagina.drawText(tituloConsulta, {
+    x: width / 2 - fTitulo.widthOfTextAtSize(tituloConsulta, 13) / 2,
+    y, size: 13, font: fTitulo, color: azul
+  });
+  y -= 22;
+
+  const parrafo2 = "La información y los datos asociados a la presente certificación pueden ser consultados y verificados mediante el siguiente enlace:";
+  for (const linea of envolverTexto(parrafo2, fTexto, 10, anchoUtil)) {
+    pagina.drawText(linea, {
+      x: width / 2 - fTexto.widthOfTextAtSize(linea, 10) / 2,
+      y, size: 10, font: fTexto, color: textoInk
+    });
+    y -= 14;
+  }
+  y -= 6;
+
+  let tamUrl = 10.5;
+  const anchoUrl = fTitulo.widthOfTextAtSize(resumen.consultaUrl, tamUrl);
+  if (anchoUrl > width - 80) tamUrl = tamUrl * (width - 80) / anchoUrl;
+  pagina.drawText(resumen.consultaUrl, {
+    x: width / 2 - fTitulo.widthOfTextAtSize(resumen.consultaUrl, tamUrl) / 2,
+    y, size: tamUrl, font: fTitulo, color: rgb(0.09, 0.34, 0.6)
+  });
+  y -= 28;
+
+  try {
+    const qrBytes = dataUrlABytes(await generarQRDataUrl(resumen.consultaUrl, 1000));
+    const qrImg = await pdfDoc.embedPng(qrBytes);
+    const qrTam = 160;
+    pagina.drawImage(qrImg, { x: width / 2 - qrTam / 2, y: y - qrTam, width: qrTam, height: qrTam });
+    y -= qrTam + 14;
+  } catch (e) {
+    console.error("No se pudo generar el código QR de la carátula:", e);
+    y -= 14;
+  }
+
+  const leyendaQR = "O ESCANEANDO EL CÓDIGO QR";
+  pagina.drawText(leyendaQR, {
+    x: width / 2 - fTitulo.widthOfTextAtSize(leyendaQR, 9.5) / 2,
+    y, size: 9.5, font: fTitulo, color: azul
+  });
+  y -= 14;
+
+  const piePagina = "SAMICERT · Sistema de Archivo y Manejo de Información para la Certificación de Documentos";
+  pagina.drawText(piePagina, {
+    x: width / 2 - fTexto.widthOfTextAtSize(piePagina, 7.5) / 2,
+    y: 40, size: 7.5, font: fTexto, color: gris
+  });
+}
+
+async function aplicarSelloAUnPdf(file) {
+  if (!selloBytes || !selloBytes.length) {
+    throw new Error("El sello automático de este usuario no está disponible.");
+  }
+
+  const {PDFDocument, rgb, StandardFonts} = PDFLib;
+
+  let pdfDoc;
+  try {
+    pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+  } catch (errorCarga) {
+    console.error(errorCarga);
+    const mensaje = String(errorCarga?.message || "");
+    if (/encrypt/i.test(mensaje)) {
+      throw new Error("El PDF está protegido/encriptado. Quite la contraseña o la protección del documento antes de certificarlo.");
+    }
+    throw new Error("El archivo no es un PDF válido o está dañado.");
+  }
+
+  let sellImage;
+  try {
+    sellImage = await pdfDoc.embedPng(selloBytes);
+  } catch (e) {
+    console.error('Error al incrustar sello PNG:', e);
+    throw new Error('No se pudo incrustar la imagen del sello. Verifique sello-jorge.png o sello-roberto.png.');
+  }
+
+  const fuente = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const tamano = TAMANO_SELLO_PT;
+  const margen = MARGEN_SELLO_PT;
+  const esquina = ESQUINA_SELLO;
+  const paginas = pdfDoc.getPages();
+
+  if (!paginasSeleccionadas.size) {
+    throw new Error("Debes seleccionar al menos una página para certificar.");
+  }
+
+  const fecha = fechaHoy();
+  const hora = horaAhora();
+  const certId = generarIdCertificacion();
+  const ordenCertificadas = Array.from(paginasSeleccionadas).sort((a,b)=>a-b);
+  const totalCertificadas = ordenCertificadas.length;
+
+  paginas.forEach((pagina, indice) => {
+    const n = indice + 1;
+
+    const rotacionOriginal = normalizarRotacionPagina(pagina);
+    const rotacionExtra = Number(rotacionesPagina.get(n) || 0);
+    const rotacionFinal = (rotacionOriginal + rotacionExtra) % 360;
+
+    if (rotacionExtra) {
+      pagina.setRotation(PDFLib.degrees(rotacionFinal));
+    }
+
+    if (!paginasSeleccionadas.has(n)) return;
+
+    const posSello = calcularPosicionSello(
+      pagina, esquina, tamano, margen, rotacionFinal
+    );
+
+    const numeroFolio = ordenCertificadas.indexOf(n) + 1;
+    const textoFolio = `Página ${numeroFolio}/${totalCertificadas}`;
+
+    const tamFuenteFecha = Math.max(6.5, tamano * 0.078);
+    const tamFuenteHora = Math.max(4.2, tamFuenteFecha * 0.55);
+    const tamFuenteId = Math.max(3.8, tamFuenteFecha * 0.48);
+    const tamFuenteFolio = tamFuenteId;
+    const textos = [
+      [fecha, tamFuenteFecha],
+      [hora, tamFuenteHora],
+      [certId, tamFuenteId],
+      [textoFolio, tamFuenteFolio]
+    ];
+
+    const ys = [
+      tamano * 0.49,
+      tamano * 0.49 - tamFuenteFecha * 0.85,
+      tamano * 0.49 - tamFuenteFecha * 1.55,
+      tamano * 0.49 - tamFuenteFecha * 2.15
+    ];
+
+    const radGiro = posSello.giro * Math.PI / 180;
+    const cosGiro = Math.cos(radGiro);
+    const sinGiro = Math.sin(radGiro);
+
+    
+    textos.forEach(([texto, size], i) => {
+      const ancho = fuente.widthOfTextAtSize(texto, size);
+      const localX = tamano / 2 - ancho / 2;
+      const localY = ys[i];
+      const px = posSello.x + (cosGiro * localX - sinGiro * localY);
+      const py = posSello.y + (sinGiro * localX + cosGiro * localY);
+
+      pagina.drawText(texto, {
+        x: px,
+        y: py,
+        size,
+        font: fuente,
+        color: rgb(0.67, 0.14, 0.09),
+        rotate: PDFLib.degrees(posSello.giro)
+      });
+    });
+
+    
+    dibujarImagenSello(pagina, sellImage, posSello, tamano);
+  });
+
+  await crearPaginaCaratula(pdfDoc, {
+    institucion: "PODER JUDICIAL DEL PERÚ",
+    organo: "Corte Superior de Justicia del Santa · Archivo Desconcentrado",
+    certificadorNombre: perfilActual?.nombre || usuarioActual?.displayName || usuarioActual?.email || "Usuario autorizado",
+    fecha,
+    hora,
+    certId,
+    totalPaginas: paginas.length,
+    totalCertificadas,
+    consultaUrl: `https://samicert.ecomindsetgo.com/verificar.html?consulta=${certId}`
+  });
+
+  // Metadatos internos para que el PDF conserve su identidad durante el
+  // paso de firma externa. El SHA-256 definitivo NO se calcula aquí.
+  pdfDoc.setTitle(`SAMICERT ${certId}`);
+  pdfDoc.setSubject(`SAMICERT:${certId}`);
+  pdfDoc.setKeywords(["SAMICERT", certId, "SF"]);
+
+  return {
+    bytesSalida: await pdfDoc.save(),
+    meta: {
+      id: certId,
+      fecha,
+      hora,
+      archivoOriginal: file.name,
+      paginasCertificadas: ordenCertificadas,
+      totalPaginas: paginas.length
+    }
+  };
+}
+
+function nombreConSufijo(nombre) {
+  const idx = nombre.toLowerCase().lastIndexOf(".pdf");
+  return idx === -1
+    ? nombre + "[F][C].pdf"
+    : nombre.slice(0,idx) + "[F][C]" + nombre.slice(idx);
+}
+
+async function guardarResultado(bytesSalida, nombre, handleDestino, archivoFuente = null) {
+  // El ArrayBuffer leído del <input type=file> es la fuente de verdad del PDF firmado.
+  // No dependemos del objeto File para escribir en disco: algunos navegadores
+  // pueden exponer el File correctamente pero fallar al transferirlo al stream.
+  const bytesFirmados = bytesSalida instanceof ArrayBuffer
+    ? new Uint8Array(bytesSalida)
+    : new Uint8Array(bytesSalida);
+
+  const blob = archivoFuente instanceof Blob && archivoFuente.size === bytesFirmados.byteLength
+    ? archivoFuente
+    : new Blob([bytesFirmados], { type: "application/pdf" });
+
+  const bytesEsperados = bytesFirmados;
+  const tamanoEsperado = bytesEsperados.byteLength;
+
+  // El PDF debe comenzar con la firma binaria %PDF-. Si no es así, no permitimos
+  // que el archivo se considere certificado.
+  const cabecera = new TextDecoder().decode(bytesEsperados.slice(0, 5));
+  if (cabecera !== "%PDF-") {
+    throw new Error("El archivo firmado no tiene una cabecera PDF válida (%PDF-). No se guardó como PDF certificado.");
+  }
+
+  if (handleDestino) {
+    let writable = null;
+    try {
+      writable = await handleDestino.createWritable({ keepExistingData: false });
+      // Escritura binaria explícita. Evita que un Blob/File sea interpretado
+      // incorrectamente por el stream y garantiza que se escriban todos los bytes.
+      await writable.write(bytesEsperados);
+      await writable.truncate(tamanoEsperado);
+      await writable.close();
+      writable = null;
+    } catch (e) {
+      try { if (writable) await writable.abort(); } catch (_) {}
+      throw new Error(`Windows/Chrome no pudo completar la escritura del PDF: ${e.message || e}`);
+    }
+
+    // Volvemos a leer el archivo físico desde el handle, no el Blob en memoria.
+    // Esto confirma que el archivo realmente quedó en la ruta elegida.
+    const archivoGuardado = await handleDestino.getFile();
+    if (!archivoGuardado || archivoGuardado.size !== tamanoEsperado) {
+      throw new Error(
+        `El PDF quedó incompleto. Tamaño esperado: ${tamanoEsperado.toLocaleString()} bytes; tamaño encontrado: ${(archivoGuardado?.size ?? 0).toLocaleString()} bytes.`
+      );
+    }
+
+    const bytesVerificados = await archivoGuardado.arrayBuffer();
+    const cabeceraGuardada = new TextDecoder().decode(new Uint8Array(bytesVerificados).slice(0, 5));
+    if (cabeceraGuardada !== "%PDF-") {
+      throw new Error("El archivo creado en la carpeta seleccionada no contiene un PDF válido.");
+    }
+
+    const shaGuardado = await calcularSHA256(bytesVerificados);
+    const shaEsperado = await calcularSHA256(bytesEsperados);
+    if (shaGuardado !== shaEsperado) {
+      throw new Error("El PDF guardado no coincide byte por byte con el PDF firmado seleccionado.");
+    }
+
+    return {
+      guardado: true,
+      verificado: true,
+      handle: handleDestino,
+      file: archivoGuardado,
+      blob: new Blob([bytesVerificados], { type: "application/pdf" }),
+      sha256: shaGuardado,
+      nombre: archivoGuardado.name || nombre,
+      tamano: archivoGuardado.size
+    };
+  }
+
+  // Respaldo para navegadores que no soportan showSaveFilePicker.
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  return {
+    guardado: true,
+    verificado: false,
+    handle: null,
+    file: null,
+    blob,
+    sha256: await calcularSHA256(bytesEsperados),
+    nombre,
+    tamano: blob.size
+  };
+}
+
+function mostrarResultadoGuardado(resultado, nombre, idFinal, firebaseOk, firebaseMensaje = "", pdfArchivado = false) {
+  const box = esUsuarioMesaPartes() ? $("hashResultadoMesa") : $("hashResultado");
+  if (!box) return;
+
+  const nombreSeguro = escapeHtml(resultado?.nombre || nombre);
+  const estadoFirebase = firebaseOk
+    ? `<div style="margin-top:8px;color:#16823a;font-size:12px;font-weight:700">✓ Registro de certificación actualizado correctamente.</div>`
+    : `<div style="margin-top:8px;color:#8a6416;font-size:12px;font-weight:700">⚠️ El PDF quedó guardado localmente. El registro en Firebase no pudo actualizarse${firebaseMensaje ? `: ${escapeHtml(firebaseMensaje)}` : "."}</div>`;
+
+  box.classList.remove("oculto");
+  box.style.borderLeftColor = "#16823a";
+  box.style.background = "#f6fbf8";
+  box.innerHTML = `
+    <div class="hash-titulo" style="color:#16823a">✓ PDF certificado guardado correctamente</div>
+    <div style="margin-top:7px;font-size:12px;line-height:1.5">
+      <strong>Archivo:</strong> ${nombreSeguro}<br>
+      <strong>ID:</strong> ${escapeHtml(idFinal)}<br>
+      <strong>Tamaño:</strong> ${Number(resultado.tamano || 0).toLocaleString()} bytes<br>
+       <strong>SHA-256:</strong> <span style="word-break:break-all">${escapeHtml(resultado.sha256 || "")}</span><br>
+      ${resultado.verificado ? "✓ Se verificó el tamaño y la huella del archivo después de guardarlo." : ""}
+    </div>
+    ${estadoFirebase}`;
+
+  if (esUsuarioMesaPartes()) {
+    if (temporizadorHashResultadoMesa) clearTimeout(temporizadorHashResultadoMesa);
+    temporizadorHashResultadoMesa = setTimeout(() => {
+      box.classList.add("oculto");
+      box.innerHTML = "";
+      temporizadorHashResultadoMesa = null;
+    }, TIEMPO_MENSAJE_EXITO_MS);
+  } else {
+    if (temporizadorHashResultado) clearTimeout(temporizadorHashResultado);
+    temporizadorHashResultado = setTimeout(() => {
+      box.classList.add("oculto");
+      box.innerHTML = "";
+      temporizadorHashResultado = null;
+    }, TIEMPO_MENSAJE_EXITO_MS);
+  }
+}
+
+btnAplicar.addEventListener("click", async () => {
+  ocultarHash();
+  if (!archivoSeleccionado || !usuarioActual || esUsuarioMesaPartes()) return;
+
+  btnAplicar.disabled = true;
+  const nombreProvisional = archivoSeleccionado.name.toLowerCase().endsWith(".pdf")
+    ? archivoSeleccionado.name.slice(0, -4) + "[SF].pdf"
+    : archivoSeleccionado.name + "[SF].pdf";
+
+  let datosRecert = { continuar: true, motivo: "" };
+  try {
+    if (!hashOrigenActual) {
+      hashOrigenActual = await calcularSHA256(await archivoSeleccionado.file.arrayBuffer());
+    }
+    duplicadosDetectados = await buscarCertificacionesPrevias(
+      hashOrigenActual,
+      archivoSeleccionado.name
+    );
+    mostrarAlertaDuplicado(duplicadosDetectados);
+
+    if (duplicadosDetectados.length) {
+      const paginasActuales = Array.from(paginasSeleccionadas).sort((a,b)=>a-b);
+      const solapadas = duplicadosDetectados
+        .flatMap(c => paginasSolapadas(c.registro.paginasCertificadas, paginasActuales));
+      const solapeUnico = Array.from(new Set(solapadas)).sort((a,b)=>a-b);
+
+      datosRecert = await confirmarRecertificacion(duplicadosDetectados, solapeUnico);
+      if (!datosRecert.continuar) {
+        btnAplicar.disabled = false;
+        renderLista();
+        mostrarEstado(
+          "Certificación cancelada por el operador: el documento ya contaba con una certificación previa.",
+          "error"
+        );
+        return;
+      }
+    }
+
+    archivoSeleccionado.estado = "procesando";
+    renderLista();
+
+    // El certificador genera el PDF provisional, pero NO firma ni registra
+    // la certificación definitiva. Como se trabaja sobre una carpeta
+    // compartida con Mesa de Partes, el PDF [SF] se guarda directamente en
+    // disco (eligiendo la carpeta compartida en el selector de guardado)
+    // en vez de archivarse en Firestore; solo se guardan sus metadatos.
+    const resultado = await aplicarSelloAUnPdf(archivoSeleccionado.file);
+    const sha256PreFirma = await calcularSHA256(resultado.bytesSalida);
+    const pendienteId = resultado.meta.id;
+
+    let handleDestino = null;
+    if ("showSaveFilePicker" in window) {
+      try {
+        handleDestino = await window.showSaveFilePicker({
+          suggestedName: nombreProvisional,
+          types: [{ description: "Documento PDF", accept: { "application/pdf": [".pdf"] } }]
         });
+      } catch (err) {
+        if (err.name === "AbortError") {
+          throw new Error("Se canceló la ubicación de guardado. El documento no fue entregado a Mesa de Partes.");
+        }
+        throw err;
+      }
+    }
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                document.getElementById('login-container').style.display = 'none';
-                document.getElementById('app-container').style.display = 'flex';
-                
-                const userTitle = normalizarTexto(user.displayName ? user.displayName : user.email.split('@')[0]);
-                document.getElementById('user-display-name').innerText = userTitle;
-                document.getElementById('user-display-role').innerText = listaPersonalRoles[userTitle] || "Personal de Archivo";
-                document.getElementById('inv-registra').value = userTitle;
-                
-                const campoPersonalTarjetas = document.getElementById('tar-personal');
-                if (campoPersonalTarjetas) campoPersonalTarjetas.value = userTitle;
+    const resultadoGuardado = await guardarResultado(
+      resultado.bytesSalida, nombreProvisional, handleDestino, null
+    );
 
-                const fechaRecTarjetas = document.getElementById('tar-fecha-recepcion');
-                if (fechaRecTarjetas && !fechaRecTarjetas.value) fechaRecTarjetas.valueAsDate = new Date();
+    const pendiente = {
+      id: pendienteId,
+      estado: "pendiente-firma",
+      fecha: resultado.meta.fecha,
+      hora: resultado.meta.hora,
+      archivoOriginal: resultado.meta.archivoOriginal,
+      archivoProvisionalNombre: resultadoGuardado.nombre || nombreProvisional,
+      paginasCertificadas: resultado.meta.paginasCertificadas,
+      totalPaginas: resultado.meta.totalPaginas,
+      sha256PreFirma,
+      sha256Origen: hashOrigenActual,
+      esRecertificacion: duplicadosDetectados.length > 0,
+      motivoRecertificacion: datosRecert.motivo || "",
+      certificacionesPrevias: duplicadosDetectados.map(c => c.registro.id || c.docId),
+      certificadorUid: usuarioActual.uid,
+      certificadorNombre: perfilActual?.nombre || usuarioActual.displayName || usuarioActual.email || "Usuario autorizado",
+      certificadorEmail: usuarioActual.email || "",
+      zonaHoraria: "America/Lima",
+      selloArchivo: obtenerUsuarioAutorizado(usuarioActual)?.sello.replace("./", "") || "",
+      pdfArchivado: false,
+      pdfChunksTotal: 0,
+      pdfBytesTotal: resultado.bytesSalida.length,
+      creadoEn: serverTimestamp(),
+      version: 14
+    };
 
-                const campoEntregado = document.getElementById('re-entregado');
-                if (campoEntregado) campoEntregado.value = userTitle;
+    await setDoc(doc(db, "pendientesFirma", pendienteId), pendiente);
 
-                const campoEntregadoTr = document.getElementById('tr-entregado');
-                if (campoEntregadoTr) campoEntregadoTr.value = userTitle;
+    procesoFirmaPendiente = pendiente;
+    archivoSeleccionado.estado = "enviado-firma";
+    renderLista();
 
-                document.getElementById('perf-email').value = user.email || '';
-                document.getElementById('perf-nombre').value = user.displayName || '';
-                const formClave = document.getElementById('form-perfil-clave');
-                if (formClave) formClave.reset();
+    if (panelFirma) panelFirma.classList.add("oculto");
+    mostrarMensajeExitoTemporal(
+      `✓ Documento ${pendienteId} guardado en la carpeta compartida (${resultadoGuardado.nombre}) y enviado a Mesa de Partes para firma digital. El certificador no registra la certificación definitiva.`
+    );
+    // Igual que el mensaje, el documento y las páginas a certificar no deben
+    // quedarse pegados en pantalla una vez enviado a Mesa de Partes.
+    limpiarArchivo({ mantenerMensaje: true });
+    cargarMisPendientesFirma();
+  } catch (err) {
+    console.error(err);
+    archivoSeleccionado.estado = "error";
+    mostrarEstado(
+      "No se pudo entregar el documento a Mesa de Partes. " + (err.message || ""),
+      "error"
+    );
+    renderLista();
+  } finally {
+    btnAplicar.disabled = false;
+    renderLista();
+  }
+});
 
-                cargarDataMaestra(userTitle);
-                aplicarPermisos(userTitle);
-                inicializarSelectsReingresos();
-                inicializarSelectsTraslados(userTitle);
-                resetFormularioReingreso();
-                resetFormularioTraslado();
+inputPdfFirmado?.addEventListener("change", () => {
+  const file = inputPdfFirmado.files?.[0] || null;
+  pdfFirmadoSeleccionado = file;
+  btnRegistrarFirmado.disabled = !file || !pendienteFirmaActual;
 
-                // Las operaciones de auditoría no deben bloquear la finalización
-                // del callback de autenticación ni la carga del documento.
-                setTimeout(() => {
-                    sincronizarUsuarioEnFirestore(user, userTitle).catch(err => console.error(err));
-                    registrarInicioSesionEnCloud(user, userTitle).catch(err => console.error(err));
-                }, 0);
+  if (file) {
+    archivoPdfFirmadoNombre.textContent = `PDF firmado seleccionado: ${file.name}`;
+    archivoPdfFirmadoNombre.classList.remove("oculto");
+  } else {
+    archivoPdfFirmadoNombre.textContent = "";
+    archivoPdfFirmadoNombre.classList.add("oculto");
+  }
+});
 
-                // SAAMIR queda disponible inmediatamente. Solo se preparan en segundo
-                // plano los datos que alimentan el Dashboard; los módulos operativos
-                // cargan sus propios datos cuando el usuario entra a ellos.
-                setTimeout(() => {
-                    Promise.allSettled([
-                        cargarInventariosDesdeCloud(),
-                        cargarHistorialReingresosParaDashboard(),
-                        cargarMicroformasDesdeCloud()
-                    ]).then(resultados => {
-                        const errores = resultados.filter(r => r.status === 'rejected');
-                        if (errores.length) console.warn('SAAMIR: algunos datos del dashboard no pudieron cargarse:', errores);
-                    });
-                }, 50);
-            } else {
-                document.getElementById('app-container').style.display = 'none';
-                document.getElementById('login-container').style.display = 'flex';
-            }
+let pendienteFirmaActual = null;
+
+// Permite al certificador ver los documentos que ÉL envió a Mesa de Partes
+// y que siguen "pendiente-firma", y cancelarlos si se equivocó de archivo
+// (por ejemplo, si generó el [SF] de un PDF que no correspondía).
+async function cargarMisPendientesFirma() {
+  if (!usuarioActual || esUsuarioMesaPartes()) return;
+  const contenedor = $("misPendientesLista");
+  if (!contenedor) return;
+
+  contenedor.innerHTML = '<div class="empty">Cargando…</div>';
+
+  try {
+    const snap = await getDocs(collection(db, "pendientesFirma"));
+    const pendientes = snap.docs
+      .map(d => ({...d.data(), id:d.id}))
+      .filter(r => r.estado === "pendiente-firma" && r.certificadorUid === usuarioActual.uid)
+      .sort((a,b) => fechaRegistroEnMs(b) - fechaRegistroEnMs(a));
+
+    if (!pendientes.length) {
+      contenedor.innerHTML = '<div class="empty">No tiene documentos pendientes de firma en este momento.</div>';
+      return;
+    }
+
+    contenedor.innerHTML = pendientes.map(r => `
+      <div class="firma-pendiente-item">
+        <div class="firma-pendiente-id">${escapeHtml(r.id)}</div>
+        <div>
+          <div class="history-file">${escapeHtml(r.archivoOriginal || "Documento PDF")}</div>
+          <div class="history-meta">
+            ${escapeHtml(r.fecha || "")} ${escapeHtml(r.hora || "")} ·
+            ${escapeHtml((r.paginasCertificadas || []).length)} página(s)
+          </div>
+          <div class="history-meta" style="margin-top:2px">
+            Archivo en carpeta compartida: <strong>${escapeHtml(r.archivoProvisionalNombre || (r.id + "[SF].pdf"))}</strong>
+          </div>
+        </div>
+        <div class="firma-pendiente-actions">
+          <button type="button" class="btn-gray btn-small btn-cancelar-pendiente" data-id="${escapeHtml(r.id)}">
+            Cancelar / eliminar
+          </button>
+        </div>
+      </div>
+    `).join("");
+
+    contenedor.querySelectorAll(".btn-cancelar-pendiente").forEach(btn => {
+      btn.addEventListener("click", () => cancelarMiPendienteFirma(btn.dataset.id));
+    });
+  } catch (err) {
+    console.error(err);
+    contenedor.innerHTML = `<div class="empty">No se pudo cargar la lista: ${escapeHtml(err.message || "")}</div>`;
+  }
+}
+
+async function cancelarMiPendienteFirma(id) {
+  if (!confirm(
+    `¿Cancelar el documento ${id}?\n\nYa no aparecerá en la bandeja de Mesa de Partes. Si lo necesita, deberá volver a generarlo desde "Certificar Documento".`
+  )) return;
+
+  try {
+    await deleteDoc(doc(db, "pendientesFirma", id));
+    mostrarEstado(`✓ Documento ${id} cancelado. Ya no está disponible para Mesa de Partes.`, "ok");
+    await cargarMisPendientesFirma();
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo cancelar el documento: " + (err.message || ""));
+  }
+}
+
+// Documentos que Mesa de Partes ya firmó y registró (últimos primero).
+// Es un acceso rápido directamente en el módulo de firma; el historial
+// completo de TODAS las certificaciones sigue disponible en "Historial".
+const MIS_FIRMADOS_LIMITE = 15;
+
+async function cargarMisDocumentosFirmados() {
+  if (!usuarioActual || !esUsuarioMesaPartes()) return;
+  const contenedor = $("misFirmadosLista");
+  if (!contenedor) return;
+
+  contenedor.innerHTML = '<div class="empty">Cargando…</div>';
+
+  try {
+    const q = query(
+      collection(db, "certificaciones"),
+      where("firmanteUid", "==", usuarioActual.uid),
+      limit(200)
+    );
+    const snap = await getDocs(q);
+    const firmados = snap.docs
+      .map(d => ({...d.data(), id:d.id}))
+      .sort((a,b) => fechaRegistroEnMs(b) - fechaRegistroEnMs(a))
+      .slice(0, MIS_FIRMADOS_LIMITE);
+
+    if (!firmados.length) {
+      contenedor.innerHTML = '<div class="empty">Aún no ha firmado ningún documento.</div>';
+      return;
+    }
+
+    contenedor.innerHTML = firmados.map(r => `
+      <div class="firma-pendiente-item">
+        <div class="firma-pendiente-id">${escapeHtml(r.id)}</div>
+        <div>
+          <div class="history-file">${escapeHtml(r.archivoOriginal || "Documento PDF")}</div>
+          <div class="history-meta">
+            ${escapeHtml(formatoFechaRegistro(r))} ·
+            Certificador: ${escapeHtml(r.certificadorNombre || r.certificadorEmail || "")} ·
+            ${escapeHtml((r.paginasCertificadas || []).length)} página(s)
+          </div>
+          <div class="history-meta" style="margin-top:2px;word-break:break-all">
+            SHA-256: ${escapeHtml(r.sha256Final || r.sha256 || "")}
+          </div>
+        </div>
+        <div class="firma-pendiente-actions">
+          <span class="hist-firmado-badge">✓ Certificado</span>
+        </div>
+      </div>
+    `).join("");
+  } catch (err) {
+    console.error(err);
+    contenedor.innerHTML = `<div class="empty">No se pudo cargar la lista de firmados: ${escapeHtml(err.message || "")}</div>`;
+  }
+}
+
+async function cargarPendientesFirma() {
+  if (!esUsuarioMesaPartes()) return;
+  const contenedor = $("pendientesFirmaLista");
+  const estado = $("pendientesFirmaEstado");
+  if (!contenedor) return;
+
+  contenedor.innerHTML = '<div class="empty">Cargando documentos pendientes…</div>';
+  estado.textContent = "";
+
+  try {
+    const snap = await getDocs(collection(db, "pendientesFirma"));
+    const pendientes = snap.docs
+      .map(d => ({...d.data(), id:d.id}))
+      .filter(r => r.estado === "pendiente-firma")
+      .sort((a,b) => fechaRegistroEnMs(b) - fechaRegistroEnMs(a));
+
+    if (!pendientes.length) {
+      contenedor.innerHTML = '<div class="empty">No hay documentos pendientes de firma.</div>';
+      estado.textContent = "0 pendiente(s)";
+      return;
+    }
+
+    contenedor.innerHTML = pendientes.map(r => `
+      <div class="firma-pendiente-item">
+        <div class="firma-pendiente-id">${escapeHtml(r.id)}</div>
+        <div>
+          <div class="history-file">${escapeHtml(r.archivoOriginal || "Documento PDF")}</div>
+          <div class="history-meta">
+            ${escapeHtml(r.fecha || "")} ${escapeHtml(r.hora || "")} ·
+            ${escapeHtml(r.certificadorNombre || r.certificadorEmail || "")} ·
+            ${escapeHtml((r.paginasCertificadas || []).length)} página(s)
+          </div>
+          <div class="history-meta" style="margin-top:2px">
+            Archivo en carpeta compartida: <strong>${escapeHtml(r.archivoProvisionalNombre || (r.id + "[SF].pdf"))}</strong>
+          </div>
+        </div>
+        <div class="firma-pendiente-actions">
+          <button type="button" class="btn-green btn-small btn-iniciar-firma" data-id="${escapeHtml(r.id)}">
+            Firmar y registrar
+          </button>
+        </div>
+      </div>
+    `).join("");
+
+    contenedor.querySelectorAll(".btn-iniciar-firma").forEach(btn => {
+      btn.addEventListener("click", () => iniciarFirmaEnMesa(btn.dataset.id));
+    });
+
+    estado.textContent = `${pendientes.length} pendiente(s)`;
+  } catch (err) {
+    console.error(err);
+    contenedor.innerHTML = `<div class="empty">No se pudo cargar la bandeja de firma: ${escapeHtml(err.message || "")}</div>`;
+  }
+}
+
+async function iniciarFirmaEnMesa(id) {
+  try {
+    const snap = await getDoc(doc(db, "pendientesFirma", id));
+    if (!snap.exists()) throw new Error("El documento pendiente ya no está disponible.");
+    const pendiente = {...snap.data(), id:snap.id};
+
+    if (pendiente.estado !== "pendiente-firma") {
+      throw new Error("Este documento ya no se encuentra pendiente de firma.");
+    }
+
+    pendienteFirmaActual = pendiente;
+    procesoFirmaPendiente = pendiente;
+    pdfFirmadoSeleccionado = null;
+
+    if (inputPdfFirmado) inputPdfFirmado.value = "";
+    if (archivoPdfFirmadoNombre) {
+      archivoPdfFirmadoNombre.textContent = "";
+      archivoPdfFirmadoNombre.classList.add("oculto");
+    }
+    btnRegistrarFirmado.disabled = true;
+
+    $("firmaPendienteTitulo").textContent = `Firma digital · ${pendiente.id}`;
+    $("firmaPendienteDetalle").innerHTML = `
+      <strong>Documento:</strong> ${escapeHtml(pendiente.archivoOriginal || "")}<br>
+      <strong>Certificador:</strong> ${escapeHtml(pendiente.certificadorNombre || pendiente.certificadorEmail || "")}<br>
+      <strong>Fecha de generación:</strong> ${escapeHtml(pendiente.fecha || "")} ${escapeHtml(pendiente.hora || "")}<br>
+      <strong>Páginas certificadas:</strong> ${escapeHtml((pendiente.paginasCertificadas || []).join(", "))} de ${escapeHtml(pendiente.totalPaginas || "")}
+    `;
+    $("panelFirmaMesa").classList.remove("oculto");
+    $("panelFirmaMesa").scrollIntoView({behavior:"smooth", block:"start"});
+  } catch (err) {
+    alert("No se pudo abrir el documento para firma: " + (err.message || ""));
+  }
+}
+
+$("btnCancelarFirmaMesa")?.addEventListener("click", () => {
+  pendienteFirmaActual = null;
+  procesoFirmaPendiente = null;
+  pdfFirmadoSeleccionado = null;
+  if (inputPdfFirmado) inputPdfFirmado.value = "";
+  if (archivoPdfFirmadoNombre) archivoPdfFirmadoNombre.classList.add("oculto");
+  if ($("panelFirmaMesa")) $("panelFirmaMesa").classList.add("oculto");
+  if (btnRegistrarFirmado) btnRegistrarFirmado.disabled = true;
+});
+
+btnRegistrarFirmado?.addEventListener("click", async () => {
+  ocultarHash();
+  if (!pendienteFirmaActual || !pdfFirmadoSeleccionado || !usuarioActual || !esUsuarioMesaPartes()) return;
+
+  btnRegistrarFirmado.disabled = true;
+  try {
+    const bytesFirmados = new Uint8Array(await pdfFirmadoSeleccionado.arrayBuffer());
+
+    try {
+      await PDFLib.PDFDocument.load(bytesFirmados.slice());
+    } catch (e) {
+      throw new Error("El archivo seleccionado no es un PDF válido o está dañado.");
+    }
+
+    const identidadEsperada = pendienteFirmaActual.id;
+    let identidadConservada = false;
+    if (window.pdfjsLib) {
+      try {
+        const loadingTask = pdfjsLib.getDocument({data: bytesFirmados.slice()});
+        const pdfVerificacion = await loadingTask.promise;
+        const primeraPagina = await pdfVerificacion.getPage(1);
+        const contenido = await primeraPagina.getTextContent();
+        const textoPagina = contenido.items.map(item => item.str || "").join(" ");
+        identidadConservada = textoPagina.includes(identidadEsperada);
+      } catch (e) {
+        console.warn("No fue posible leer la carátula con PDF.js:", e);
+      }
+    }
+
+    if (!identidadConservada) {
+      throw new Error(
+        "El PDF firmado no contiene el identificador de esta certificación en su primera página. " +
+        "Firme el PDF provisional [SF] ubicado en la carpeta compartida y vuelva a importarlo aquí."
+      );
+    }
+
+    // El SHA-256 definitivo se calcula SOLO después de la firma digital.
+    const sha256Final = await calcularSHA256(bytesFirmados.slice());
+    const nombreFinal = nombreConSufijo(pendienteFirmaActual.archivoOriginal);
+
+    let handleDestino = null;
+    if ("showSaveFilePicker" in window) {
+      try {
+        handleDestino = await window.showSaveFilePicker({
+          suggestedName: nombreFinal,
+          types: [{description:"Documento PDF", accept:{"application/pdf":[".pdf"]}}]
         });
-
-        document.getElementById('btn-logout').addEventListener('click', () => {
-            signOut(auth);
-            document.getElementById('login-password').value = '';
-        });
-
-        document.getElementById('form-perfil-datos').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const user = auth.currentUser;
-            const nuevoNombre = normalizarTexto(document.getElementById('perf-nombre').value);
-            if (!user) return;
-            try {
-                await updateProfile(user, { displayName: nuevoNombre });
-                document.getElementById('user-display-name').innerText = nuevoNombre;
-                document.getElementById('user-display-role').innerText = listaPersonalRoles[nuevoNombre] || "Personal de Archivo";
-                document.getElementById('inv-registra').value = nuevoNombre;
-                
-                const campoPersonalTarjetas = document.getElementById('tar-personal');
-                if (campoPersonalTarjetas) campoPersonalTarjetas.value = nuevoNombre;
-
-                const campoEntregado = document.getElementById('re-entregado');
-                if (campoEntregado) campoEntregado.value = nuevoNombre;
-
-                const campoEntregadoTr = document.getElementById('tr-entregado');
-                if (campoEntregadoTr) campoEntregadoTr.value = nuevoNombre;
-                
-                cargarDataMaestra(nuevoNombre);
-                inicializarSelectsTraslados(nuevoNombre);
-                aplicarPermisos(nuevoNombre);
-                sincronizarUsuarioEnFirestore(user, nuevoNombre);
-                Swal.fire('Éxito', 'Perfil actualizado de forma interna.', 'success');
-            } catch (error) { Swal.fire('Error', error.message, 'error'); }
-        });
-
-        document.getElementById('form-perfil-clave').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const user = auth.currentUser;
-            const nuevaClave = document.getElementById('perf-new-password').value;
-            const confirmaClave = document.getElementById('perf-confirm-password').value;
-            if (!user) return;
-            if (nuevaClave !== confirmaClave) { Swal.fire('Aviso', 'Las claves no coinciden.', 'warning'); return; }
-            try {
-                await updatePassword(user, nuevaClave);
-                document.getElementById('form-perfil-clave').reset();
-                Swal.fire('Éxito', 'Contraseña modificada de forma segura.', 'success');
-            } catch (error) {
-                if (error.code === 'auth/requires-recent-login') {
-                    const { value: pass } = await Swal.fire({ title: 'Seguridad', text: 'Escriba su clave actual:', input: 'password', showCancelButton: true });
-                    if (pass) {
-                        try {
-                            const cred = EmailAuthProvider.credential(user.email, pass);
-                            await reauthenticateWithCredential(user, cred);
-                            await updatePassword(user, nuevaClave);
-                            document.getElementById('form-perfil-clave').reset();
-                            Swal.fire('Éxito', 'Contraseña cambiada.', 'success');
-                        } catch(err) { Swal.fire('Error', 'Clave incorrecta.', 'error'); }
-                    }
-                } else { Swal.fire('Error', error.message, 'error'); }
-            }
-        });
-
-        function puedeEditarMicroformas(nombreUsuario) {
-            const u = normalizarTexto(nombreUsuario);
-            return PERMISOS.microformas_escritura.map(n => normalizarTexto(n)).includes(u);
+      } catch (err) {
+        if (err.name === "AbortError") {
+          throw new Error("Se canceló la ubicación de guardado. El proceso no se completó.");
         }
+        throw err;
+      }
+    }
 
-        const REGEX_RANGO_PAQUETE = /^\s*(\d+)-(\d+)\s*$/;
-        let contadorFilaSubrango = 0;
+    const resultadoGuardado = await guardarResultado(
+      bytesFirmados.slice(), nombreFinal, handleDestino, null
+    );
 
-        function crearFilaSubrangoHTML(desde = '', hasta = '') {
-            const idx = contadorFilaSubrango++;
-            return `
-                <div class="row g-2 align-items-center mb-2 subrango-row" data-idx="${idx}">
-                    <div class="col-5">
-                        <input type="text" class="form-control form-control-sm subrango-desde" placeholder="Desde. Ej: 23-916" value="${desde}" oninput="window.recalcularTotalPaquetesMicroforma()">
-                    </div>
-                    <div class="col-5">
-                        <input type="text" class="form-control form-control-sm subrango-hasta" placeholder="Hasta. Ej: 23-963" value="${hasta}" oninput="window.recalcularTotalPaquetesMicroforma()">
-                    </div>
-                    <div class="col-1 text-center">
-                        <span class="badge bg-light text-dark border subrango-cant" title="Cantidad de este sub-rango">0</span>
-                    </div>
-                    <div class="col-1 text-center">
-                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" title="Quitar sub-rango" onclick="window.eliminarSubrangoMicroforma(this)"><i class="bi bi-x-lg"></i></button>
-                    </div>
-                </div>`;
+    const registro = {
+      id: pendienteFirmaActual.id,
+      fecha: pendienteFirmaActual.fecha,
+      hora: pendienteFirmaActual.hora,
+      archivoOriginal: pendienteFirmaActual.archivoOriginal,
+      archivoCertificadoNombre: nombreFinal,
+      pdfArchivado: false,
+      pdfChunksTotal: 0,
+      pdfBytesTotal: bytesFirmados.length,
+      paginasCertificadas: pendienteFirmaActual.paginasCertificadas,
+      totalPaginas: pendienteFirmaActual.totalPaginas,
+      sha256: sha256Final,
+      sha256Final,
+      sha256PreFirma: pendienteFirmaActual.sha256PreFirma,
+      sha256Origen: pendienteFirmaActual.sha256Origen,
+      esRecertificacion: pendienteFirmaActual.esRecertificacion,
+      motivoRecertificacion: pendienteFirmaActual.motivoRecertificacion,
+      certificacionesPrevias: pendienteFirmaActual.certificacionesPrevias,
+      certificadorUid: pendienteFirmaActual.certificadorUid,
+      certificadorNombre: pendienteFirmaActual.certificadorNombre,
+      certificadorEmail: pendienteFirmaActual.certificadorEmail,
+      firmanteUid: usuarioActual.uid,
+      firmanteNombre: perfilActual?.nombre || usuarioActual.displayName || MESA_PARTES_EMAIL,
+      firmanteEmail: usuarioActual.email || MESA_PARTES_EMAIL,
+      firmadoPorMesaDePartes: true,
+      zonaHoraria: pendienteFirmaActual.zonaHoraria || "America/Lima",
+      selloArchivo: pendienteFirmaActual.selloArchivo || "",
+      firmaDigital: true,
+      firmaDigitalTipo: "FIRMA ONPE",
+      firmadoEnSAMICERT: serverTimestamp(),
+      creadoEn: serverTimestamp(),
+      version: 14,
+      estado: "certificado"
+    };
+
+    await setDoc(doc(db, "certificaciones", pendienteFirmaActual.id), registro);
+
+    // Una vez creada la certificación definitiva, se elimina el PDF provisional
+    // y su registro de la bandeja para evitar duplicidad de archivos.
+    try {
+      await eliminarPdfPendiente(pendienteFirmaActual.id, pendienteFirmaActual.pdfChunksTotal || 0);
+      await deleteDoc(doc(db, "pendientesFirma", pendienteFirmaActual.id));
+    } catch (cleanupError) {
+      console.warn("La certificación quedó registrada, pero no se pudo limpiar el pendiente:", cleanupError);
+    }
+
+    const resultadoFinal = {
+      ...resultadoGuardado,
+      sha256: sha256Final,
+      verificado: resultadoGuardado.verificado
+    };
+
+    pendienteFirmaActual = null;
+    procesoFirmaPendiente = null;
+    pdfFirmadoSeleccionado = null;
+    if (inputPdfFirmado) inputPdfFirmado.value = "";
+    if (archivoPdfFirmadoNombre) archivoPdfFirmadoNombre.classList.add("oculto");
+    if ($("panelFirmaMesa")) $("panelFirmaMesa").classList.add("oculto");
+
+    await cargarPendientesFirma();
+    cargarMisDocumentosFirmados();
+    mostrarResultadoGuardado(
+      resultadoFinal,
+      nombreFinal,
+      registro.id,
+      true,
+      "",
+      true
+    );
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo culminar la firma: " + (err.message || ""));
+    btnRegistrarFirmado.disabled = false;
+  }
+});
+
+async function renderDetalleConsulta(registro) {
+  const paginas = (registro.paginasCertificadas || []).join(", ");
+
+  $("detalleConsulta").innerHTML = `
+    <strong>ID de certificación:</strong> ${escapeHtml(registro.id)}<br>
+    <strong>Certificado por:</strong> ${escapeHtml(registro.certificadorNombre || registro.certificadorEmail || "Usuario autorizado")}<br>
+    <strong>Correo:</strong> ${escapeHtml(registro.certificadorEmail || "")}<br>
+    <strong>Archivo original:</strong> ${escapeHtml(registro.archivoOriginal || "")}<br>
+    <strong>Fecha / hora:</strong> ${escapeHtml(registro.fecha || "")} ${escapeHtml(registro.hora || "")}<br>
+    <strong>Páginas certificadas:</strong> ${escapeHtml(paginas)} de ${escapeHtml(registro.totalPaginas || "")}<br>
+    <strong>Estado:</strong> Certificación registrada${registro.esRecertificacion ? '<br><br><strong style="color:#b42318">⚠ RECERTIFICACIÓN</strong><br><strong>Motivo declarado:</strong> ' + escapeHtml(registro.motivoRecertificacion || "sin motivo registrado") + '<br><strong>Certificaciones previas del mismo documento:</strong> ' + escapeHtml((registro.certificacionesPrevias || []).join(", ")) : ""}
+  `;
+
+  $("resultadoConsulta").classList.remove("oculto");
+  $("noEncontradoConsulta").classList.add("oculto");
+}
+
+$("btnConsultar").addEventListener("click",async () => {
+  const id = $("inputConsultaId").value.trim().toUpperCase();
+  if (!id) return;
+
+  $("resultadoConsulta").classList.add("oculto");
+  $("noEncontradoConsulta").classList.add("oculto");
+
+  try {
+    const snap = await getDoc(doc(db,"certificaciones",id));
+
+    if (snap.exists()) {
+      renderDetalleConsulta(snap.data());
+    } else {
+      $("noEncontradoConsulta").classList.remove("oculto");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo consultar el registro. " + (err.message || ""));
+  }
+});
+
+$("inputConsultaId").addEventListener("keydown",e => {
+  if (e.key === "Enter") $("btnConsultar").click();
+});
+
+$("inputVerificarPdf").addEventListener("change",async e => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const resultadoBox = $("hashVerificado");
+  const detalle = $("coincidenciaHash");
+  const nombreArchivo = $("archivoVerificacionNombre");
+
+  if (nombreArchivo) {
+    nombreArchivo.textContent = `PDF seleccionado: ${file.name}`;
+    nombreArchivo.classList.remove("oculto");
+  }
+
+  resultadoBox.classList.remove("oculto");
+  detalle.classList.remove("oculto");
+  detalle.innerHTML = '<div class="hash-titulo">Verificando el documento…</div><div class="hash-nota">Calculando la huella digital y consultando el registro.</div>';
+
+  try {
+    if (file.type && file.type !== "application/pdf") {
+      throw new Error("El archivo seleccionado no es un PDF válido.");
+    }
+
+    const bytes = await file.arrayBuffer();
+    const hash = await calcularSHA256(bytes);
+
+    const q = query(
+      collection(db,"certificaciones"),
+      where("sha256","==",hash),
+      limit(1)
+    );
+
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+      const registro = snap.docs[0].data();
+      detalle.innerHTML = `
+        <div class="hash-titulo">✓ Este PDF SÍ corresponde a una certificación registrada</div>
+        <div class="result-detail">
+          <strong>ID de certificación:</strong> ${escapeHtml(registro.id || snap.docs[0].id)}<br>
+          <strong>Certificado por:</strong> ${escapeHtml(registro.certificadorNombre || registro.certificadorEmail || "Usuario autorizado")}<br>
+          <strong>Correo:</strong> ${escapeHtml(registro.certificadorEmail || "")}<br>
+          <strong>Archivo original:</strong> ${escapeHtml(registro.archivoOriginal || "")}<br>
+          <strong>Fecha / hora:</strong> ${escapeHtml(registro.fecha || "")} ${escapeHtml(registro.hora || "")}<br>
+          <strong>Páginas certificadas:</strong> ${escapeHtml((registro.paginasCertificadas || []).join(", "))} de ${escapeHtml(registro.totalPaginas || "")}<br>
+          <strong>Estado:</strong> Certificación registrada${registro.esRecertificacion ? '<br><strong style="color:#b42318">⚠ Recertificación:</strong> ' + escapeHtml(registro.motivoRecertificacion || "sin motivo registrado") + '<br><strong>Certificaciones previas:</strong> ' + escapeHtml((registro.certificacionesPrevias || []).join(", ")) : ""}
+        </div>`;
+    } else {
+      detalle.innerHTML = `
+        <div class="hash-titulo" style="color:#b42318">✗ Este PDF NO coincide con ninguna certificación registrada</div>
+        <div class="hash-nota">El documento seleccionado no coincide exactamente con ningún registro almacenado.</div>`;
+    }
+  } catch(err) {
+    console.error(err);
+    detalle.innerHTML = `
+      <div class="hash-titulo" style="color:#b42318">No se pudo verificar el PDF</div>
+      <div class="hash-nota">${escapeHtml(err.message || "Error desconocido")}</div>`;
+  }
+});
+
+let historialRegistros = [];
+let historialFiltrados = [];
+let historialPaginaActual = 1;
+
+function fechaRegistroEnMs(r) {
+  if (r.creadoEn?.seconds) return r.creadoEn.seconds * 1000;
+  const partes = (r.fecha || "").split(/[\/\-]/).map(Number);
+  if (partes.length === 3) {
+    const [a,b,c] = partes;
+    const ms = a > 31 ? Date.UTC(a, b - 1, c) : Date.UTC(c, b - 1, a);
+    if (!Number.isNaN(ms)) return ms;
+  }
+  return 0;
+}
+
+async function cargarHistorial() {
+  const contenedor = $("historialLista");
+  contenedor.innerHTML = '<div class="empty">Cargando historial…</div>';
+  $("historialPaginacion").classList.add("oculto");
+
+  try {
+    const snap = await getDocs(collection(db,"certificaciones"));
+    historialRegistros = snap.docs.map(d => ({...d.data(), id:d.id}));
+
+    historialRegistros.sort((a,b) => fechaRegistroEnMs(b) - fechaRegistroEnMs(a));
+
+    poblarFiltroCertificadorHistorial();
+    historialPaginaActual = 1;
+    aplicarFiltrosHistorial();
+  } catch(err) {
+    console.error(err);
+    contenedor.innerHTML =
+      `<div class="empty">No se pudo cargar el historial: ${escapeHtml(err.message || "")}</div>`;
+  }
+}
+
+function poblarFiltroCertificadorHistorial() {
+  const select = $("histCertificador");
+  const valorPrevio = select.value;
+  const nombres = [...new Set(
+    historialRegistros
+      .map(r => r.certificadorNombre || r.certificadorEmail || "")
+      .filter(Boolean)
+  )].sort((a,b) => a.localeCompare(b));
+
+  select.innerHTML = '<option value="">Todos los certificadores</option>' +
+    nombres.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+
+  if (nombres.includes(valorPrevio)) select.value = valorPrevio;
+}
+
+function aplicarFiltrosHistorial() {
+  const texto = ($("histBuscar").value || "").trim().toLowerCase();
+  const certificador = $("histCertificador").value;
+  const desde = $("histDesde").value ? new Date($("histDesde").value + "T00:00:00").getTime() : null;
+  const hasta = $("histHasta").value ? new Date($("histHasta").value + "T23:59:59").getTime() : null;
+
+  historialFiltrados = historialRegistros.filter(r => {
+    if (texto) {
+      const campo = `${r.archivoOriginal || ""} ${r.certificadorNombre || ""} ${r.certificadorEmail || ""} ${r.id || ""}`.toLowerCase();
+      if (!campo.includes(texto)) return false;
+    }
+    if (certificador && (r.certificadorNombre || r.certificadorEmail || "") !== certificador) return false;
+
+    const ms = fechaRegistroEnMs(r);
+    if (desde !== null && ms < desde) return false;
+    if (hasta !== null && ms > hasta) return false;
+
+    return true;
+  });
+
+  historialPaginaActual = 1;
+  renderHistorialPagina();
+}
+
+function totalFoliosDe(registros) {
+  return registros.reduce((suma, r) => suma + ((r.paginasCertificadas || []).length || 0), 0);
+}
+
+function renderHistorialPagina() {
+  const contenedor = $("historialLista");
+  const paginacion = $("historialPaginacion");
+  const porPagina = parseInt($("histPorPagina").value, 10) || 12;
+
+  $("histResumenConteo").textContent =
+    `${historialFiltrados.length} registro(s)` +
+    (historialFiltrados.length !== historialRegistros.length ? ` de ${historialRegistros.length} en total` : "");
+  $("histTotalFolios").textContent = totalFoliosDe(historialFiltrados);
+
+  if (!historialFiltrados.length) {
+    contenedor.innerHTML = historialRegistros.length
+      ? '<div class="empty">Ningún registro coincide con los filtros aplicados.</div>'
+      : '<div class="empty">Aún no hay certificaciones registradas.</div>';
+    paginacion.classList.add("oculto");
+    return;
+  }
+
+  const totalPaginas = Math.max(1, Math.ceil(historialFiltrados.length / porPagina));
+  if (historialPaginaActual > totalPaginas) historialPaginaActual = totalPaginas;
+  if (historialPaginaActual < 1) historialPaginaActual = 1;
+
+  const inicio = (historialPaginaActual - 1) * porPagina;
+  const registrosPagina = historialFiltrados.slice(inicio, inicio + porPagina);
+
+  contenedor.innerHTML = registrosPagina.map(r => `
+    <div class="history-item">
+      <div class="history-id">${escapeHtml(r.id)}</div>
+      <div>
+        <div class="history-file">${escapeHtml(r.archivoOriginal || "Documento PDF")}</div>
+        <div class="history-meta">${escapeHtml(r.fecha || "")} ${escapeHtml(r.hora || "")} · ${escapeHtml((r.paginasCertificadas || []).length)} página(s)</div>
+      </div>
+      <div class="history-cert">
+        <strong>${escapeHtml(r.certificadorNombre || "")}</strong><br>
+        <span>${escapeHtml(r.certificadorEmail || "")}</span>
+      </div>
+    </div>
+  `).join("");
+
+  paginacion.classList.toggle("oculto", totalPaginas <= 1);
+  $("histPaginaIndicador").textContent = `Página ${historialPaginaActual} de ${totalPaginas}`;
+  $("btnHistPaginaAnterior").disabled = historialPaginaActual <= 1;
+  $("btnHistPaginaSiguiente").disabled = historialPaginaActual >= totalPaginas;
+}
+
+function limpiarFiltrosHistorial() {
+  $("histBuscar").value = "";
+  $("histCertificador").value = "";
+  $("histDesde").value = "";
+  $("histHasta").value = "";
+  aplicarFiltrosHistorial();
+}
+
+let _histBuscarDebounce = null;
+$("histBuscar").addEventListener("input", () => {
+  clearTimeout(_histBuscarDebounce);
+  _histBuscarDebounce = setTimeout(aplicarFiltrosHistorial, 250);
+});
+$("histCertificador").addEventListener("change", aplicarFiltrosHistorial);
+$("histDesde").addEventListener("change", aplicarFiltrosHistorial);
+$("histHasta").addEventListener("change", aplicarFiltrosHistorial);
+$("btnLimpiarFiltrosHistorial").addEventListener("click", limpiarFiltrosHistorial);
+$("histPorPagina").addEventListener("change", () => {
+  historialPaginaActual = 1;
+  renderHistorialPagina();
+});
+$("btnHistPaginaAnterior").addEventListener("click", () => {
+  historialPaginaActual--;
+  renderHistorialPagina();
+});
+$("btnHistPaginaSiguiente").addEventListener("click", () => {
+  historialPaginaActual++;
+  renderHistorialPagina();
+});
+
+
+function actualizarAccesoAdministrador() {
+  esAdministradorActual = !!usuarioActual && usuarioActual.uid === ADMIN_UID;
+  const esMesa = esUsuarioMesaPartes();
+
+  const navAdmin = $("navAdministracion");
+  if (navAdmin) navAdmin.classList.toggle("oculto", !esAdministradorActual);
+
+  const navCertificar = document.querySelector('.nav-btn[data-page="certificar"]');
+  const navFirmar = $("navFirmar");
+  const navVerificar = document.querySelector('.nav-btn[data-page="verificar"]');
+
+  // Mesa de Partes: no certifica ni verifica desde el menú (solo firma/remite
+  // e historial), pero sí tiene Inicio, Acerca de y Cambio de contraseña,
+  // igual que los certificadores.
+  if (navCertificar) navCertificar.classList.toggle("oculto", esMesa);
+  if (navVerificar) navVerificar.classList.toggle("oculto", esMesa);
+  if (navFirmar) navFirmar.classList.toggle("oculto", !esMesa);
+  if (btnCambiarPassword) btnCambiarPassword.classList.remove("oculto");
+
+  // Accesos directos de la página de Inicio: para Mesa de Partes solo se
+  // muestran los que corresponden a su rol (Firmar y remitir, Historial,
+  // Acerca de); Certificar y Verificar quedan ocultos.
+  const cardCertificar = $("cardInicioCertificar");
+  const cardVerificar = $("cardInicioVerificar");
+  const cardFirmar = $("cardInicioFirmar");
+  if (cardCertificar) cardCertificar.classList.toggle("oculto", esMesa);
+  if (cardVerificar) cardVerificar.classList.toggle("oculto", esMesa);
+  if (cardFirmar) cardFirmar.classList.toggle("oculto", !esMesa);
+}
+
+function formatoFechaRegistro(r) {
+  if (r.creadoEn?.seconds) {
+    return new Intl.DateTimeFormat("es-PE", {
+      timeZone:"America/Lima", dateStyle:"short", timeStyle:"medium"
+    }).format(new Date(r.creadoEn.seconds * 1000));
+  }
+  return `${r.fecha || ""} ${r.hora || ""}`.trim();
+}
+
+async function cargarAdministracion() {
+  if (!esAdministradorActual) return;
+  const contenedor = $("adminLista");
+  const estado = $("adminStatus");
+  contenedor.innerHTML = '<div class="empty">Cargando registros…</div>';
+  estado.textContent = "";
+
+  try {
+    const snap = await getDocs(collection(db,"certificaciones"));
+    const registros = snap.docs.map(d => ({...d.data(), id:d.id}))
+      .sort((a,b) => (b.creadoEn?.seconds || 0) - (a.creadoEn?.seconds || 0));
+
+    if (!registros.length) {
+      contenedor.innerHTML = '<div class="empty">No hay certificaciones registradas.</div>';
+      actualizarBotonEliminarAdmin();
+      return;
+    }
+
+    contenedor.innerHTML = `
+      <div style="overflow:auto">
+        <table class="admin-table">
+          <thead><tr>
+            <th></th><th>ID</th><th>Archivo</th><th>Fecha</th><th>Certificador</th>
+          </tr></thead>
+          <tbody>
+            ${registros.map(r => `
+              <tr>
+                <td><input class="admin-check" type="checkbox" value="${escapeHtml(r.id)}"></td>
+                <td><strong>${escapeHtml(r.id)}</strong></td>
+                <td>${escapeHtml(r.archivoOriginal || "Documento PDF")}<br>
+                    <span style="color:#64748b">${escapeHtml((r.paginasCertificadas || []).length)} página(s)</span></td>
+                <td>${escapeHtml(formatoFechaRegistro(r))}</td>
+                <td>${escapeHtml(r.certificadorNombre || r.certificadorEmail || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>`;
+    contenedor.querySelectorAll(".admin-check").forEach(c =>
+      c.addEventListener("change", actualizarBotonEliminarAdmin)
+    );
+    actualizarBotonEliminarAdmin();
+    estado.textContent = `${registros.length} registro(s)`;
+  } catch (err) {
+    console.error(err);
+    contenedor.innerHTML = `<div class="empty">No se pudo cargar la administración: ${escapeHtml(err.message || "")}</div>`;
+  }
+}
+
+function obtenerSeleccionAdmin() {
+  return [...document.querySelectorAll(".admin-check:checked")].map(c => c.value);
+}
+
+function actualizarBotonEliminarAdmin() {
+  const btn = $("btnEliminarSeleccionados");
+  if (btn) btn.disabled = !esAdministradorActual || obtenerSeleccionAdmin().length === 0;
+}
+
+function seleccionarTodosAdmin(valor) {
+  document.querySelectorAll(".admin-check").forEach(c => c.checked = valor);
+  actualizarBotonEliminarAdmin();
+}
+
+async function crearBackupAdmin() {
+  if (!esAdministradorActual) return;
+  const estado = $("backupStatus");
+  estado.textContent = "Generando respaldo…";
+
+  try {
+    const snap = await getDocs(collection(db,"certificaciones"));
+    const registros = snap.docs.map(d => ({...d.data(), id:d.id}));
+    const backup = {
+      sistema: "SAMICERT",
+      version: "2.0.0",
+      creadoPor: "Alfredo Raúl Cruzado Palacios",
+      tipo: "respaldo_registros_firestore",
+      generadoEn: new Date().toISOString(),
+      totalRegistros: registros.length,
+      registros
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Intl.DateTimeFormat("sv-SE", {
+      timeZone:"America/Lima", year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", second:"2-digit"
+    }).format(new Date()).replace(/[ :]/g,"-");
+    a.href = url;
+    a.download = `SAMICERT_BACKUP_${stamp}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    estado.textContent = `Respaldo generado: ${registros.length} registro(s).`;
+  } catch (err) {
+    console.error(err);
+    estado.textContent = `Error: ${err.message || "no se pudo generar el respaldo"}`;
+  }
+}
+
+async function eliminarSeleccionadosAdmin() {
+  if (!esAdministradorActual) return;
+  const ids = obtenerSeleccionAdmin();
+  if (!ids.length) return;
+
+  const confirmado = confirm(
+    `Está a punto de eliminar ${ids.length} registro(s) de certificación.\n\n` +
+    `Esta acción es irreversible desde SAMICERT. ¿Desea continuar?`
+  );
+  if (!confirmado) return;
+
+  const estado = $("adminStatus");
+  estado.textContent = "Eliminando…";
+  const btn = $("btnEliminarSeleccionados");
+  btn.disabled = true;
+
+  try {
+    for (const id of ids) {
+      // Primero se eliminan los trozos del PDF archivado en Firestore (si
+      // existen), y luego el registro principal. SAMICERT no usa Firebase
+      // Storage: el PDF firmado también se conserva localmente o en la ruta
+      // institucional definida por la entidad.
+      try {
+        const chunksSnap = await getDocs(collection(db, "certificaciones", id, "pdfChunks"));
+        for (const chunkDoc of chunksSnap.docs) {
+          await deleteDoc(chunkDoc.ref);
         }
-
-        window.agregarSubrangoMicroforma = function(desde = '', hasta = '') {
-            const cont = document.getElementById('mf-subrangos-container');
-            if (!cont) return;
-            cont.insertAdjacentHTML('beforeend', crearFilaSubrangoHTML(desde, hasta));
-            window.recalcularTotalPaquetesMicroforma();
-        };
-
-        window.eliminarSubrangoMicroforma = function(btn) {
-            const fila = btn.closest('.subrango-row');
-            if (fila) fila.remove();
-            const cont = document.getElementById('mf-subrangos-container');
-            if (cont && cont.children.length === 0) {
-                window.agregarSubrangoMicroforma();
-            }
-            window.recalcularTotalPaquetesMicroforma();
-        };
-
-        function leerSubrangosMicroforma() {
-            const filas = document.querySelectorAll('#mf-subrangos-container .subrango-row');
-            const subrangos = [];
-            let total = 0;
-            let huboFilasInvalidas = false;
-
-            filas.forEach(fila => {
-                const desdeInput = fila.querySelector('.subrango-desde');
-                const hastaInput = fila.querySelector('.subrango-hasta');
-                const badgeCant = fila.querySelector('.subrango-cant');
-                const desde = desdeInput.value.trim();
-                const hasta = hastaInput.value.trim();
-
-                if (!desde && !hasta) {
-                    if (badgeCant) badgeCant.textContent = '0';
-                    return;
-                }
-
-                const matchDesde = desde.match(REGEX_RANGO_PAQUETE);
-                const matchHasta = hasta.match(REGEX_RANGO_PAQUETE);
-
-                if (matchDesde && matchHasta) {
-                    const numDesde = parseInt(matchDesde[2], 10);
-                    const numHasta = parseInt(matchHasta[2], 10);
-
-                    if (!isNaN(numDesde) && !isNaN(numHasta) && numHasta >= numDesde) {
-                        const cant = (numHasta - numDesde) + 1;
-                        if (badgeCant) badgeCant.textContent = cant;
-                        subrangos.push({ desde, hasta, cantidad: cant });
-                        total += cant;
-                        return;
-                    }
-                }
-
-                if (badgeCant) badgeCant.textContent = '?';
-                huboFilasInvalidas = true;
-            });
-
-            return { subrangos, total, huboFilasInvalidas };
-        }
-
-        window.recalcularTotalPaquetesMicroforma = function() {
-            const { total } = leerSubrangosMicroforma();
-            const inputCant = document.getElementById('mf-cant-paquetes');
-            const display = document.getElementById('mf-cant-paquetes-display');
-            if (inputCant) inputCant.value = total;
-            if (display) display.textContent = total;
-        };
-
-        window.calcularCantidadPaquetesMicroforma = function() {
-            window.recalcularTotalPaquetesMicroforma();
-        };
-
-        function construirTextoRango(subrangos) {
-            return subrangos.map((s, i) => {
-                const tramo = `${s.desde} al ${s.hasta}`;
-                return i === 0 ? tramo : `y del ${tramo}`;
-            }).join(' ');
-        }
-
-        window.abrirModalMicroforma = function(id = null) {
-            idMicroformaEnEdicion = id;
-            document.getElementById('form-modal-microforma').reset();
-            document.getElementById('mf-cant-paquetes').value = '';
-            document.getElementById('mf-cant-paquetes-display').textContent = '0';
-
-            const cont = document.getElementById('mf-subrangos-container');
-            if (cont) cont.innerHTML = '';
-
-            if (id !== null) {
-                const item = baseDatosMicroformas.find(m => m.id === id);
-                if (item) {
-                    document.getElementById('mf-bloque').value = item.bloque || '';
-
-                    if (Array.isArray(item.subrangos) && item.subrangos.length > 0) {
-                        item.subrangos.forEach(s => window.agregarSubrangoMicroforma(s.desde || '', s.hasta || ''));
-                    } else if (item.paqueteDesde && item.paqueteHasta) {
-                        window.agregarSubrangoMicroforma(item.paqueteDesde, item.paqueteHasta);
-                    } else if (item.rango && item.rango.includes(' al ')) {
-                        const partes = item.rango.split(' al ');
-                        window.agregarSubrangoMicroforma(partes[0].trim(), partes[1].trim());
-                    } else {
-                        window.agregarSubrangoMicroforma();
-                    }
-
-                    window.recalcularTotalPaquetesMicroforma();
-                    document.getElementById('mf-juzgado').value = item.juzgado || '';
-                    document.getElementById('mf-folios').value = item.folios || '';
-                    document.getElementById('mf-imagenes').value = item.imagenes || '';
-                    document.getElementById('mf-registros').value = item.registros || '';
-                    document.getElementById('mf-expedientes').value = item.expedientes || '';
-                    document.getElementById('mf-mes').value = item.mes || '';
-                    document.getElementById('mf-fec-inicio').value = item.fecInicio || '';
-                    document.getElementById('mf-fec-fin').value = item.fecFin || '';
-                    document.getElementById('mf-fec-grabacion').value = item.fecGrabacion || '';
-                    document.getElementById('modal-microforma-titulo').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Bloque de Microformas';
-                    document.getElementById('btn-guardar-microforma').innerText = 'Guardar Cambios';
-                }
-            } else {
-                window.agregarSubrangoMicroforma();
-                document.getElementById('modal-microforma-titulo').innerHTML = '<i class="bi bi-file-earmark-plus me-2"></i>Registrar Bloque de Microformas';
-                document.getElementById('btn-guardar-microforma').innerText = 'Guardar Bloque';
-            }
-
-            modalMicroformaInstance = new bootstrap.Modal(document.getElementById('modalMicroforma'));
-            modalMicroformaInstance.show();
-        };
-
-        window.cerrarModalMicroforma = function() {
-            idMicroformaEnEdicion = null;
-            if (modalMicroformaInstance) modalMicroformaInstance.hide();
-        };
-
-        window.guardarMicroforma = async function() {
-            const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-            if (!puedeEditarMicroformas(currentUserName)) {
-                Swal.fire('Acceso denegado', 'No cuenta con autorización para registrar o modificar bloques de microformas.', 'error');
-                return;
-            }
-
-            const bloqueNum = parseInt(document.getElementById('mf-bloque').value, 10);
-            const { subrangos, total, huboFilasInvalidas } = leerSubrangosMicroforma();
-
-            if (huboFilasInvalidas) {
-                Swal.fire('Rango inválido', 'Uno o más sub-rangos tienen formato incorrecto.', 'warning');
-                return;
-            }
-
-            if (!bloqueNum || subrangos.length === 0) {
-                Swal.fire('Campos incompletos', 'Por favor complete el N° de Bloque y al menos un sub-rango de paquetes válido.', 'warning');
-                return;
-            }
-
-            const rangoCompleto = construirTextoRango(subrangos);
-
-            const bloqueData = {
-                bloque: bloqueNum,
-                subrangos: subrangos,
-                paqueteDesde: subrangos[0].desde,
-                paqueteHasta: subrangos[0].hasta,
-                rango: rangoCompleto,
-                cantPaquetes: total,
-                juzgado: document.getElementById('mf-juzgado').value.trim().toUpperCase(),
-                folios: parseInt(document.getElementById('mf-folios').value, 10) || 0,
-                imagenes: parseInt(document.getElementById('mf-imagenes').value, 10) || 0,
-                registros: parseInt(document.getElementById('mf-registros').value, 10) || 0,
-                expedientes: parseInt(document.getElementById('mf-expedientes').value, 10) || 0,
-                mes: document.getElementById('mf-mes').value.trim().toUpperCase(),
-                fecInicio: document.getElementById('mf-fec-inicio').value,
-                fecFin: document.getElementById('mf-fec-fin').value,
-                fecGrabacion: document.getElementById('mf-fec-grabacion').value,
-                timestamp: Date.now()
-            };
-
-            try {
-                if (idMicroformaEnEdicion) {
-                    bloqueData.auditoriaEdicion = { nombre: currentUserName, timestamp: Date.now() };
-                    await updateDoc(doc(db, "control_microformas", idMicroformaEnEdicion), bloqueData);
-                    Swal.fire({ icon: 'success', title: 'Bloque Actualizado', text: 'Los cambios se guardaron correctamente.' });
-                } else {
-                    bloqueData.activo = true;
-                    bloqueData.auditoriaCreacion = { nombre: currentUserName, timestamp: Date.now() };
-                    await addDoc(collection(db, "control_microformas"), bloqueData);
-                    Swal.fire({ icon: 'success', title: 'Bloque Registrado', text: 'El bloque de microformas se añadió con éxito.' });
-                }
-
-                cerrarModalMicroforma();
-                await cargarMicroformasDesdeCloud();
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            }
-        };
-
-        async function cargarMicroformasDesdeCloud({forzar = false} = {}) {
-            if (!forzar && cargaMicroformasPromise) return cargaMicroformasPromise;
-            cargaMicroformasPromise = (async () => {
-                try {
-                    const querySnapshot = await getDocsConTimeout(collection(db, "control_microformas"));
-                    const nuevos = [];
-                    querySnapshot.forEach((docSnap) => {
-                        const data = { id: docSnap.id, ...docSnap.data() };
-                        if (data.activo !== false) nuevos.push(data);
-                    });
-                    nuevos.sort((a, b) => (a.bloque || 0) - (b.bloque || 0));
-                    baseDatosMicroformas = nuevos;
-
-                    // Solo reconstruimos la tabla si el usuario está viendo
-                    // Microformas. Esto evita parpadeos al actualizar el dashboard
-                    // en segundo plano.
-                    if (document.getElementById('view-microformas')?.classList.contains('active')) {
-                        renderTablaMicroformas();
-                    }
-                    actualizarDashboardGlobal();
-                    return baseDatosMicroformas;
-                } catch (e) {
-                    console.error("Error al cargar microformas:", e);
-                    throw e;
-                } finally {
-                    cargaMicroformasPromise = null;
-                }
-            })();
-            return cargaMicroformasPromise;
-        }
-
-        function renderTablaMicroformas() {
-            const tbody = document.getElementById('tabla-microformas-body');
-            const tfoot = document.getElementById('tabla-microformas-foot');
-            if (!tbody || !tfoot) return;
-
-            tbody.innerHTML = '';
-            if (baseDatosMicroformas.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" class="text-center text-muted py-4">No hay bloques registrados en el sistema.</td></tr>`;
-                tfoot.innerHTML = '';
-                document.getElementById('info-paginacion-microformas').innerText = 'Página 1 de 1';
-                return;
-            }
-
-            // Paginación (10 registros por página)
-            const totalPaginas = Math.ceil(baseDatosMicroformas.length / registrosPorPagina) || 1;
-            if (paginaActualMicroformas > totalPaginas) paginaActualMicroformas = totalPaginas;
-            if (paginaActualMicroformas < 1) paginaActualMicroformas = 1;
-
-            const inicio = (paginaActualMicroformas - 1) * registrosPorPagina;
-            const fin = inicio + registrosPorPagina;
-            const registrosPaginados = baseDatosMicroformas.slice(inicio, fin);
-
-            document.getElementById('info-paginacion-microformas').innerText = `Página ${paginaActualMicroformas} de ${totalPaginas} (Total: ${baseDatosMicroformas.length} registros)`;
-            document.getElementById('btn-micro-prev').disabled = paginaActualMicroformas <= 1;
-            document.getElementById('btn-micro-next').disabled = paginaActualMicroformas >= totalPaginas;
-
-            let sumaPaquetes = 0;
-            let sumaFolios = 0;
-            let sumaImagenes = 0;
-            let sumaRegistros = 0;
-            let sumaExpedientes = 0;
-
-            const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : '';
-            const esEditor = puedeEditarMicroformas(currentUserName);
-
-            registrosPaginados.forEach(item => {
-                const folios = item.folios || 0;
-                const imagenes = item.imagenes || 0;
-                const registros = item.registros || 0;
-                const expedientes = item.expedientes || 0;
-                const cantPaquetes = item.cantPaquetes || 0;
-
-                const fInicio = item.fecInicio ? item.fecInicio.split('-').reverse().join('/') : '';
-                const fFin = item.fecFin ? item.fecFin.split('-').reverse().join('/') : '';
-                const fGrab = item.fecGrabacion ? item.fecGrabacion.split('-').reverse().join('/') : '';
-                const textoRango = item.rango || (item.paqueteDesde && item.paqueteHasta ? `${item.paqueteDesde} al ${item.paqueteHasta}` : 'N/A');
-
-                const tr = `<tr>
-                    <td class="fw-bold">${item.bloque ?? 'N/A'}</td>
-                    <td class="text-start ps-2"><code>${textoRango}</code></td>
-                    <td class="fw-bold">${cantPaquetes}</td>
-                    <td class="text-start ps-2">${item.juzgado || 'N/A'}</td>
-                    <td>${folios.toLocaleString()}</td>
-                    <td class="fw-bold">${imagenes.toLocaleString()}</td>
-                    <td>${registros.toLocaleString()}</td>
-                    <td class="fw-bold">${expedientes.toLocaleString()}</td>
-                    <td>${item.mes || 'N/A'}</td>
-                    <td>${fInicio}</td>
-                    <td>${fFin}</td>
-                    <td>${fGrab}</td>
-                    <td class="col-acciones no-print">
-                        ${esEditor ? `
-                            <button class="btn btn-xs btn-outline-primary py-0 px-1 me-1" onclick="window.abrirModalMicroforma('${item.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-xs btn-outline-danger py-0 px-1" onclick="window.eliminarMicroforma('${item.id}')" title="Eliminar"><i class="bi bi-trash"></i></button>
-                        ` : `<span class="text-muted small">Sólo lectura</span>`}
-                    </td>
-                </tr>`;
-                tbody.insertAdjacentHTML('beforeend', tr);
-            });
-
-            // Totales generales calculados sobre toda la base de datos
-            baseDatosMicroformas.forEach(item => {
-                sumaPaquetes += item.cantPaquetes || 0;
-                sumaFolios += item.folios || 0;
-                sumaImagenes += item.imagenes || 0;
-                sumaRegistros += item.registros || 0;
-                sumaExpedientes += item.expedientes || 0;
-            });
-
-            const totalBloques = baseDatosMicroformas.length;
-            const promPaquetes = totalBloques > 0 ? (sumaPaquetes / totalBloques).toFixed(0) : 0;
-            const promFolios = totalBloques > 0 ? Math.round(sumaFolios / totalBloques) : 0;
-            const promImagenes = totalBloques > 0 ? Math.round(sumaImagenes / totalBloques) : 0;
-            const promRegistros = totalBloques > 0 ? Math.round(sumaRegistros / totalBloques) : 0;
-            const promExpedientes = totalBloques > 0 ? Math.round(sumaExpedientes / totalBloques) : 0;
-
-            tfoot.innerHTML = `
-                <tr class="table-warning">
-                    <td colspan="2" class="text-end pe-3">TOTALES (GENERAL)</td>
-                    <td>${sumaPaquetes}</td>
-                    <td>-</td>
-                    <td>${sumaFolios.toLocaleString()}</td>
-                    <td>${sumaImagenes.toLocaleString()}</td>
-                    <td>${sumaRegistros.toLocaleString()}</td>
-                    <td>${sumaExpedientes.toLocaleString()}</td>
-                    <td colspan="5"></td>
-                </tr>
-                <tr class="table-info">
-                    <td colspan="2" class="text-end pe-3">PROMEDIO</td>
-                    <td>${promPaquetes}</td>
-                    <td>-</td>
-                    <td>${promFolios.toLocaleString()}</td>
-                    <td>${promImagenes.toLocaleString()}</td>
-                    <td>${promRegistros.toLocaleString()}</td>
-                    <td>${promExpedientes.toLocaleString()}</td>
-                    <td colspan="5"></td>
-                </tr>
-            `;
-        }
-
-        window.cambiarPaginaMicroformas = function(direccion) {
-            paginaActualMicroformas += direccion;
-            renderTablaMicroformas();
-        };
-
-        window.eliminarMicroforma = async function(id) {
-            const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-            if (!puedeEditarMicroformas(currentUserName)) {
-                Swal.fire('Acceso denegado', 'No cuenta con autorización para eliminar bloques de microformas.', 'error');
-                return;
-            }
-
-            const confirmacion = await Swal.fire({
-                icon: 'warning',
-                title: '¿Eliminar bloque?',
-                text: 'El bloque de microformas quedará inactivo.',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, eliminar',
-                confirmButtonColor: '#800000'
-            });
-
-            if (!confirmacion.isConfirmed) return;
-
-            try {
-                await updateDoc(doc(db, "control_microformas", id), { 
-                    activo: false,
-                    auditoriaEliminacion: { nombre: currentUserName, timestamp: Date.now() }
-                });
-                Swal.fire({ icon: 'success', title: 'Bloque eliminado', timer: 1500, showConfirmButton: false });
-                await cargarMicroformasDesdeCloud();
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            }
-        };
-
-        let indiceEdicionRango = null;
-
-        function abrirModalRango(index = null) {
-            indiceEdicionRango = (index !== null && index !== undefined) ? index : null;
-            document.getElementById('form-modal-rango').reset();
-            document.getElementById('form-mod-add-faltante').reset();
-
-            if (indiceEdicionRango !== null && listaRangosCenso[indiceEdicionRango]) {
-                const r = listaRangosCenso[indiceEdicionRango];
-                document.getElementById('mod-inicial').value = r.inicial;
-                document.getElementById('mod-final').value = r.final;
-                document.getElementById('mod-archivamiento').value = r.archivamiento;
-                listaFaltantesModal = [...(r.detalleFaltantes || [])];
-                document.getElementById('modal-rango-titulo').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Rango de Expedientes';
-                document.getElementById('btn-guardar-rango-modal').innerText = 'Guardar Cambios';
-            } else {
-                listaFaltantesModal = [];
-                document.getElementById('modal-rango-titulo').innerHTML = '<i class="bi bi-folder-plus me-2"></i>Configurar Rango de Expedientes';
-                document.getElementById('btn-guardar-rango-modal').innerText = 'Agregar a Inventario';
-            }
-
-            renderTablaFaltantesModal();
-            modalInstance = new bootstrap.Modal(document.getElementById('modalAgregarRango'));
-            modalInstance.show();
-        }
-
-        function cerrarModalRango() {
-            indiceEdicionRango = null;
-            if(modalInstance) modalInstance.hide();
-        }
-
-        function extraerNumero(cadena) {
-            if (!cadena) return 0;
-            const match = cadena.match(/(\d+)(?!.*\d)/);
-            return match ? parseInt(match[0], 10) : 0;
-        }
-
-        function extraerPrefijo(cadena) {
-            if (!cadena) return '';
-            const match = cadena.match(/(\d+)(?!.*\d)/);
-            if (!match) return cadena.trim().toUpperCase();
-            return cadena.slice(0, match.index).trim().toUpperCase();
-        }
-
-        document.getElementById('form-mod-add-faltante').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const desdeStr = document.getElementById('mod-falt-desde').value.trim();
-            let hastaStr = document.getElementById('mod-falt-hasta').value.trim();
-            let cant = 1;
-
-            if(!desdeStr) return;
-
-            const rangoInicial = document.getElementById('mod-inicial').value.trim();
-            const rangoFinal = document.getElementById('mod-final').value.trim();
-
-            if (!rangoInicial || !rangoFinal) {
-                Swal.fire('Atención', 'Primero complete el Número Inicial y Final del rango antes de registrar faltantes.', 'warning');
-                return;
-            }
-
-            const prefijoRango = extraerPrefijo(rangoInicial);
-            const prefijoDesde = extraerPrefijo(desdeStr);
-            if (prefijoDesde !== prefijoRango) {
-                Swal.fire('Código no coincide', `El expediente "${desdeStr}" no pertenece al código del rango.`, 'error');
-                return;
-            }
-
-            const nRangoIni = extraerNumero(rangoInicial);
-            const nRangoFin = extraerNumero(rangoFinal);
-            const nDesde = extraerNumero(desdeStr);
-            if (nDesde < nRangoIni || nDesde > nRangoFin) {
-                Swal.fire('Fuera de rango', `El expediente "${desdeStr}" está fuera de los límites del rango.`, 'error');
-                return;
-            }
-
-            if (!hastaStr || hastaStr === desdeStr) {
-                hastaStr = "Único";
-                cant = 1;
-            } else {
-                const prefijoHasta = extraerPrefijo(hastaStr);
-                if (prefijoHasta !== prefijoRango) {
-                    Swal.fire('Código no coincide', `El expediente "${hastaStr}" no pertenece al código del rango.`, 'error');
-                    return;
-                }
-                const nD = nDesde;
-                const nH = extraerNumero(hastaStr);
-                if (nH < nRangoIni || nH > nRangoFin) {
-                    Swal.fire('Fuera de rango', `El expediente "${hastaStr}" está fuera de los límites.`, 'error');
-                    return;
-                }
-                if(nH < nD) { Swal.fire('Error', 'Rango de faltante al revés.', 'error'); return; }
-                cant = (nH - nD) + 1;
-            }
-
-            listaFaltantesModal.push({ desde: desdeStr, hasta: hastaStr, cantidad: cant });
-            document.getElementById('form-mod-add-faltante').reset();
-            renderTablaFaltantesModal();
-        });
-
-        function renderTablaFaltantesModal() {
-            const tbody = document.getElementById('mod-tabla-faltantes-body');
-            tbody.innerHTML = '';
-            if(listaFaltantesModal.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No se registran faltantes en este tramo.</td></tr>`;
-                return;
-            }
-            listaFaltantesModal.forEach((f, idx) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${f.desde}</td><td><span class="badge bg-secondary">${f.hasta}</span></td><td class="text-center fw-bold text-danger">${f.cantidad}</td><td class="text-end"><button type="button" class="btn btn-xs btn-outline-danger py-0 px-1" onclick="window.eliminarFaltanteInterno(${idx})"><i class="bi bi-x"></i></button></td>`;
-                tbody.appendChild(tr);
-            });
-        }
-
-        window.eliminarFaltanteInterno = function(index) {
-            listaFaltantesModal.splice(index, 1);
-            renderTablaFaltantesModal();
-        };
-
-        window.inyectarRangoAGrilla = function() {
-            const ini = document.getElementById('mod-inicial').value.trim();
-            const fin = document.getElementById('mod-final').value.trim();
-            const arch = document.getElementById('mod-archivamiento').value;
-
-            if(!ini || !fin) { Swal.fire('Atención', 'Defina los números del rango principal.', 'warning'); return; }
-
-            const prefijoIni = extraerPrefijo(ini);
-            const prefijoFin = extraerPrefijo(fin);
-            if (prefijoIni !== prefijoFin) {
-                Swal.fire('Formato inconsistente', `El Rango Inicial ("${ini}") y el Rango Final ("${fin}") no comparten el mismo código.`, 'error');
-                return;
-            }
-
-            const nIni = extraerNumero(ini);
-            const nFin = extraerNumero(fin);
-            if(nFin < nIni) { Swal.fire('Error', 'Rango inválido.', 'error'); return; }
-
-            const totalTeorico = (nFin - nIni) + 1;
-            const totalFaltantes = listaFaltantesModal.reduce((sum, f) => sum + f.cantidad, 0);
-            const totalReal = Math.max(0, totalTeorico - totalFaltantes);
-
-            const rangoData = {
-                inicial: ini,
-                final: fin,
-                archivamiento: arch,
-                teorico: totalTeorico,
-                faltantes: totalFaltantes,
-                real: totalReal,
-                detalleFaltantes: [...listaFaltantesModal]
-            };
-
-            if (indiceEdicionRango !== null && listaRangosCenso[indiceEdicionRango]) {
-                listaRangosCenso[indiceEdicionRango] = rangoData;
-            } else {
-                listaRangosCenso.push(rangoData);
-            }
-            indiceEdicionRango = null;
-
-            cerrarModalRango();
-            renderGrillaGrandeCenso();
-            calcularConsolidadoGlobal();
-        };
-
-        function renderGrillaGrandeCenso() {
-            const body = document.getElementById('tabla-censo-rangos-body');
-            body.innerHTML = '';
-            if(listaRangosCenso.length === 0) {
-                body.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">Ningún rango cargado al lote. Use el botón superior.</td></tr>`;
-                return;
-            }
-            listaRangosCenso.forEach((r, idx) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><code>${r.inicial}</code></td>
-                    <td><code>${r.final}</code></td>
-                    <td><span class="badge ${r.archivamiento==='Definitivo'?'bg-danger':'bg-warning text-dark'}">${r.archivamiento}</span></td>
-                    <td class="text-center bg-light">${r.teorico}</td>
-                    <td class="text-center text-danger fw-bold">${r.faltantes}</td>
-                    <td class="text-center table-success fw-bold text-success">${r.real}</td>
-                    <td class="text-end">
-                        <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1.5 me-1" onclick="window.editarRangoDeGrilla(${idx})"><i class="bi bi-pencil"></i></button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1.5" onclick="window.quitarRangoDeGrilla(${idx})"><i class="bi bi-trash3"></i></button>
-                    </td>
-                `;
-                body.appendChild(tr);
-            });
-        }
-
-        window.quitarRangoDeGrilla = function(index) {
-            listaRangosCenso.splice(index, 1);
-            renderGrillaGrandeCenso();
-            calcularConsolidadoGlobal();
-        };
-
-        window.editarRangoDeGrilla = function(index) {
-            abrirModalRango(index);
-        };
-
-        function calcularConsolidadoGlobal() {
-            let sumT = 0, sumF = 0, sumR = 0;
-            listaRangosCenso.forEach(r => { sumT += r.teorico; sumF += r.faltantes; sumR += r.real; });
-            document.getElementById('calc-total-teorico').innerText = sumT;
-            document.getElementById('calc-total-faltantes').innerText = sumF;
-            document.getElementById('calc-total-real').innerText = sumR;
-        }
-
-        let idLoteEnEdicion = null;
-
-        document.getElementById('form-inventario').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if(listaRangosCenso.length === 0) {
-                Swal.fire('Atención', 'Debe inyectar al menos un rango para guardar el consolidado.', 'warning');
-                return;
-            }
-
-            const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-            const consolidadoLote = {
-                repositorio: document.getElementById('inv-repositorio').value,
-                fecha: document.getElementById('inv-fecha').value,
-                registra: document.getElementById('inv-registra').value, 
-                recibe: document.getElementById('inv-recibe').value,
-                observaciones: document.getElementById('inv-observaciones').value.trim() || 'Ninguna.',
-                totalTeorico: parseInt(document.getElementById('calc-total-teorico').innerText, 10),
-                totalFaltantes: parseInt(document.getElementById('calc-total-faltantes').innerText, 10),
-                totalReal: parseInt(document.getElementById('calc-total-real').innerText, 10),
-                matrizRangos: [...listaRangosCenso]
-            };
-
-            const esEdicion = !!idLoteEnEdicion;
-
-            try {
-                if (esEdicion) {
-                    consolidadoLote.auditoriaEdicion = {
-                        uid: currentUserObj?.uid || null,
-                        nombre: currentUserName,
-                        timestamp: Date.now()
-                    };
-                    await updateDoc(doc(db, "censo_institucional", idLoteEnEdicion), consolidadoLote);
-                } else {
-                    consolidadoLote.createdAt = Date.now();
-                    consolidadoLote.activo = true;
-                    consolidadoLote.auditoria = {
-                        uid: currentUserObj?.uid || null,
-                        nombre: currentUserName,
-                        timestamp: Date.now()
-                    };
-                    await addDoc(collection(db, "censo_institucional"), consolidadoLote);
-                }
-
-                idLoteEnEdicion = null;
-                document.getElementById('form-inventario').reset();
-                document.getElementById('inv-fecha').valueAsDate = new Date();
-                
-                document.getElementById('inv-registra').value = currentUserName;
-                document.getElementById('btn-guardar-inventario').innerText = 'Cerrar y Guardar Consolidado';
-
-                listaRangosCenso = [];
-                renderGrillaGrandeCenso();
-                calcularConsolidadoGlobal();
-
-                await cargarInventariosDesdeCloud();
-                Swal.fire({ icon: 'success', title: esEdicion ? 'Inventario Actualizado' : 'Inventario Guardado', text:'Los registros se acoplaron de forma segura.' });
-            } catch (error) { Swal.fire('Error', error.message, 'error'); }
-        });
-
-        async function cargarInventariosDesdeCloud() {
-            try {
-                const querySnapshot = await getDocsConTimeout(collection(db, "censo_institucional"));
-                baseDatosInventario = [];
-                querySnapshot.forEach((doc) => {
-                    const data = { id: doc.id, ...doc.data() };
-                    if (data.activo !== false) baseDatosInventario.push(data);
-                });
-
-                baseDatosInventario.sort((a, b) => {
-                    const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : (a.createdAt || a.auditoria?.timestamp || 0);
-                    const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : (b.createdAt || b.auditoria?.timestamp || 0);
-                    return tb - ta;
-                });
-
-                actualizarDashboardGlobal();
-                filtrarRegistros();
-            } catch (error) { console.error(error); }
-        }
-
-        async function cargarHistorialReingresosParaDashboard() {
-            try {
-                const querySnapshot = await getDocsConTimeout(collection(db, "reingresos"));
-                baseDatosReingresos = [];
-                querySnapshot.forEach((doc) => {
-                    const data = { id: doc.id, ...doc.data() };
-                    if (data.activo !== false) baseDatosReingresos.push(data);
-                });
-                baseDatosReingresos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                actualizarDashboardGlobal();
-            } catch (error) {
-                console.error(error);
-            }
-        }
-
-        async function cargarHistorialTrasladosParaDashboard() {
-            try {
-                const querySnapshot = await getDocsConTimeout(collection(db, "traslados"));
-                baseDatosTraslados = [];
-                querySnapshot.forEach((doc) => {
-                    const data = { id: doc.id, ...doc.data() };
-                    if (data.activo !== false) baseDatosTraslados.push(data);
-                });
-                baseDatosTraslados.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-            } catch (error) {
-                console.error(error);
-            }
-        }
-
-        function actualizarDashboardGlobal() {
-            let sT = 0, sF = 0, sR = 0;
-            baseDatosInventario.forEach(lote => { 
-                sT += Number(lote.totalTeorico) || 0; 
-                sF += Number(lote.totalFaltantes) || 0; 
-                sR += Number(lote.totalReal) || 0; 
-            });
-
-            document.getElementById('dash-total-teorico').innerText = sT;
-            document.getElementById('dash-total-faltantes').innerText = sF;
-            document.getElementById('dash-total-real').innerText = sR;
-
-            const porcentajeIntegridad = sT > 0 ? ((sR / sT) * 100).toFixed(2) : "100.00";
-            document.getElementById('dash-porcentaje').innerText = porcentajeIntegridad + "%";
-            const elPorcentaje = document.getElementById('dash-porcentaje');
-            elPorcentaje.style.color = porcentajeIntegridad < 90 ? 'var(--sipa-primary)' : 'inherit';
-
-            let sumBloques = baseDatosMicroformas.length;
-            let sumPaquetes = 0;
-            let sumExpedientes = 0;
-            let sumImágenes = 0;
-            let sumFolios = 0;
-
-            baseDatosMicroformas.forEach(m => {
-                sumPaquetes += Number(m.cantPaquetes) || 0;
-                sumExpedientes += Number(m.expedientes) || 0;
-                sumImágenes += Number(m.imagenes) || 0;
-                sumFolios += Number(m.folios) || 0;
-            });
-
-            document.getElementById('dash-micro-bloques').innerText = sumBloques.toLocaleString();
-            document.getElementById('dash-micro-paquetes').innerText = sumPaquetes.toLocaleString();
-            document.getElementById('dash-micro-expedientes').innerText = sumExpedientes.toLocaleString();
-            document.getElementById('dash-micro-imagenes').innerText = sumImágenes.toLocaleString();
-            document.getElementById('dash-micro-folios').innerText = sumFolios.toLocaleString();
-
-            const hoyStr = new Date().toISOString().split('T')[0];
-            const mesActualStr = hoyStr.substring(0, 7);
-
-            let reingresosMesCount = 0;
-            let reingresosHoyCount = 0;
-            let totalAcompanadosCount = 0;
-
-            baseDatosReingresos.forEach(reg => {
-                const fechaReg = reg.fecha || '';
-                if (fechaReg.startsWith(mesActualStr)) reingresosMesCount++;
-                if (fechaReg === hoyStr) reingresosHoyCount++;
-                if (reg.expedientes && Array.isArray(reg.expedientes)) {
-                    reg.expedientes.forEach(e => {
-                        totalAcompanadosCount += parseInt(e.acomp, 10) || 0;
-                    });
-                }
-            });
-
-            document.getElementById('dash-reingresos-mes').innerText = reingresosMesCount;
-            document.getElementById('dash-reingresos-hoy').innerText = reingresosHoyCount;
-            document.getElementById('dash-total-acompanados').innerText = totalAcompanadosCount;
-        }
-
-        function renderizarFiltrosConsultas(datos, resetPage = true) {
-            const body = document.getElementById('tabla-consultas-body');
-            if (!body) return;
-            estadoPaginacionConsultas.inventario.datos = datos || [];
-            if (resetPage) estadoPaginacionConsultas.inventario.pagina = 1;
-            const cfg = estadoPaginacionConsultas.inventario;
-            const totalPaginas = Math.max(1, Math.ceil(cfg.datos.length / registrosPorPagina));
-            cfg.pagina = Math.min(cfg.pagina, totalPaginas);
-            document.getElementById('contador-registros').innerText = `${cfg.datos.length} Lote(s)`;
-            body.innerHTML = '';
-            const inicio = (cfg.pagina - 1) * registrosPorPagina;
-            const registros = cfg.datos.slice(inicio, inicio + registrosPorPagina);
-            if (registros.length === 0) {
-                body.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-5"><i class="bi bi-inbox fs-3 d-block mb-2"></i>No hay lotes que coincidan con los filtros.</td></tr>`;
-            } else {
-                registros.forEach(l => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${l.fecha || 'N/A'}</td>
-                        <td class="fw-semibold text-primary">${l.repositorio || 'N/A'}</td>
-                        <td class="text-center fw-bold">${(l.matrizRangos || []).length}</td>
-                        <td class="text-center">${l.totalTeorico ?? 0}</td>
-                        <td class="text-center text-danger fw-bold">${l.totalFaltantes ?? 0}</td>
-                        <td class="text-center table-success fw-bold text-success">${l.totalReal ?? 0}</td>
-                        <td class="small">${l.registra || 'N/A'}</td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFInstitucional('${l.id}')" title="Generar PDF"><i class="bi bi-file-pdf"></i></button>
-                            <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarLoteInventario('${l.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="window.eliminarRegistroLocal('${l.id}')" title="Eliminar"><i class="bi bi-trash3"></i></button>
-                        </td>`;
-                    body.appendChild(tr);
-                });
-            }
-            renderControlesPaginacion('inventario', cfg.datos.length);
-        }
-
-        function filtrarRegistros() {
-            const fRepo = document.getElementById('filtro-repo').value;
-            const fTexto = document.getElementById('filtro-texto').value.toLowerCase().trim();
-            const res = baseDatosInventario.filter(l => {
-                const mR = fRepo === "" || l.repositorio === fRepo;
-                const mT = fTexto === "" ||
-                    (l.registra || "").toLowerCase().includes(fTexto) ||
-                    (l.repositorio || "").toLowerCase().includes(fTexto) ||
-                    (l.fecha || "").includes(fTexto);
-                return mR && mT;
-            });
-            renderizarFiltrosConsultas(res);
-        }
-
-        window.eliminarRegistroLocal = function(id) {
-            Swal.fire({
-                title: '¿Expulsar Lote del Inventario?', text: "El lote quedará marcado como inactivo.", icon: 'warning', showCancelButton: true, confirmButtonColor: '#800000', confirmButtonText: 'Sí, borrar'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    const currentUserObj = auth.currentUser;
-                    const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-                    await updateDoc(doc(db, "censo_institucional", id), {
-                        activo: false,
-                        auditoriaEliminacion: {
-                            uid: currentUserObj?.uid || null,
-                            nombre: currentUserName,
-                            timestamp: Date.now()
-                        }
-                    });
-                    await cargarInventariosDesdeCloud();
-                }
-            });
-        };
-
-        window.editarLoteInventario = function(id) {
-            const lote = baseDatosInventario.find(l => l.id === id);
-            if (!lote) return;
-
-            idLoteEnEdicion = id;
-            document.getElementById('inv-repositorio').value = lote.repositorio || '';
-            document.getElementById('inv-fecha').value = lote.fecha || '';
-            document.getElementById('inv-registra').value = lote.registra || '';
-            document.getElementById('inv-recibe').value = lote.recibe || '';
-            document.getElementById('inv-observaciones').value = (lote.observaciones && lote.observaciones !== 'Ninguna.') ? lote.observaciones : '';
-
-            listaRangosCenso = JSON.parse(JSON.stringify(lote.matrizRangos || []));
-            renderGrillaGrandeCenso();
-            calcularConsolidadoGlobal();
-
-            document.getElementById('btn-guardar-inventario').innerText = 'Guardar Cambios del Lote';
-            switchView('view-inventario', `Editando Lote: ${lote.repositorio || ''} (${lote.fecha || ''})`);
-        };
-
-        window.iniciarNuevoInventario = function() {
-            idLoteEnEdicion = null;
-            document.getElementById('form-inventario').reset();
-            document.getElementById('inv-fecha').valueAsDate = new Date();
-            if (auth.currentUser) {
-                document.getElementById('inv-registra').value = auth.currentUser.displayName ? normalizarTexto(auth.currentUser.displayName) : normalizarTexto(auth.currentUser.email.split('@')[0]);
-            }
-            document.getElementById('btn-guardar-inventario').innerText = 'Cerrar y Guardar Consolidado';
-            listaRangosCenso = [];
-            renderGrillaGrandeCenso();
-            calcularConsolidadoGlobal();
-            switchView('view-inventario', 'Carga de Inventario de Existencias');
-        };
-
-        window.cargarHistorialAuditoriaGlobal = async function() {
-            try {
-                const tbody = document.getElementById('tabla-auditoria-global');
-                if (!tbody) return;
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Cargando registros de auditoría...</td></tr>`;
-
-                listaLogsAuditoria = [];
-                const selectUsuario = document.getElementById('filtro-aud-usuario');
-                const usuarioSeleccionadoPrevio = selectUsuario ? selectUsuario.value : '';
-                if(selectUsuario) selectUsuario.innerHTML = '<option value="">Todos los usuarios</option>';
-                const setUsuariosUnicos = new Set();
-
-                try {
-                    const snapLogins = await getDocsConTimeout(collection(db, "auditoria_logins"));
-                    snapLogins.forEach(docSnap => {
-                        const d = docSnap.data();
-                        const timestamp = d.timestamp || 0;
-                        const nombreUser = d.nombre || d.email || 'Desconocido';
-                        setUsuariosUnicos.add(nombreUser);
-                        listaLogsAuditoria.push({
-                            fechaISO: timestamp ? new Date(timestamp).toISOString().split('T')[0] : '',
-                            fecha: timestamp ? new Date(timestamp).toLocaleString() : 'N/A',
-                            timestamp: timestamp,
-                            modulo: 'Seguridad / Sesiones',
-                            accion: 'Inicio de Sesión',
-                            usuario: nombreUser,
-                            detalle: `Acceso autorizado al sistema desde el correo: ${d.email || 'N/A'}`
-                        });
-                    });
-                } catch(err) { console.warn(err); }
-
-                // Helper genérico: agrega al log una entrada por cada evento de
-                // auditoría embebido en un documento (creación / edición / baja),
-                // para que TODAS las acciones del sistema queden trazadas, no
-                // solo el inicio de sesión.
-                const registrarEventoDoc = (evento, modulo, accionLabel, usuarioDefault, detalleTexto) => {
-                    if (!evento) return;
-                    const ts = evento.timestamp || 0;
-                    const nombreUser = evento.nombre || usuarioDefault || 'Desconocido';
-                    setUsuariosUnicos.add(nombreUser);
-                    listaLogsAuditoria.push({
-                        fechaISO: ts ? new Date(ts).toISOString().split('T')[0] : '',
-                        fecha: ts ? new Date(ts).toLocaleString() : 'N/A',
-                        timestamp: ts,
-                        modulo,
-                        accion: accionLabel,
-                        usuario: nombreUser,
-                        detalle: detalleTexto
-                    });
-                };
-
-                try {
-                    const snapCenso = await getDocsConTimeout(collection(db, "censo_institucional"));
-                    snapCenso.forEach(docSnap => {
-                        const d = docSnap.data();
-                        const detalle = `Repositorio: ${d.repositorio} | Fecha ejecución: ${d.fecha} | Total Real: ${d.totalReal}`;
-                        registrarEventoDoc(d.auditoria || (d.createdAt ? { timestamp: d.createdAt, nombre: d.registra } : null), 'Inventario de Existencias', 'Creación de Lote', d.registra, detalle);
-                        registrarEventoDoc(d.auditoriaEdicion, 'Inventario de Existencias', 'Actualización de Lote', d.registra, detalle);
-                        registrarEventoDoc(d.auditoriaEliminacion, 'Inventario de Existencias', 'Eliminación / Baja de Lote', d.registra, detalle);
-                    });
-                } catch(err) { console.warn(err); }
-
-                try {
-                    const snapReingresos = await getDocsConTimeout(collection(db, "reingresos"));
-                    snapReingresos.forEach(docSnap => {
-                        const d = docSnap.data();
-                        const totalExp = Array.isArray(d.expedientes) ? d.expedientes.length : 0;
-                        const detalle = `N° ${d.correlativo || 'S/N'} | Solicitante: ${d.solicitante || 'N/A'} | Local: ${d.local || 'N/A'} | Expedientes: ${totalExp}`;
-                        registrarEventoDoc(d.auditoria, 'Reingresos', 'Registro de Reingreso', d.solicitante, detalle);
-                        registrarEventoDoc(d.auditoriaEdicion, 'Reingresos', 'Edición de Reingreso', d.solicitante, detalle);
-                        registrarEventoDoc(d.auditoriaEliminacion, 'Reingresos', 'Eliminación / Baja de Reingreso', d.solicitante, detalle);
-                    });
-                } catch(err) { console.warn(err); }
-
-                try {
-                    const snapTraslados = await getDocsConTimeout(collection(db, "traslados"));
-                    snapTraslados.forEach(docSnap => {
-                        const d = docSnap.data();
-                        const totalPaq = Array.isArray(d.paquetes) ? d.paquetes.length : 0;
-                        const detalle = `N° ${d.correlativo || 'S/N'} | Recibe: ${d.recibe || 'N/A'} | Entrega: ${d.entregado || 'N/A'} | Paquetes: ${totalPaq}`;
-                        registrarEventoDoc(d.auditoria, 'Formato de Traslado', 'Registro de Traslado', d.recibe, detalle);
-                        registrarEventoDoc(d.auditoriaEdicion, 'Formato de Traslado', 'Edición de Traslado', d.recibe, detalle);
-                        registrarEventoDoc(d.auditoriaEliminacion, 'Formato de Traslado', 'Eliminación / Baja de Traslado', d.recibe, detalle);
-                    });
-                } catch(err) { console.warn(err); }
-
-                try {
-                    const snapMicroformas = await getDocsConTimeout(collection(db, "control_microformas"));
-                    snapMicroformas.forEach(docSnap => {
-                        const d = docSnap.data();
-                        const detalle = `Bloque N° ${d.bloque || 'N/A'} | Juzgado: ${d.juzgado || 'N/A'} | Rango: ${d.rango || 'N/A'}`;
-                        registrarEventoDoc(d.auditoriaCreacion, 'Control de Microformas', 'Creación de Bloque', null, detalle);
-                        registrarEventoDoc(d.auditoriaEdicion, 'Control de Microformas', 'Edición de Bloque', null, detalle);
-                        registrarEventoDoc(d.auditoriaEliminacion, 'Control de Microformas', 'Eliminación / Baja de Bloque', null, detalle);
-                    });
-                } catch(err) { console.warn(err); }
-
-                try {
-                    const snapTarjetas = await getDocsConTimeout(collection(db, "tarjetas_paquetes"));
-                    snapTarjetas.forEach(docSnap => {
-                        const d = docSnap.data();
-                        const totalPaq = Array.isArray(d.paquetesData) ? d.paquetesData.length : 0;
-                        const detalle = `Juzgado: ${d.juzgado || 'N/A'} | Juez: ${d.juez || 'N/A'} | Repositorio: ${d.repositorio || 'N/A'} | Paquetes: ${totalPaq}`;
-                        registrarEventoDoc(d.auditoria, 'Tarjetas Recepción', 'Generación de Tarjetas', d.personal, detalle);
-                        registrarEventoDoc(d.auditoriaEdicion, 'Tarjetas Recepción', 'Edición de Tarjetas', d.personal, detalle);
-                        registrarEventoDoc(d.auditoriaEliminacion, 'Tarjetas Recepción', 'Eliminación / Baja de Bloque de Tarjetas', d.personal, detalle);
-                    });
-                } catch(err) { console.warn(err); }
-
-                if(selectUsuario) {
-                    setUsuariosUnicos.forEach(u => {
-                        selectUsuario.innerHTML += `<option value="${u}">${u}</option>`;
-                    });
-                    selectUsuario.value = usuarioSeleccionadoPrevio;
-                }
-
-                listaLogsAuditoria.sort((a, b) => b.timestamp - a.timestamp);
-                filtrarAuditoria();
-
-            } catch (error) {
-                console.error(error);
-                document.getElementById('tabla-auditoria-global').innerHTML = `<tr><td colspan="5" class="text-center text-danger py-3">Error al cargar el historial de cambios.</td></tr>`;
-            }
-        };
-
-        window.filtrarAuditoria = function() {
-            const fFecha = document.getElementById('filtro-aud-fecha')?.value || '';
-            const fAccion = document.getElementById('filtro-aud-accion')?.value || '';
-            const fUsuario = document.getElementById('filtro-aud-usuario')?.value || '';
-
-            const logsFiltrados = listaLogsAuditoria.filter(l => {
-                const matchFecha = fFecha === '' || l.fechaISO === fFecha;
-                const matchAccion = fAccion === '' || l.accion.includes(fAccion);
-                const matchUsuario = fUsuario === '' || l.usuario === fUsuario;
-                return matchFecha && matchAccion && matchUsuario;
-            });
-
-            paginaActualAuditoria = 1; // Reiniciar a página 1 al filtrar
-            renderTablaAuditoria(logsFiltrados);
-        };
-
-        window.limpiarFiltrosAuditoria = function() {
-            document.getElementById('filtro-aud-fecha').value = '';
-            document.getElementById('filtro-aud-accion').value = '';
-            document.getElementById('filtro-aud-usuario').value = '';
-            filtrarAuditoria();
-        };
-
-        let logsFiltradosCache = [];
-
-        function renderTablaAuditoria(logs) {
-            logsFiltradosCache = logs;
-            const tbody = document.getElementById('tabla-auditoria-global');
-            if(!tbody) return;
-            tbody.innerHTML = '';
-            
-            if (logs.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No hay registros de auditoría que coincidan con los filtros.</td></tr>`;
-                document.getElementById('info-paginacion-auditoria').innerText = 'Página 1 de 1';
-                return;
-            }
-
-            const totalPaginas = Math.ceil(logs.length / registrosPorPagina) || 1;
-            if (paginaActualAuditoria > totalPaginas) paginaActualAuditoria = totalPaginas;
-            if (paginaActualAuditoria < 1) paginaActualAuditoria = 1;
-
-            const inicio = (paginaActualAuditoria - 1) * registrosPorPagina;
-            const fin = inicio + registrosPorPagina;
-            const registrosPaginados = logs.slice(inicio, fin);
-
-            document.getElementById('info-paginacion-auditoria').innerText = `Página ${paginaActualAuditoria} de ${totalPaginas} (Total: ${logs.length} registros)`;
-            document.getElementById('btn-aud-prev').disabled = paginaActualAuditoria <= 1;
-            document.getElementById('btn-aud-next').disabled = paginaActualAuditoria >= totalPaginas;
-
-            registrosPaginados.forEach(l => {
-                let badgeColor = 'bg-success';
-                if (l.accion.includes('Eliminación')) badgeColor = 'bg-danger';
-                if (l.accion.includes('Actualización') || l.accion.includes('Edición')) badgeColor = 'bg-warning text-dark';
-                if (l.accion.includes('Inicio de Sesión')) badgeColor = 'bg-info text-dark';
-
-                const tr = `<tr>
-                    <td><small>${l.fecha}</small></td>
-                    <td><span class="badge bg-secondary">${l.modulo}</span></td>
-                    <td><span class="badge ${badgeColor}">${l.accion}</span></td>
-                    <td class="fw-bold text-dark">${l.usuario}</td>
-                    <td><small class="text-muted">${l.detalle}</small></td>
-                </tr>`;
-                tbody.insertAdjacentHTML('beforeend', tr);
-            });
-        }
-
-        window.cambiarPaginaAuditoria = function(direccion) {
-            paginaActualAuditoria += direccion;
-            renderTablaAuditoria(logsFiltradosCache);
-        };
-
-        window.imprimirReporteAuditoria = function() {
-            const contenido = document.getElementById('tabla-auditoria-container');
-            if (!contenido) return;
-
-            const ventana = window.open('', '', 'height=700,width=900');
-            ventana.document.write('<html><head><title>Reporte de Auditoría - SAAMIR</title>');
-            ventana.document.write('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">');
-            ventana.document.write('<style>body { padding: 20px; font-family: Inter, sans-serif; }</style>');
-            ventana.document.write('</head><body>');
-            ventana.document.write('<h4 class="mb-3">Reporte General de Trazabilidad y Auditoría - SAAMIR</h4>');
-            ventana.document.write(contenido.outerHTML);
-            ventana.document.write('</body></html>');
-            ventana.document.close();
-            ventana.focus();
-            setTimeout(() => {
-                ventana.print();
-                ventana.close();
-            }, 600);
-        };
-
-        function mostrarModalPreviewPDF(url, nombreArchivo) {
-            document.getElementById('pdf-preview-iframe').src = url;
-            document.getElementById('btn-descargar-pdf-preview').onclick = () => {
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = nombreArchivo;
-                a.click();
-            };
-            new bootstrap.Modal(document.getElementById('modal-pdf-preview')).show();
-        }
-
-        window.generarPDFInstitucional = async function(id) {
-            const lote = baseDatosInventario.find(l => l.id === id);
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-            const pageWidth = doc.internal.pageSize.getWidth();
-
-            const logoData = await obtenerLogoArchivoBase64();
-            if (logoData) {
-                doc.addImage(logoData, 'PNG', 15, 10, 18, 18);
-            }
-
-            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(40, 40, 40);
-            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 16, { align: "center" });
-            doc.setFontSize(9.5); doc.setFont("Inter", "normal");
-            doc.text("ARCHIVO DESCONCENTRADO DE LA CSJSA", pageWidth / 2, 21, { align: "center" });
-
-            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(128, 0, 0); 
-            doc.text("SAAMIR - Sistema de Administración de Archivos, Microformas, Inventario y Reportes", pageWidth / 2, 27, { align: "center" });
-            doc.setLineWidth(0.4); doc.setDrawColor(128, 0, 0); doc.line(15, 31, pageWidth - 15, 31);
-            
-            doc.setFontSize(11); doc.setTextColor(0, 0, 0);
-            doc.text("INFORME CONSOLIDADO DE INVENTARIO DE EXISTENCIAS", pageWidth / 2, 38, { align: "center" });
-
-            doc.setFontSize(9.5);
-            doc.setFont("Inter", "bold");
-            doc.text("Repositorio / Sede:", 15, 45);
-            doc.setFont("Inter", "normal");
-            doc.text(String(lote.repositorio), 48, 45);
-
-            doc.setFont("Inter", "bold");
-            doc.text("Fecha de Ejecución:", 15, 50);
-            doc.setFont("Inter", "normal");
-            doc.text(String(lote.fecha), 48, 50);
-
-            const filasTablaAutotable = lote.matrizRangos.map((r, idx) => [
-                (idx + 1).toString(),
-                r.inicial,
-                r.final,
-                r.archivamiento,
-                r.teorico.toString(),
-                r.faltantes.toString(),
-                r.real.toString()
-            ]);
-
-            filasTablaAutotable.push([ 'Σ', 'TOTAL CONSOLIDADO', '-', '-', lote.totalTeorico.toString(), lote.totalFaltantes.toString(), lote.totalReal.toString() ]);
-
-            doc.autoTable({
-                startY: 55,
-                margin: { left: 15, right: 15 },
-                theme: 'grid',
-                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 9 },
-                styles: { fontSize: 8.5, font: 'Inter', cellPadding: 2 },
-                columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 33, halign: 'center' }, 2: { cellWidth: 33, halign: 'center' }, 3: { cellWidth: 30, halign: 'center' }, 4: { cellWidth: 24, halign: 'center' }, 5: { cellWidth: 24, halign: 'center' }, 6: { cellWidth: 24, halign: 'center' } },
-                head: [['Item', 'Rango Inicial', 'Rango Final', 'Archivamiento', 'Teórico', 'Faltantes', 'Total Real Físico']],
-                body: filasTablaAutotable
-            });
-
-            let currentY = doc.lastAutoTable.finalY + 6;
-            doc.setFont("Inter", "bold"); doc.setFontSize(8.5);
-            doc.text("DETALLE ESPECÍFICO DE EXPEDIENTES EXCLUIDOS:", 15, currentY);
-            currentY += 2;
-
-            const subFaltantesBody = [];
-            lote.matrizRangos.forEach(r => {
-                if(r.detalleFaltantes && r.detalleFaltantes.length > 0) {
-                    r.detalleFaltantes.forEach(f => {
-                        subFaltantesBody.push([`${r.inicial} - ${r.final}`, r.archivamiento, f.desde, f.hasta, `${f.cantidad} unidad(es)`]);
-                    });
-                }
-            });
-
-            if(subFaltantesBody.length === 0) {
-                subFaltantesBody.push(['-', '-', 'El lote completo coincide con los rangos correlativos. Sin exclusiones.', '-', '-']);
-            }
-
-            doc.autoTable({
-                startY: currentY,
-                margin: { left: 15, right: 15 },
-                theme: 'striped',
-                headStyles: { fillColor: [40, 40, 40], textColor: [255, 255, 255], halign: 'center', fontSize: 8 },
-                styles: { fontSize: 7.5, cellPadding: 1.5 },
-                head: [['Rango', 'Archivamiento', 'Faltante Desde', 'Faltante Hasta', 'Cantidad']],
-                body: subFaltantesBody
-            });
-
-            currentY = doc.lastAutoTable.finalY + 6;
-            doc.setFont("Inter", "bold"); doc.setFontSize(8.5);
-            doc.text("OBSERVACIONES GENERALES DEL INVENTARIO:", 15, currentY);
-            currentY += 4;
-            doc.setFont("Inter", "normal"); doc.setFontSize(8);
-            const obsTexto = lote.observaciones && lote.observaciones !== 'Ninguna.' ? lote.observaciones : 'Ninguna.';
-            const splitObs = doc.splitTextToSize(obsTexto, pageWidth - 30);
-            doc.text(splitObs, 15, currentY);
-            currentY += (splitObs.length * 4) + 12;
-
-            if (currentY > 255) { doc.addPage(); currentY = 30; }
-            doc.setLineWidth(0.3);
-            doc.line(35, currentY, 95, currentY);
-            doc.line(115, currentY, 175, currentY);
-
-            currentY += 4;
-            doc.setFont("Inter", "bold"); doc.setFontSize(8);
-            doc.text("USUARIO QUE REGISTRA", 65, currentY, { align: "center" });
-            doc.text("USUARIO QUE RECIBE", 145, currentY, { align: "center" });
-
-            currentY += 4;
-            doc.setFont("Inter", "normal"); doc.setFontSize(7.5);
-            doc.text(String(lote.registra || 'N/A').toUpperCase(), 65, currentY, { align: "center" });
-            doc.text(String(lote.recibe || 'N/A').toUpperCase(), 145, currentY, { align: "center" });
-
-            currentY += 4;
-            doc.text("Personal de Archivo", 65, currentY, { align: "center" });
-            doc.text("Personal de Archivo", 145, currentY, { align: "center" });
-
-            const blobUrl = doc.output('bloburl');
-            const repoLimpio = (lote.repositorio || '').replace(/[^a-zA-Z0-9]/g, '_');
-            mostrarModalPreviewPDF(blobUrl, `INVENTARIO_${repoLimpio}_${lote.fecha}.pdf`);
-        };
-
-        // Contador atómico transaccional: evita colisiones de correlativo cuando
-        // dos personas guardan casi al mismo tiempo, y crea el documento del
-        // reingreso dentro de la MISMA transacción, así el correlativo asignado
-        // siempre corresponde a un registro que sí quedó grabado en Firestore.
-        async function guardarReingresoConCorrelativoAtomico(datosBase) {
-            const contadorRef = doc(db, "contadores", "reingresos");
-            const nuevoDocRef = doc(collection(db, "reingresos"));
-
-            const resultado = await runTransaction(db, async (transaction) => {
-                const contadorSnap = await transaction.get(contadorRef);
-                const nuevoValor = (contadorSnap.exists() ? Number(contadorSnap.data().valor) || 0 : 0) + 1;
-
-                const datosCompletos = { ...datosBase, correlativo: nuevoValor };
-
-                transaction.set(contadorRef, { valor: nuevoValor });
-                transaction.set(nuevoDocRef, datosCompletos);
-
-                return { id: nuevoDocRef.id, correlativo: nuevoValor, datos: datosCompletos };
-            });
-
-            return resultado;
-        }
-
-        // Función única para reingresos: guarda primero en Firestore (con
-        // correlativo atómico si es un registro nuevo) y solo después genera
-        // el PDF con los datos ya confirmados en la base de datos. Así se evita
-        // el desfase entre "Generar PDF" y "Guardar Registro" que producía
-        // correlativos fantasma cuando el guardado nunca se completaba.
-        async function procesarYGuardarReingreso() {
-            const expedientes = Array.from(document.querySelectorAll("#tabla-reingresos tbody tr")).map(tr => {
-                const inputs = tr.querySelectorAll('input, select');
-                return { paquete: inputs[0].value, exp: inputs[1].value, folios: inputs[2].value, juzgado: inputs[3].value, tipo: inputs[4].value, acomp: inputs[5].value };
-            });
-
-            if (expedientes.length === 0) {
-                Swal.fire('Atención', 'Agregue al menos un expediente antes de guardar.', 'warning');
-                return;
-            }
-
-            const btnGuardar = document.getElementById('btn-guardar-reingreso');
-            const btnGenerarPDF = document.querySelector('button[onclick="generarReporteReingresoPDF()"]');
-            [btnGuardar, btnGenerarPDF].forEach(b => b?.setAttribute('disabled', 'true'));
-
-            try {
-                const currentUserObj = auth.currentUser;
-                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-                const fecha = document.getElementById('re-fecha').value;
-                const solicitante = document.getElementById('re-solicitante').value;
-                const local = document.getElementById('re-local').value;
-                const entregado = document.getElementById('re-entregado').value;
-
-                let correlativoFinal, datosParaPDF;
-
-                if (idReingresoEnEdicion) {
-                    const datosActualizados = {
-                        fecha, solicitante, local, entregado, expedientes,
-                        auditoriaEdicion: {
-                            uid: currentUserObj?.uid || null,
-                            nombre: currentUserName,
-                            timestamp: Date.now()
-                        }
-                    };
-
-                    await updateDoc(doc(db, "reingresos", idReingresoEnEdicion), datosActualizados);
-
-                    correlativoFinal = baseDatosReingresos.find(r => r.id === idReingresoEnEdicion)?.correlativo;
-                    datosParaPDF = { ...datosActualizados, correlativo: correlativoFinal };
-                    Swal.fire({ icon: 'success', title: 'Reingreso Actualizado', text: 'Los cambios se guardaron correctamente.' });
-                } else {
-                    const datosBase = {
-                        fecha, solicitante, local, entregado, expedientes,
-                        createdAt: Date.now(),
-                        activo: true,
-                        auditoria: {
-                            uid: currentUserObj?.uid || null,
-                            nombre: currentUserName,
-                            timestamp: Date.now()
-                        }
-                    };
-
-                    const resultado = await guardarReingresoConCorrelativoAtomico(datosBase);
-                    correlativoFinal = resultado.correlativo;
-                    datosParaPDF = resultado.datos;
-                    Swal.fire({ icon: 'success', title: 'Registro guardado con éxito' });
-                }
-
-                // El PDF se genera SIEMPRE a partir de datos que ya están
-                // confirmados en Firestore, nunca de un correlativo calculado
-                // localmente antes de guardar.
-                await construirPDFReingreso({
-                    correlativo: correlativoFinal,
-                    fecha: datosParaPDF.fecha,
-                    solicitante: datosParaPDF.solicitante,
-                    local: datosParaPDF.local,
-                    entregado: datosParaPDF.entregado,
-                    expedientes: datosParaPDF.expedientes
-                });
-
-                resetFormularioReingreso();
-                await cargarHistorialReingresosParaDashboard();
-                switchView('view-consultas-reingresos', 'Consultar Historial de Reingresos');
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            } finally {
-                [btnGuardar, btnGenerarPDF].forEach(b => b?.removeAttribute('disabled'));
-            }
-        }
-
-        // Ambos botones ("Guardar Registro" y "Generar PDF") ejecutan el mismo
-        // flujo seguro: guardar en Firestore y luego mostrar el PDF ya confirmado.
-        window.guardarReingreso = procesarYGuardarReingreso;
-
-        // Igual que con reingresos: correlativo + creación del documento en una
-        // sola transacción atómica, para que nunca exista un correlativo que no
-        // corresponda a un registro realmente grabado en Firestore.
-        async function guardarTrasladoConCorrelativoAtomico(datosBase) {
-            const contadorRef = doc(db, "contadores", "traslados");
-            const nuevoDocRef = doc(collection(db, "traslados"));
-
-            const resultado = await runTransaction(db, async (transaction) => {
-                const contadorSnap = await transaction.get(contadorRef);
-                const nuevoValor = (contadorSnap.exists() ? Number(contadorSnap.data().valor) || 0 : 0) + 1;
-
-                const datosCompletos = { ...datosBase, correlativo: nuevoValor };
-
-                transaction.set(contadorRef, { valor: nuevoValor });
-                transaction.set(nuevoDocRef, datosCompletos);
-
-                return { id: nuevoDocRef.id, correlativo: nuevoValor, datos: datosCompletos };
-            });
-
-            return resultado;
-        }
-
-        // Fusiona "Guardar Traslado" y "Generar PDF": primero se guarda (con
-        // correlativo atómico si es nuevo) y el PDF se arma con los datos ya
-        // confirmados en Firestore, nunca antes de guardar.
-        async function procesarYGuardarTraslado() {
-            const fecha = document.getElementById('tr-fecha').value;
-            const entregado = document.getElementById('tr-entregado').value;
-            const recibe = document.getElementById('tr-recibe').value;
-
-            if (!recibe) {
-                Swal.fire('Atención', 'Debe seleccionar quién recibe el traslado.', 'warning');
-                return;
-            }
-
-            const paquetes = Array.from(document.querySelectorAll("#tabla-traslados tbody tr")).map(tr => {
-                const desde = tr.querySelector('.tr-desde').value.trim();
-                const hasta = tr.querySelector('.tr-hasta').value.trim();
-                const inputs = tr.querySelectorAll('input, select');
-                return { 
-                    paqueteDesde: desde,
-                    paqueteHasta: hasta || desde,
-                    rangoTexto: hasta && hasta !== desde ? `${desde} al ${hasta}` : desde,
-                    cantidad: parseInt(tr.querySelector('.tr-cant').textContent, 10) || 1,
-                    juzgado: inputs[2].value, 
-                    repoSalida: inputs[3].value, 
-                    repoIngreso: inputs[4].value, 
-                    motivo: inputs[5].value 
-                };
-            });
-
-            if (paquetes.length === 0) {
-                Swal.fire('Atención', 'Agregue al menos un rango de paquetes antes de guardar el traslado.', 'warning');
-                return;
-            }
-
-            const btnGuardar = document.getElementById('btn-guardar-traslado');
-            const btnGenerarPDF = document.querySelector('button[onclick="generarReporteTrasladoPDF()"]');
-            [btnGuardar, btnGenerarPDF].forEach(b => b?.setAttribute('disabled', 'true'));
-
-            try {
-                const currentUserObj = auth.currentUser;
-                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-                let correlativoFinal, datosParaPDF;
-
-                if (idTrasladoEnEdicion) {
-                    const datosActualizados = {
-                        fecha, entregado, recibe, paquetes,
-                        auditoriaEdicion: {
-                            uid: currentUserObj?.uid || null,
-                            nombre: currentUserName,
-                            timestamp: Date.now()
-                        }
-                    };
-
-                    await updateDoc(doc(db, "traslados", idTrasladoEnEdicion), datosActualizados);
-
-                    correlativoFinal = baseDatosTraslados.find(r => r.id === idTrasladoEnEdicion)?.correlativo;
-                    datosParaPDF = { ...datosActualizados, correlativo: correlativoFinal };
-                    Swal.fire({ icon: 'success', title: 'Traslado Actualizado', text: 'Los cambios se guardaron correctamente.' });
-                } else {
-                    const datosBase = {
-                        fecha, entregado, recibe, paquetes,
-                        createdAt: Date.now(),
-                        activo: true,
-                        auditoria: {
-                            uid: currentUserObj?.uid || null,
-                            nombre: currentUserName,
-                            timestamp: Date.now()
-                        }
-                    };
-
-                    const resultado = await guardarTrasladoConCorrelativoAtomico(datosBase);
-                    correlativoFinal = resultado.correlativo;
-                    datosParaPDF = resultado.datos;
-                    Swal.fire({ icon: 'success', title: 'Formato de traslado guardado con éxito' });
-                }
-
-                await construirPDFTraslado({
-                    correlativo: correlativoFinal,
-                    fecha: datosParaPDF.fecha,
-                    entregado: datosParaPDF.entregado,
-                    recibe: datosParaPDF.recibe,
-                    paquetes: datosParaPDF.paquetes
-                });
-
-                resetFormularioTraslado();
-                await cargarHistorialTrasladosParaDashboard();
-                switchView('view-consultas-traslados', 'Consultar Historial de Traslados');
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            } finally {
-                [btnGuardar, btnGenerarPDF].forEach(b => b?.removeAttribute('disabled'));
-            }
-        }
-
-        window.guardarTraslado = procesarYGuardarTraslado;
-
-        window.editarReingreso = function(id) {
-            const registro = baseDatosReingresos.find(r => r.id === id);
-            if (!registro) return;
-
-            idReingresoEnEdicion = id;
-            document.getElementById('re-fecha').value = registro.fecha || '';
-            document.getElementById('re-solicitante').value = registro.solicitante || '';
-            document.getElementById('re-local').value = registro.local || '';
-            document.getElementById('re-entregado').value = registro.entregado || '';
-
-            const tbody = document.querySelector('#tabla-reingresos tbody');
-            tbody.innerHTML = '';
-
-            if (registro.expedientes && Array.isArray(registro.expedientes)) {
-                registro.expedientes.forEach(e => {
-                    const fila = `<tr>
-                        <td><input type="text" class="form-control form-control-sm" placeholder="Paquete" value="${e.paquete || ''}"></td>
-                        <td><input type="text" class="form-control form-control-sm" placeholder="Expediente" value="${e.exp || ''}"></td>
-                        <td><input type="number" class="form-control form-control-sm" value="${e.folios || 0}"></td>
-                        <td><input type="text" class="form-control form-control-sm" placeholder="Juzgado" value="${e.juzgado || ''}"></td>
-                        <td>
-                            <select class="form-select form-select-sm">
-                                <option value="Transitorio" ${e.tipo === 'Transitorio' ? 'selected' : ''}>Transitorio</option>
-                                <option value="Definitivo" ${e.tipo === 'Definitivo' ? 'selected' : ''}>Definitivo</option>
-                            </select>
-                        </td>
-                        <td><input type="number" class="form-control form-control-sm" value="${e.acomp || 0}"></td>
-                        <td class="text-center">
-                            <button class="btn btn-outline-danger btn-sm" onclick="this.parentElement.parentElement.remove()">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                    </tr>`;
-                    tbody.insertAdjacentHTML('beforeend', fila);
-                });
-            }
-
-            document.getElementById('btn-guardar-reingreso').innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Cambios';
-            switchView('view-reingresos', `Editando Reingreso N° ${registro.correlativo}`);
-        };
-
-        window.editarTraslado = function(id) {
-            const registro = baseDatosTraslados.find(r => r.id === id);
-            if (!registro) return;
-
-            idTrasladoEnEdicion = id;
-            document.getElementById('tr-fecha').value = registro.fecha || '';
-            document.getElementById('tr-entregado').value = registro.entregado || '';
-            document.getElementById('tr-recibe').value = registro.recibe || '';
-
-            const tbody = document.querySelector('#tabla-traslados tbody');
-            tbody.innerHTML = '';
-
-            if (registro.paquetes && Array.isArray(registro.paquetes)) {
-                registro.paquetes.forEach((e, idx) => {
-                    agregarFilaTraslado(e.paqueteDesde || e.paquete || '', e.paqueteHasta || e.paquete || '', e.juzgado || '', e.repoSalida || '', e.repoIngreso || '', e.motivo || '');
-                });
-            }
-
-            document.getElementById('btn-guardar-traslado').innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Cambios';
-            actualizarTotalTraslados();
-            switchView('view-traslados', `Editando Traslado N° ${registro.correlativo}`);
-        };
-
-        // NOTA: las antiguas obtenerSiguienteCorrelativoReingreso() y
-        // obtenerSiguienteCorrelativoTraslado() (contar documentos con getDocs
-        // y sumar 1) fueron eliminadas. Esa lógica calculaba el correlativo
-        // fuera de cualquier transacción y de forma desacoplada del guardado,
-        // lo que producía los "correlativos fantasma" del bug original. Ahora
-        // el correlativo se calcula y confirma atómicamente junto con la
-        // creación del documento en guardarReingresoConCorrelativoAtomico() /
-        // guardarTrasladoConCorrelativoAtomico().
-
-        window.eliminarReingreso = async function(id) {
-            const registro = baseDatosReingresos.find(r => r.id === id);
-            const confirmacion = await Swal.fire({
-                icon: 'warning',
-                title: '¿Eliminar reingreso?',
-                text: registro ? `Se eliminará el registro N° ${registro.correlativo}.` : '',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, eliminar',
-                confirmButtonColor: '#800000'
-            });
-            if (!confirmacion.isConfirmed) return;
-
-            try {
-                const currentUserObj = auth.currentUser;
-                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-                await updateDoc(doc(db, "reingresos", id), {
-                    activo: false,
-                    auditoriaEliminacion: {
-                        uid: currentUserObj?.uid || null,
-                        nombre: currentUserName,
-                        timestamp: Date.now()
-                    }
-                });
-                Swal.fire({ icon: 'success', title: 'Registro eliminado', timer: 1500, showConfirmButton: false });
-                await window.cargarHistorialReingresos();
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            }
-        };
-
-        window.eliminarTraslado = async function(id) {
-            const registro = baseDatosTraslados.find(r => r.id === id);
-            const confirmacion = await Swal.fire({
-                icon: 'warning',
-                title: '¿Eliminar traslado?',
-                text: registro ? `Se eliminará el formato N° ${registro.correlativo}.` : '',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, eliminar',
-                confirmButtonColor: '#800000'
-            });
-            if (!confirmacion.isConfirmed) return;
-
-            try {
-                const currentUserObj = auth.currentUser;
-                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-                await updateDoc(doc(db, "traslados", id), {
-                    activo: false,
-                    auditoriaEliminacion: {
-                        uid: currentUserObj?.uid || null,
-                        nombre: currentUserName,
-                        timestamp: Date.now()
-                    }
-                });
-                Swal.fire({ icon: 'success', title: 'Registro eliminado', timer: 1500, showConfirmButton: false });
-                await window.cargarHistorialTraslados();
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            }
-        };
-
-        window.cargarHistorialReingresos = async function() {
-            try {
-                const querySnapshot = await getDocsConTimeout(collection(db, "reingresos"));
-                baseDatosReingresos = [];
-                querySnapshot.forEach((doc) => {
-                    const data = { id: doc.id, ...doc.data() };
-                    if (data.activo !== false) baseDatosReingresos.push(data);
-                });
-                baseDatosReingresos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                filtrarHistorialReingresos();
-            } catch (error) {
-                console.error(error);
-            }
-        };
-
-        window.cargarHistorialTraslados = async function() {
-            try {
-                const querySnapshot = await getDocsConTimeout(collection(db, "traslados"));
-                baseDatosTraslados = [];
-                querySnapshot.forEach((doc) => {
-                    const data = { id: doc.id, ...doc.data() };
-                    if (data.activo !== false) baseDatosTraslados.push(data);
-                });
-                baseDatosTraslados.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                filtrarHistorialTraslados();
-            } catch (error) {
-                console.error(error);
-            }
-        };
-
-        window.filtrarHistorialReingresos = function() {
-            const fSolicitante = document.getElementById('filtro-re-solicitante')?.value || '';
-            const fEntregado = document.getElementById('filtro-re-entregado')?.value || '';
-            const fFecha = document.getElementById('filtro-re-fecha')?.value || '';
-            const fTexto = (document.getElementById('busqueda-reingresos')?.value || '').toLowerCase().trim();
-
-            const filtrados = baseDatosReingresos.filter(r => {
-                const mSolicitante = fSolicitante === '' || r.solicitante === fSolicitante;
-                const mEntregado = fEntregado === '' || r.entregado === fEntregado;
-                const mFecha = fFecha === '' || r.fecha === fFecha;
-                const mTexto = fTexto === '' || (r.local || '').toLowerCase().includes(fTexto) ||
-                    (r.expedientes || []).some(e => (e.paquete || '').toLowerCase().includes(fTexto) || (e.exp || '').toLowerCase().includes(fTexto));
-                return mSolicitante && mEntregado && mFecha && mTexto;
-            });
-
-            renderTablaHistorialReingresos(filtrados);
-        };
-
-        window.filtrarHistorialTraslados = function() {
-            const fEntregado = document.getElementById('filtro-tr-entregado')?.value || '';
-            const fFecha = document.getElementById('filtro-tr-fecha')?.value || '';
-            const fTexto = (document.getElementById('busqueda-traslados')?.value || '').toLowerCase().trim();
-
-            const filtrados = baseDatosTraslados.filter(r => {
-                const mEntregado = fEntregado === '' || r.entregado === fEntregado;
-                const mFecha = fFecha === '' || r.fecha === fFecha;
-                const mTexto = fTexto === '' || (r.entregado || '').toLowerCase().includes(fTexto) ||
-                    (r.paquetes || []).some(e => (e.paqueteDesde || '').toLowerCase().includes(fTexto) || (e.paqueteHasta || '').toLowerCase().includes(fTexto) || (e.motivo || '').toLowerCase().includes(fTexto) || (e.repoSalida || '').toLowerCase().includes(fTexto) || (e.repoIngreso || '').toLowerCase().includes(fTexto));
-                return mEntregado && mFecha && mTexto;
-            });
-
-            renderTablaHistorialTraslados(filtrados);
-        };
-
-        function renderTablaHistorialReingresos(registros, resetPage = true) {
-            const tbody = document.getElementById('tabla-historial-reingresos');
-            if (!tbody) return;
-            estadoPaginacionConsultas.reingresos.datos = registros || [];
-            if (resetPage) estadoPaginacionConsultas.reingresos.pagina = 1;
-            const cfg = estadoPaginacionConsultas.reingresos;
-            const totalPaginas = Math.max(1, Math.ceil(cfg.datos.length / registrosPorPagina));
-            cfg.pagina = Math.min(cfg.pagina, totalPaginas);
-            tbody.innerHTML = '';
-            const inicio = (cfg.pagina - 1) * registrosPorPagina;
-            const pagina = cfg.datos.slice(inicio, inicio + registrosPorPagina);
-            if (pagina.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Sin reingresos registrados.</td></tr>`;
-            } else {
-                pagina.forEach(data => {
-                    const fila = `<tr>
-                        <td>${data.fecha || 'N/A'}</td>
-                        <td>${data.solicitante || 'N/A'}</td>
-                        <td>${data.local || 'N/A'}</td>
-                        <td>${data.entregado || 'N/A'}</td>
-                        <td>${data.expedientes ? data.expedientes.length : 0}</td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFReingresoDesdeRegistro('${data.id}')" title="Ver PDF"><i class="bi bi-file-pdf"></i></button>
-                            <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarReingreso('${data.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarReingreso('${data.id}')" title="Eliminar"><i class="bi bi-trash"></i></button>
-                        </td>
-                    </tr>`;
-                    tbody.insertAdjacentHTML('beforeend', fila);
-                });
-            }
-            renderControlesPaginacion('reingresos', cfg.datos.length);
-        }
-
-        function renderTablaHistorialTraslados(registros, resetPage = true) {
-            const tbody = document.getElementById('tabla-historial-traslados');
-            if (!tbody) return;
-            estadoPaginacionConsultas.traslados.datos = registros || [];
-            if (resetPage) estadoPaginacionConsultas.traslados.pagina = 1;
-            const cfg = estadoPaginacionConsultas.traslados;
-            const totalPaginas = Math.max(1, Math.ceil(cfg.datos.length / registrosPorPagina));
-            cfg.pagina = Math.min(cfg.pagina, totalPaginas);
-            tbody.innerHTML = '';
-            const inicio = (cfg.pagina - 1) * registrosPorPagina;
-            const pagina = cfg.datos.slice(inicio, inicio + registrosPorPagina);
-            if (pagina.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-5"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Sin traslados registrados.</td></tr>`;
-            } else {
-                pagina.forEach(data => {
-                    const totalPaqSuma = (data.paquetes || []).reduce((acc, p) => acc + (parseInt(p.cantidad, 10) || 1), 0);
-                    const fila = `<tr>
-                        <td>${data.fecha || 'N/A'}</td>
-                        <td>${data.entregado || 'N/A'}</td>
-                        <td>${totalPaqSuma}</td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.generarPDFTrasladoDesdeRegistro('${data.id}')" title="Ver PDF"><i class="bi bi-file-pdf"></i></button>
-                            <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarTraslado('${data.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarTraslado('${data.id}')" title="Eliminar"><i class="bi bi-trash"></i></button>
-                        </td>
-                    </tr>`;
-                    tbody.insertAdjacentHTML('beforeend', fila);
-                });
-            }
-            renderControlesPaginacion('traslados', cfg.datos.length);
-        }
-
-        async function construirPDFReingreso({ correlativo, fecha, solicitante, local, entregado, expedientes }) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = doc.internal.pageSize.getWidth();
-
-            const logoData = await obtenerLogoArchivoBase64();
-            if (logoData) {
-                doc.addImage(logoData, 'PNG', 15, 10, 18, 18);
-            }
-
-            doc.setFont("Inter", "bold"); doc.setTextColor(20, 20, 20); doc.setFontSize(11);
-            doc.text("REPORTE DE EXPEDIENTES REINGRESADOS", pageWidth / 2, 16, { align: "center" });
-
-            doc.setFont("Inter", "bold"); doc.setTextColor(128, 0, 0); doc.setFontSize(9.5);
-            doc.text("SAAMIR - Sistema de Administración de Archivos, Microformas, Inventario y Reportes", pageWidth / 2, 22, { align: "center" });
-
-            doc.setDrawColor(128, 0, 0); doc.setLineWidth(0.4);
-            doc.line(15, 27, pageWidth - 15, 27);
-
-            doc.setFont("Inter", "bold"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
-            doc.text(`Correlativo (ID): ${String(correlativo).padStart(3, '0')}`, 15, 34);
-            doc.text(`Fecha: ${fecha}`, pageWidth - 15, 34, { align: "right" });
-            doc.text(`Solicitante: ${solicitante}`, 15, 40);
-            doc.text(`Local de Reingreso: ${local}`, pageWidth - 15, 40, { align: "right" });
-            doc.text(`Entregado por: ${entregado}`, 15, 46);
-
-            let totalTransitorio = 0;
-            let totalDefinitivo = 0;
-            let totalAcompanados = 0;
-
-            const filasTabla = expedientes.map((e, idx) => {
-                if (e.tipo === 'Transitorio') totalTransitorio++;
-                if (e.tipo === 'Definitivo') totalDefinitivo++;
-                totalAcompanados += parseInt(e.acomp, 10) || 0;
-
-                return [
-                    (idx + 1).toString(), 
-                    e.paquete || '-', 
-                    e.exp || '-', 
-                    e.folios || '0', 
-                    e.juzgado || '-', 
-                    e.tipo || 'Transitorio', 
-                    e.acomp || '0', 
-                    local
-                ];
-            });
-
-            doc.autoTable({
-                startY: 50,
-                margin: { left: 15, right: 15 },
-                theme: 'grid',
-                head: [['N°', 'N° Paquete', 'N° Expediente', 'Folios', 'Juzgado', 'Tipo', 'Acompañados', 'Repositorio']],
-                body: filasTabla,
-                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontSize: 8.5, halign: 'center' },
-                styles: { fontSize: 8, font: 'Inter', halign: 'center', cellPadding: 2 }
-            });
-
-            let currentY = doc.lastAutoTable.finalY + 8;
-            doc.setFont("Inter", "bold"); doc.setFontSize(8.5); doc.setTextColor(0, 0, 0);
-            doc.text(`Total AT (Archivamiento Transitorio): ${totalTransitorio}`, 15, currentY);
-            doc.text(`Total AD (Archivamiento Definitivo): ${totalDefinitivo}`, pageWidth / 2, currentY);
-            
-            currentY += 5;
-            doc.text(`Total Expedientes: ${expedientes.length}`, 15, currentY);
-            currentY += 5;
-            doc.text(`Total Acompañados: ${totalAcompanados}`, 15, currentY);
-
-            currentY += 20;
-            if (currentY > 255) { doc.addPage(); currentY = 30; }
-
-            doc.setLineWidth(0.3);
-            doc.line(35, currentY, 95, currentY);
-            doc.line(115, currentY, 175, currentY);
-
-            currentY += 4;
-            doc.setFont("Inter", "bold"); doc.setFontSize(8);
-            doc.text(`Entregado por: ${entregado}`, 65, currentY, { align: "center" });
-            doc.text(`Recibido por: ${solicitante}`, 145, currentY, { align: "center" });
-
-            const blobUrl = doc.output('bloburl');
-            mostrarModalPreviewPDF(blobUrl, `REINGRESOS_${String(correlativo).padStart(3, '0')}_${fecha}.pdf`);
-        };
-
-        async function construirPDFTraslado({ correlativo, fecha, entregado, recibe, paquetes }) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = doc.internal.pageSize.getWidth();
-
-            const logoData = await obtenerLogoArchivoBase64();
-            if (logoData) {
-                doc.addImage(logoData, 'PNG', 15, 10, 18, 18);
-            }
-
-            doc.setFont("Inter", "bold"); doc.setTextColor(20, 20, 20); doc.setFontSize(11);
-            doc.text("FORMATO DE TRASLADO DE PAQUETES", pageWidth / 2, 16, { align: "center" });
-
-            doc.setFont("Inter", "bold"); doc.setTextColor(128, 0, 0); doc.setFontSize(9.5);
-            doc.text("SAAMIR - Sistema de Administración de Archivos, Microformas, Inventario y Reportes", pageWidth / 2, 22, { align: "center" });
-
-            doc.setDrawColor(128, 0, 0); doc.setLineWidth(0.4);
-            doc.line(15, 27, pageWidth - 15, 27);
-
-            doc.setFont("Inter", "bold"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
-            doc.text(`Correlativo (ID): ${String(correlativo).padStart(3, '0')}`, 15, 34);
-            doc.text(`Fecha: ${fecha}`, pageWidth - 15, 34, { align: "right" });
-            doc.text(`Entregado por: ${entregado}`, 15, 40);
-            doc.text(`Recibido por: ${recibe || 'N/A'}`, pageWidth - 15, 40, { align: "right" });
-
-            let sumaTotalPaq = 0;
-            const filasTabla = paquetes.map((e, idx) => {
-                const rangoStr = e.rangoTexto || (e.paqueteDesde && e.paqueteHasta ? (e.paqueteDesde === e.paqueteHasta ? e.paqueteDesde : `${e.paqueteDesde} al ${e.paqueteHasta}`) : (e.paquete || '-'));
-                const cant = parseInt(e.cantidad, 10) || 1;
-                sumaTotalPaq += cant;
-
-                return [
-                    (idx + 1).toString(),
-                    rangoStr,
-                    cant.toString(),
-                    e.juzgado || '-',
-                    e.repoSalida || '-',
-                    e.repoIngreso || '-',
-                    e.motivo || '-'
-                ];
-            });
-
-            doc.autoTable({
-                startY: 45,
-                margin: { left: 15, right: 15 },
-                theme: 'grid',
-                head: [['Ítem', 'Rango Paquetes', 'Cant.', 'Juzgado', 'Repo. Salida', 'Repo. Ingreso', 'Motivo']],
-                body: filasTabla,
-                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontSize: 8.5, halign: 'center' },
-                styles: { fontSize: 8, font: 'Inter', halign: 'center', cellPadding: 2 }
-            });
-
-            let currentY = doc.lastAutoTable.finalY + 8;
-            doc.setFont("Inter", "bold"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
-            doc.text(`Total general de paquetes trasladados: ${sumaTotalPaq}`, 15, currentY);
-
-            currentY += 25;
-            if (currentY > 255) { doc.addPage(); currentY = 30; }
-
-            doc.setLineWidth(0.3);
-            doc.line(35, currentY, 95, currentY);
-            doc.line(115, currentY, 175, currentY);
-
-            currentY += 4;
-            doc.setFont("Inter", "bold"); doc.setFontSize(8);
-            doc.text(`Entregado por: ${entregado}`, 65, currentY, { align: "center" });
-            doc.text(`Recibido por: ${recibe || 'N/A'}`, 145, currentY, { align: "center" });
-
-            const blobUrl = doc.output('bloburl');
-            mostrarModalPreviewPDF(blobUrl, `TRASLADO_${String(correlativo).padStart(3, '0')}_${fecha}.pdf`);
-        }
-
-        // IMPORTANTE: "Generar PDF" ya NO calcula un correlativo aparte ni arma
-        // el PDF de forma independiente del guardado. Apunta al mismo flujo que
-        // "Guardar Registro" (guardar en Firestore primero, PDF después) para
-        // que sea imposible que exista un PDF con un correlativo que no llegó
-        // a grabarse en la base de datos.
-        window.generarReporteReingresoPDF = procesarYGuardarReingreso;
-        window.generarReporteTrasladoPDF = procesarYGuardarTraslado;
-
-        window.generarPDFReingresoDesdeRegistro = async function(id) {
-            const registro = baseDatosReingresos.find(r => r.id === id);
-            if (!registro) return;
-            await construirPDFReingreso({
-                correlativo: registro.correlativo ?? '-',
-                fecha: registro.fecha,
-                solicitante: registro.solicitante,
-                local: registro.local,
-                entregado: registro.entregado,
-                expedientes: registro.expedientes || []
-            });
-        };
-
-        window.generarPDFTrasladoDesdeRegistro = async function(id) {
-            const registro = baseDatosTraslados.find(r => r.id === id);
-            if (!registro) return;
-            await construirPDFTraslado({
-                correlativo: registro.correlativo ?? '-',
-                fecha: registro.fecha,
-                entregado: registro.entregado,
-                recibe: registro.recibe,
-                paquetes: registro.paquetes || []
-            });
-        };
-
-        window.generarPDFMicroformasInstitucional = async function() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
-            const pageWidth = doc.internal.pageSize.getWidth();
-
-            const logoData = await obtenerLogoArchivoBase64();
-            if (logoData) {
-                doc.addImage(logoData, 'PNG', 15, 10, 18, 18);
-            }
-
-            doc.setFont("Inter", "bold");
-            doc.setFontSize(11);
-            doc.setTextColor(40, 40, 40);
-            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 16, { align: "center" });
-
-            doc.setFontSize(9.5);
-            doc.setFont("Inter", "normal");
-            doc.text("Archivo Desconcentrado - Línea de Producción de Microformas Digitales", pageWidth / 2, 21, { align: "center" });
-
-            doc.setFont("Inter", "bold");
-            doc.setFontSize(11);
-            doc.setTextColor(128, 0, 0);
-            doc.text("CONTROL DE PRODUCCIÓN DE MICROFORMAS DIGITALES", pageWidth / 2, 27, { align: "center" });
-
-            doc.setLineWidth(0.4);
-            doc.setDrawColor(128, 0, 0);
-            doc.line(15, 31, pageWidth - 15, 31);
-
-            if (baseDatosMicroformas.length === 0) {
-                Swal.fire('Atención', 'No hay registros de microformas para generar el PDF.', 'warning');
-                return;
-            }
-
-            const aNumero = (valor) => {
-                if (valor === null || valor === undefined || valor === '') return 0;
-                if (typeof valor === 'number') return valor;
-                const limpio = String(valor).replace(/[^\d-]/g, '');
-                const n = parseInt(limpio, 10);
-                return isNaN(n) ? 0 : n;
-            };
-
-            const normalizarRango = (texto) => {
-                if (!texto) return texto;
-                return String(texto).split(' y del ').map(parte => {
-                    const m = parte.trim().match(/^(.+?)\s+al\s+(.+)$/i);
-                    if (m) {
-                        const desde = m[1].trim();
-                        const hasta = m[2].trim();
-                        return desde === hasta ? desde : `${desde} al ${hasta}`;
-                    }
-                    return parte.trim();
-                }).join(' y del ');
-            };
-
-            let sumaPaquetes = 0;
-            let sumaFolios = 0;
-            let sumaImagenes = 0;
-            let sumaRegistros = 0;
-            let sumaExpedientes = 0;
-
-            const filas = baseDatosMicroformas.map(item => {
-                const fIni = item.fecInicio ? item.fecInicio.split('-').reverse().join('/') : '';
-                const fFin = item.fecFin ? item.fecFin.split('-').reverse().join('/') : '';
-                const fGrab = item.fecGrabacion ? item.fecGrabacion.split('-').reverse().join('/') : '';
-
-                const textoRangoBase = item.rango || (
-                    item.paqueteDesde && item.paqueteHasta
-                        ? (item.paqueteDesde === item.paqueteHasta
-                            ? `${item.paqueteDesde}`
-                            : `${item.paqueteDesde} al ${item.paqueteHasta}`)
-                        : 'N/A'
-                );
-                const textoRango = normalizarRango(textoRangoBase);
-
-                const cantPaquetes = aNumero(item.cantPaquetes);
-                const folios = aNumero(item.folios);
-                const imagenes = aNumero(item.imagenes);
-                const registros = aNumero(item.registros);
-                const expedientes = aNumero(item.expedientes);
-
-                sumaPaquetes += cantPaquetes;
-                sumaFolios += folios;
-                sumaImagenes += imagenes;
-                sumaRegistros += registros;
-                sumaExpedientes += expedientes;
-
-                return [
-                    item.bloque ?? 'N/A',
-                    textoRango,
-                    cantPaquetes,
-                    item.juzgado || 'N/A',
-                    folios,
-                    imagenes,
-                    registros,
-                    expedientes,
-                    item.mes || 'N/A',
-                    fIni,
-                    fFin,
-                    fGrab
-                ];
-            });
-
-            filas.push([
-                'TOTAL',
-                '-',
-                sumaPaquetes,
-                '-',
-                sumaFolios,
-                sumaImagenes,
-                sumaRegistros,
-                sumaExpedientes,
-                '-',
-                '-',
-                '-',
-                '-'
-            ]);
-
-            doc.autoTable({
-                startY: 38,
-                margin: { left: 15, right: 15 },
-                theme: 'grid',
-                tableWidth: 267,
-                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8 },
-                styles: { fontSize: 7.5, font: 'Inter', cellPadding: 2, halign: 'center', overflow: 'linebreak', valign: 'middle' },
-                columnStyles: {
-                    0: { cellWidth: 18 },
-                    1: { cellWidth: 32 },
-                    2: { cellWidth: 16 },
-                    3: { cellWidth: 51 },
-                    4: { cellWidth: 18 },
-                    5: { cellWidth: 18 },
-                    6: { cellWidth: 18 },
-                    7: { cellWidth: 16 },
-                    8: { cellWidth: 20 },
-                    9: { cellWidth: 20 },
-                    10: { cellWidth: 20 },
-                    11: { cellWidth: 20 }
-                },
-                head: [[
-                    { content: 'BLOQUE', rowSpan: 2 },
-                    { content: 'RANGO PAQUETES', rowSpan: 2 },
-                    { content: 'CANT. PAQ.', rowSpan: 2 },
-                    { content: 'JUZGADO', rowSpan: 2 },
-                    { content: 'FOLIOS / IMÁGENES', colSpan: 2 },
-                    { content: 'TOTAL REG.', rowSpan: 2 },
-                    { content: 'CANT. EXP.', rowSpan: 2 },
-                    { content: 'MES', rowSpan: 2 },
-                    { content: 'FECHAS', colSpan: 2 },
-                    { content: 'GRABACIÓN', rowSpan: 2 }
-                ],
-                [
-                    'FOLIOS',
-                    'IMÁGENES',
-                    'INICIO',
-                    'FIN'
-                ]],
-                body: filas
-            });
-
-            let currentY = doc.lastAutoTable.finalY + 28;
-            if (currentY > 180) { doc.addPage(); currentY = 30; }
-
-            doc.setLineWidth(0.3);
-            doc.line(70, currentY, 140, currentY);
-            doc.line(160, currentY, 230, currentY);
-
-            currentY += 4;
-            doc.setFont("Inter", "bold");
-            doc.setFontSize(8);
-            doc.text("VALIDADO POR JEFATURA", 195, currentY, { align: "center" });
-
-            currentY += 4;
-            doc.setFont("Inter", "bold");
-            doc.setFontSize(7.5);
-            doc.text(NOMBRE_SUPERVISOR_LPMD, 105, currentY, { align: "center" });
-            doc.text("RESPONSABLE DE ARCHIVO DESCONCENTRADO", 195, currentY, { align: "center" });
-
-            currentY += 3.5;
-            doc.setFont("Inter", "normal");
-            doc.setFontSize(7);
-            doc.text("SUPERVISOR DE LA LÍNEA DE PRODUCCIÓN DE MICROFORMAS DIGITALES (LPMD)", 105, currentY, { align: "center" });
-
-            currentY += 3.5;
-            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", 105, currentY, { align: "center" });
-
-            currentY += 8;
-            const fechaGeneracionMf = new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            doc.setFont("Inter", "italic");
-            doc.setFontSize(7.5);
-            doc.setTextColor(90, 90, 90);
-            doc.text(`Fecha de creación / impresión: ${fechaGeneracionMf}`, pageWidth / 2, currentY, { align: "center" });
-
-            const blobUrl = doc.output('bloburl');
-            const fechaHoy = new Date().toISOString().split('T')[0];
-            mostrarModalPreviewPDF(blobUrl, `CONTROL_MICROFORMAS_${fechaHoy}.pdf`);
-        };
-
-        window.generarPDFDashboardGlobal = async function() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-            const pageWidth = doc.internal.pageSize.getWidth();
-
-            const logoData = await obtenerLogoArchivoBase64();
-            if (logoData) {
-                doc.addImage(logoData, 'PNG', 15, 10, 18, 18);
-            }
-
-            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(40, 40, 40);
-            doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", pageWidth / 2, 16, { align: "center" });
-            doc.setFontSize(9.5); doc.setFont("Inter", "normal");
-            doc.text("Archivo Desconcentrado - Dashboard Global Institucional", pageWidth / 2, 21, { align: "center" });
-
-            doc.setFont("Inter", "bold"); doc.setFontSize(11); doc.setTextColor(128, 0, 0); 
-            doc.text("SAAMIR - REPORTE EJECUTIVO GLOBAL", pageWidth / 2, 27, { align: "center" });
-            doc.setLineWidth(0.4); doc.setDrawColor(128, 0, 0); doc.line(15, 31, pageWidth - 15, 31);
-
-            let sT = document.getElementById('dash-total-teorico').innerText;
-            let sF = document.getElementById('dash-total-faltantes').innerText;
-            let sR = document.getElementById('dash-total-real').innerText;
-            let pI = document.getElementById('dash-porcentaje').innerText;
-
-            let mB = document.getElementById('dash-micro-bloques').innerText;
-            let mP = document.getElementById('dash-micro-paquetes').innerText;
-            let mE = document.getElementById('dash-micro-expedientes').innerText;
-            let mIm = document.getElementById('dash-micro-imagenes').innerText;
-            let mFo = document.getElementById('dash-micro-folios').innerText;
-
-            let rM = document.getElementById('dash-reingresos-mes').innerText;
-            let rH = document.getElementById('dash-reingresos-hoy').innerText;
-            let tA = document.getElementById('dash-total-acompanados').innerText;
-
-            doc.setFont("Inter", "bold"); doc.setFontSize(9.5); doc.setTextColor(0, 0, 0);
-            doc.text("1. RESUMEN DE INVENTARIO INSTITUCIONAL", 15, 39);
-
-            doc.autoTable({
-                startY: 42,
-                margin: { left: 15, right: 15 },
-                theme: 'grid',
-                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8.5 },
-                styles: { fontSize: 8, font: 'Inter', halign: 'center' },
-                head: [['Total Teórico General', 'Total Faltantes Excluidos', 'Total Real en Custodia', 'Porcentaje de Integridad']],
-                body: [[sT, sF, sR, pI]]
-            });
-
-            let currentY = doc.lastAutoTable.finalY + 10;
-            doc.setFont("Inter", "bold"); doc.setFontSize(9.5);
-            doc.text("2. PRODUCCIÓN DE MICROFORMAS DIGITALES (ACUMULADO)", 15, currentY);
-
-            doc.autoTable({
-                startY: currentY + 3,
-                margin: { left: 15, right: 15 },
-                theme: 'grid',
-                headStyles: { fillColor: [40, 40, 40], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8.5 },
-                styles: { fontSize: 8, font: 'Inter', halign: 'center' },
-                head: [['Bloques', 'Paquetes', 'Expedientes', 'Imágenes', 'Folios']],
-                body: [[mB, mP, mE, mIm, mFo]]
-            });
-
-            currentY = doc.lastAutoTable.finalY + 10;
-            doc.setFont("Inter", "bold"); doc.setFontSize(9.5);
-            doc.text("3. MÉTRICAS OPERATIVAS DE REINGRESOS", 15, currentY);
-
-            doc.autoTable({
-                startY: currentY + 3,
-                margin: { left: 15, right: 15 },
-                theme: 'grid',
-                headStyles: { fillColor: [90, 90, 90], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8.5 },
-                styles: { fontSize: 8, font: 'Inter', halign: 'center' },
-                head: [['Reingresos del Mes', 'Reingresos de Hoy', 'Total Acompañados']],
-                body: [[rM, rH, tA]]
-            });
-
-            currentY = doc.lastAutoTable.finalY + 12;
-            if (currentY > 270) { doc.addPage(); currentY = 30; }
-
-            const fechaGeneracion = new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            doc.setFont("Inter", "italic"); doc.setFontSize(7.5); doc.setTextColor(90, 90, 90);
-            doc.text(`Fecha de creación / impresión: ${fechaGeneracion}`, pageWidth / 2, currentY, { align: "center" });
-
-            const blobUrl = doc.output('bloburl');
-            const fechaHoy = new Date().toISOString().split('T')[0];
-            mostrarModalPreviewPDF(blobUrl, `REPORTE_GLOBAL_${fechaHoy}.pdf`);
-        };
-
-        // MOTOR DE GENERACIÓN DE TARJETAS DE PAQUETES (PDF HORIZONTAL 2x1)
-        // Rediseñado para replicar el formato físico real: logo del Archivo
-        // Desconcentrado en la esquina superior izquierda, logo oficial del
-        // Poder Judicial del Perú en la esquina superior derecha, título
-        // institucional centrado, y tipografía/tamaños alineados al modelo.
-        async function construirPDFTarjetas({ anioIngreso, personal, tipoArchivo, repositorio, juzgado, juez, fechaRecepcion, oficio, paquetesData }) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' }); // Horizontal (landscape: 297 x 210 mm)
-
-            const FUENTE = 'helvetica';
-
-            const [logoArchivo, logoPJ] = await Promise.all([
-                obtenerImagenBase64('LOGO_PJ-AD.png'),
-                obtenerImagenBase64('LOGO_PJ.jpg')
-            ]);
-
-            // Formatea la fecha ISO (yyyy-mm-dd) que llega del <input type="date">
-            // o que quedó guardada en la base de datos, al formato solicitado DD-MM-AA.
-            const formatearFechaDDMMAA = (fechaISO) => {
-                if (!fechaISO) return '';
-                const partes = String(fechaISO).split('-');
-                if (partes.length !== 3) return fechaISO;
-                const [anio, mes, dia] = partes;
-                return `${dia}-${mes}-${anio.slice(-2)}`;
-            };
-            const fechaRecepcionFormateada = formatearFechaDDMMAA(fechaRecepcion);
-
-            const dibujarTarjeta = (x, y, dataPaquete) => {
-                const w = 130;
-                const h = 190;
-
-                doc.setDrawColor(0, 0, 0);
-                doc.setLineWidth(0.4);
-                doc.setFillColor(255, 255, 255);
-                doc.rect(x, y, w, h, 'FD');
-
-                // Logo del Archivo Desconcentrado (esquina superior izquierda)
-                if (logoArchivo) {
-                    const lado = 20;
-                    doc.addImage(logoArchivo.data, 'PNG', x + 4, y + 3, lado, lado * (logoArchivo.h / logoArchivo.w));
-                }
-
-                // Logo oficial del Poder Judicial del Perú (esquina superior derecha)
-                if (logoPJ) {
-                    const anchoLogo = 18;
-                    const altoLogo = anchoLogo * (logoPJ.h / logoPJ.w);
-                    doc.addImage(logoPJ.data, 'JPEG', x + w - 4 - anchoLogo, y + 4, anchoLogo, altoLogo);
-                }
-
-                doc.setFont(FUENTE, 'bold');
-                doc.setFontSize(11.5);
-                doc.setTextColor(0, 0, 0);
-                doc.text("PODER JUDICIAL DEL PERÚ", x + w / 2, y + 9, { align: "center" });
-
-                doc.setFontSize(7.5);
-                doc.text("CORTE SUPERIOR DE JUSTICIA DEL SANTA", x + w / 2, y + 13.5, { align: "center" });
-                doc.text("ARCHIVO DESCONCENTRADO", x + w / 2, y + 17.5, { align: "center" });
-
-                doc.setDrawColor(0, 0, 0);
-                doc.setLineWidth(0.3);
-                doc.line(x + 4, y + 21, x + w - 4, y + 21);
-
-                let cursorY = y + 24.5;
-                const altoFila = 12.5;
-
-                // Reduce progresivamente el tamaño de fuente hasta que el texto
-                // quepa dentro del ancho disponible de la casilla (evita que un
-                // Juzgado con nombre largo se salga de su recuadro).
-                const ajustarFuenteAncho = (texto, fontSizeIdeal, anchoDisponible, fontMin = 7) => {
-                    doc.setFont(FUENTE, 'bold');
-                    let fs = fontSizeIdeal;
-                    doc.setFontSize(fs);
-                    const textoStr = String(texto || '');
-                    while (fs > fontMin && doc.getTextWidth(textoStr) > anchoDisponible) {
-                        fs -= 0.5;
-                        doc.setFontSize(fs);
-                    }
-                    return fs;
-                };
-
-                const filaDato = (label, valor, fontSizeValor = 10) => {
-                    doc.setFont(FUENTE, 'bold');
-                    doc.setFontSize(8);
-                    doc.setTextColor(0, 0, 0);
-                    doc.text(label, x + 5, cursorY + 4.5);
-
-                    doc.setDrawColor(0, 0, 0);
-                    doc.setFillColor(248, 248, 248);
-                    doc.rect(x + 42, cursorY, w - 47, altoFila, 'FD');
-
-                    const textoValor = String(valor || '');
-                    const anchoDisponible = (w - 47) - 4;
-                    ajustarFuenteAncho(textoValor, fontSizeValor, anchoDisponible);
-                    doc.setTextColor(0, 0, 0);
-                    doc.text(textoValor, x + 42 + ((w - 47) / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
-                    cursorY += altoFila + 3;
-                };
-
-                filaDato("TIPO DE ARCHIVO", tipoArchivo);
-                filaDato("JUZGADO", juzgado, 16);
-                filaDato("JUEZ", juez);
-
-                // Paquete N° (Doble caja año / número) - datos clave en letra
-                // más grande, ya que son los campos de identificación rápida
-                // del paquete físico.
-                doc.setFont(FUENTE, 'bold');
-                doc.setFontSize(8);
-                doc.setTextColor(0, 0, 0);
-                doc.text("PAQUETE N°", x + 5, cursorY + 4.5);
-
-                const halfW = (w - 47) / 2;
-                doc.setDrawColor(0, 0, 0);
-                doc.setFillColor(248, 248, 248);
-                doc.rect(x + 42, cursorY, halfW, altoFila, 'FD');
-                doc.rect(x + 42 + halfW, cursorY, halfW, altoFila, 'FD');
-
-                const anchoDisponibleDoble = halfW - 4;
-                const fsAnio = ajustarFuenteAncho(anioIngreso, 18, anchoDisponibleDoble);
-                const fsPaq = ajustarFuenteAncho(dataPaquete.nroPaq, 18, anchoDisponibleDoble);
-
-                doc.setFont(FUENTE, 'bold');
-                doc.setFontSize(fsAnio);
-                doc.setTextColor(0, 0, 0);
-                doc.text(String(anioIngreso || ''), x + 42 + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
-                doc.setFontSize(fsPaq);
-                doc.text(String(dataPaquete.nroPaq || ''), x + 42 + halfW + (halfW / 2), cursorY + (altoFila / 2) + 1.3, { align: "center" });
-
-                doc.setFont(FUENTE, 'normal');
-                doc.setFontSize(5.5);
-                doc.setTextColor(0, 0, 0);
-                doc.text("AÑO DE INGRESO", x + 42 + (halfW / 2), cursorY + altoFila + 3, { align: "center" });
-                doc.text("NÚMERO PAQUETE", x + 42 + halfW + (halfW / 2), cursorY + altoFila + 3, { align: "center" });
-
-                cursorY += altoFila + 5.5;
-
-                filaDato("CANT. EXPEDIENTES", dataPaquete.cantExp);
-                filaDato("AÑO EXPEDIENTES", dataPaquete.anioExp);
-                filaDato("DOC. ING. ARCHIVO", oficio);
-                filaDato("FECHA RECEPCIÓN", fechaRecepcionFormateada);
-                filaDato("TRABAJADO POR", personal);
-                filaDato("REPOSITORIO", repositorio);
-            };
-
-            for (let i = 0; i < paquetesData.length; i += 2) {
-                if (i > 0) doc.addPage();
-
-                const yPos = 9;
-                dibujarTarjeta(14, yPos, paquetesData[i]);
-
-                if (i + 1 < paquetesData.length) {
-                    dibujarTarjeta(153, yPos, paquetesData[i + 1]);
-
-                    // Línea punteada guía de corte, justo al centro entre
-                    // ambas tarjetas, para cortar la hoja después de
-                    // enmicarla (laminarla).
-                    const pageHeight = doc.internal.pageSize.getHeight();
-                    const xCentro = (14 + 130 + 153) / 2; // centro entre el borde derecho de la 1ra y el borde izquierdo de la 2da
-                    doc.setDrawColor(0, 0, 0);
-                    doc.setLineWidth(0.3);
-                    doc.setLineDashPattern([2, 1.5], 0);
-                    doc.line(xCentro, 0, xCentro, pageHeight);
-                    doc.setLineDashPattern([], 0); // se restablece la línea sólida para el resto del PDF
-                }
-            }
-
-            const blobUrl = doc.output('bloburl');
-            return blobUrl;
-        }
-
-        window.guardarYGenerarPDFTarjetas = async function() {
-            const anioIngreso = document.getElementById('tar-anio-ingreso').value;
-            const personal = document.getElementById('tar-personal').value;
-            const tipoArchivo = document.getElementById('tar-tipo-archivo').value;
-            const repositorio = document.getElementById('tar-repositorio').value;
-            const juzgado = document.getElementById('tar-juzgado').value.trim().toUpperCase();
-            const juez = document.getElementById('tar-juez').value.trim().toUpperCase();
-            const fechaRecepcionRaw = document.getElementById('tar-fecha-recepcion').value;
-            const oficio = document.getElementById('tar-oficio').value.trim().toUpperCase();
-
-            const filas = document.querySelectorAll('#tabla-tarjetas-detalles tbody tr:not(#tarjetas-fila-vacia)');
-            if (filas.length === 0) {
-                Swal.fire('Atención', 'Agregue al menos una fila de paquete en la tabla.', 'warning');
-                return;
-            }
-
-            const paquetesData = [];
-            filas.forEach(tr => {
-                const nroPaq = tr.querySelector('.tar-nro-paq').value.trim();
-                const cantExp = tr.querySelector('.tar-cant-exp').value.trim();
-                const anioExp = tr.querySelector('.tar-anio-exp').value.trim();
-                if (nroPaq) {
-                    paquetesData.push({ nroPaq, cantExp: cantExp || '0', anioExp: anioExp || '-' });
-                }
-            });
-
-            if (paquetesData.length === 0) {
-                Swal.fire('Atención', 'Ingrese al menos un número de paquete válido en las filas.', 'warning');
-                return;
-            }
-
-            const currentUserObj = auth.currentUser;
-            const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-            const datosTarjeta = {
-                anioIngreso,
-                personal,
-                tipoArchivo,
-                repositorio,
-                juzgado,
-                juez,
-                fechaRecepcion: fechaRecepcionRaw,
-                oficio,
-                paquetesData
-            };
-
-            try {
-                let tarjetaLote;
-                if (idTarjetaEnEdicion) {
-                    datosTarjeta.auditoriaEdicion = { nombre: currentUserName, timestamp: Date.now() };
-                    await updateDoc(doc(db, "tarjetas_paquetes", idTarjetaEnEdicion), datosTarjeta);
-                    tarjetaLote = datosTarjeta;
-                    Swal.fire({ icon: 'success', title: 'Bloque de Tarjetas Actualizado', text: 'Los cambios se guardaron correctamente.' });
-                } else {
-                    tarjetaLote = {
-                        ...datosTarjeta,
-                        createdAt: Date.now(),
-                        activo: true,
-                        auditoria: { nombre: currentUserName, timestamp: Date.now() }
-                    };
-                    await addDoc(collection(db, "tarjetas_paquetes"), tarjetaLote);
-                }
-
-                const blobUrl = await construirPDFTarjetas(tarjetaLote);
-                const fechaHoy = new Date().toISOString().split('T')[0];
-                mostrarModalPreviewPDF(blobUrl, `TARJETAS_PAQUETES_${fechaHoy}.pdf`);
-                resetFormularioTarjetas();
-                await cargarHistorialTarjetas();
-                switchView('view-consultas-tarjetas', 'Consultar Historial de Tarjetas');
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            }
-        };
-
-        async function cargarHistorialTarjetas() {
-            try {
-                const querySnapshot = await getDocsConTimeout(collection(db, "tarjetas_paquetes"));
-                baseDatosTarjetas = [];
-                querySnapshot.forEach((docSnap) => {
-                    const data = { id: docSnap.id, ...docSnap.data() };
-                    if (data.activo !== false) baseDatosTarjetas.push(data);
-                });
-                baseDatosTarjetas.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                filtrarHistorialTarjetas();
-            } catch (error) {
-                console.error(error);
-            }
-        }
-
-        window.filtrarHistorialTarjetas = function() {
-            const fJuzgado = (document.getElementById('filtro-tar-juzgado')?.value || '').toLowerCase().trim();
-            const fRepo = document.getElementById('filtro-tar-repositorio')?.value || '';
-            const fTexto = (document.getElementById('busqueda-tarjetas')?.value || '').toLowerCase().trim();
-
-            const filtrados = baseDatosTarjetas.filter(t => {
-                const mJuzgado = fJuzgado === '' || (t.juzgado || '').toLowerCase().includes(fJuzgado);
-                const mRepo = fRepo === '' || t.repositorio === fRepo;
-                const mTexto = fTexto === '' || 
-                    (t.juez || '').toLowerCase().includes(fTexto) ||
-                    (t.oficio || '').toLowerCase().includes(fTexto) ||
-                    (t.personal || '').toLowerCase().includes(fTexto);
-                return mJuzgado && mRepo && mTexto;
-            });
-
-            renderTablaHistorialTarjetas(filtrados);
-        };
-
-        function renderTablaHistorialTarjetas(registros, resetPage = true) {
-            const tbody = document.getElementById('tabla-historial-tarjetas');
-            if (!tbody) return;
-            estadoPaginacionConsultas.tarjetas.datos = registros || [];
-            if (resetPage) estadoPaginacionConsultas.tarjetas.pagina = 1;
-            const cfg = estadoPaginacionConsultas.tarjetas;
-            const totalPaginas = Math.max(1, Math.ceil(cfg.datos.length / registrosPorPagina));
-            cfg.pagina = Math.min(cfg.pagina, totalPaginas);
-            tbody.innerHTML = '';
-            const inicio = (cfg.pagina - 1) * registrosPorPagina;
-            const pagina = cfg.datos.slice(inicio, inicio + registrosPorPagina);
-            if (pagina.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Sin bloques de tarjetas registrados.</td></tr>`;
-            } else {
-                pagina.forEach(data => {
-                    const fechaStr = data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A';
-                    const totalPaq = data.paquetesData ? data.paquetesData.length : 0;
-                    const fila = `<tr>
-                        <td>${fechaStr}</td>
-                        <td><strong>${data.juzgado || 'N/A'}</strong><br><small class="text-muted">${data.juez || ''}</small></td>
-                        <td><span class="badge bg-secondary">${data.tipoArchivo || ''}</span><br><small>${data.repositorio || ''}</small></td>
-                        <td class="text-center fw-bold">${totalPaq}</td>
-                        <td>${data.personal || 'N/A'}</td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-outline-primary py-1 px-2 me-1" onclick="window.editarTarjeta('${data.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-danger py-1 px-2 me-1" onclick="window.reimprimirTarjeta('${data.id}')" title="Generar PDF"><i class="bi bi-file-pdf"></i></button>
-                            <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="window.eliminarTarjeta('${data.id}')" title="Eliminar"><i class="bi bi-trash"></i></button>
-                        </td>
-                    </tr>`;
-                    tbody.insertAdjacentHTML('beforeend', fila);
-                });
-            }
-            renderControlesPaginacion('tarjetas', cfg.datos.length);
-        }
-
-        async function abrirPDFTarjetaPorId(id) {
-            try {
-                const lote = baseDatosTarjetas.find(t => t.id === id);
-                if (!lote) {
-                    await Swal.fire('Atención', 'No se encontró el registro de la tarjeta.', 'warning');
-                    return;
-                }
-                if (!window.jspdf || !window.jspdf.jsPDF) {
-                    await Swal.fire('Error', 'El generador PDF todavía no está disponible. Espere unos segundos y vuelva a intentarlo.', 'error');
-                    return;
-                }
-                const blobUrl = await construirPDFTarjetas(lote);
-                if (!blobUrl) throw new Error('No se pudo generar la vista previa del PDF.');
-                mostrarModalPreviewPDF(blobUrl, `TARJETAS_${lote.juzgado || 'LOTE'}.pdf`);
-            } catch (error) {
-                console.error('SAAMIR: error al abrir PDF de tarjeta:', error);
-                Swal.fire('Error', `No se pudo abrir el PDF: ${error.message || error}`, 'error');
-            }
-        }
-
-        // Compatibilidad con el botón de la tabla, que utiliza el nombre singular.
-        window.reimprimirTarjeta = abrirPDFTarjetaPorId;
-        window.reimprimirTarjetas = abrirPDFTarjetaPorId;
-
-        window.editarTarjeta = function(id) {
-            const registro = baseDatosTarjetas.find(t => t.id === id);
-            if (!registro) return;
-
-            idTarjetaEnEdicion = id;
-
-            const selectAnio = document.getElementById('tar-anio-ingreso');
-            if (selectAnio) {
-                selectAnio.value = registro.anioIngreso || new Date().getFullYear();
-            }
-
-            document.getElementById('tar-juzgado').value = registro.juzgado || '';
-            document.getElementById('tar-juez').value = registro.juez || '';
-            document.getElementById('tar-fecha-recepcion').value = registro.fechaRecepcion || '';
-            document.getElementById('tar-oficio').value = registro.oficio || '';
-
-            const tbody = document.querySelector('#tabla-tarjetas-detalles tbody');
-            tbody.innerHTML = '';
-            if (registro.paquetesData && Array.isArray(registro.paquetesData) && registro.paquetesData.length > 0) {
-                registro.paquetesData.forEach((paq, idx) => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td class="fw-bold tar-item-nro">${idx + 1}</td>
-                        <td><input type="number" class="form-control form-control-sm text-center fw-bold tar-nro-paq" value="${paq.nroPaq || ''}" oninput="actualizarResumenTarjeta(this)"></td>
-                        <td><input type="number" class="form-control form-control-sm text-center tar-cant-exp" value="${paq.cantExp || ''}" min="1" oninput="actualizarResumenTarjeta(this)"></td>
-                        <td><input type="text" class="form-control form-control-sm text-center tar-anio-exp" value="${paq.anioExp || ''}" oninput="actualizarResumenTarjeta(this)"></td>
-                        <td class="text-start small text-muted tar-resumen">Paquete N° ${paq.nroPaq || '...'} (${paq.cantExp || '...'} exp. - Año: ${paq.anioExp || '...'})</td>
-                        <td class="text-center">
-                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="this.closest('tr').remove(); reindexarTarjetas();">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } else {
-                tbody.innerHTML = `<tr id="tarjetas-fila-vacia">
-                    <td colspan="6" class="text-center text-muted py-3">
-                        Aún no ha añadido paquetes. Use los botones "+ Añadir Fila" o "+ Añadir 5 Filas".
-                    </td>
-                </tr>`;
-            }
-
-            const btnGuardar = document.querySelector('button[onclick="window.guardarYGenerarPDFTarjetas()"]');
-            if (btnGuardar) btnGuardar.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Guardar Cambios';
-
-            switchView('view-tarjetas', `Editando Tarjetas de ${registro.juzgado || 'Bloque'}`);
-        };
-
-        window.eliminarTarjetasLote = async function(id) {
-            const confirmacion = await Swal.fire({
-                icon: 'warning',
-                title: '¿Eliminar bloque de tarjetas?',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, eliminar',
-                confirmButtonColor: '#800000'
-            });
-            if (!confirmacion.isConfirmed) return;
-
-            try {
-                const currentUserObj = auth.currentUser;
-                const currentUserName = currentUserObj ? (currentUserObj.displayName ? normalizarTexto(currentUserObj.displayName) : normalizarTexto(currentUserObj.email.split('@')[0])) : 'DESCONOCIDO';
-
-                await updateDoc(doc(db, "tarjetas_paquetes", id), {
-                    activo: false,
-                    auditoriaEliminacion: {
-                        uid: currentUserObj?.uid || null,
-                        nombre: currentUserName,
-                        timestamp: Date.now()
-                    }
-                });
-                Swal.fire({ icon: 'success', title: 'Registro eliminado', timer: 1500, showConfirmButton: false });
-                await cargarHistorialTarjetas();
-            } catch (e) {
-                Swal.fire('Error', e.message, 'error');
-            }
-        };
-
-        window.switchView = switchView;
-        window.abrirModalRango = abrirModalRango;
-        window.cerrarModalRango = cerrarModalRango;
-        window.filtrarRegistros = filtrarRegistros;
+      } catch (chunkErr) {
+        console.error(`No se pudieron eliminar los trozos de PDF de ${id}:`, chunkErr);
+      }
+      await deleteDoc(doc(db,"certificaciones",id));
+    }
+    estado.textContent = `Se eliminaron ${ids.length} registro(s), incluyendo su PDF archivado cuando existía.`;
+    await cargarAdministracion();
+    await cargarHistorial();
+  } catch (err) {
+    console.error(err);
+    estado.textContent = `No se pudo completar la eliminación: ${err.message || ""}`;
+    await cargarAdministracion();
+  }
+}
+
+function mostrarPagina(nombre) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+
+  const page = document.getElementById("page-" + nombre);
+  const nav = document.querySelector(`.nav-btn[data-page="${nombre}"]`);
+
+  if (page) page.classList.add("active");
+  if (nav) nav.classList.add("active");
+
+  if (nombre === "historial") cargarHistorial();
+  if (nombre === "administracion") cargarAdministracion();
+  if (nombre === "firmar") {
+    $("hashResultadoMesa")?.classList.add("oculto");
+    if (temporizadorHashResultadoMesa) { clearTimeout(temporizadorHashResultadoMesa); temporizadorHashResultadoMesa = null; }
+    cargarPendientesFirma();
+    cargarMisDocumentosFirmados();
+  }
+  if (nombre === "certificar") {
+    $("hashResultado")?.classList.add("oculto");
+    if (temporizadorHashResultado) { clearTimeout(temporizadorHashResultado); temporizadorHashResultado = null; }
+    cargarMisPendientesFirma();
+  }
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+
+// Menú lateral móvil estilo SAAMIR
+const btnMenuMovil = $("btnMenuMovil");
+const sidebarMovil = document.querySelector(".sidebar");
+const sidebarBackdrop = $("sidebarBackdrop");
+
+function cerrarMenuMovil(){
+  if (!sidebarMovil) return;
+  sidebarMovil.classList.remove("menu-abierto");
+  sidebarBackdrop?.classList.remove("show");
+  btnMenuMovil?.classList.remove("is-open");
+  btnMenuMovil?.setAttribute("aria-expanded","false");
+  sidebarBackdrop?.setAttribute("aria-hidden","true");
+  document.body.classList.remove("menu-movil-abierto");
+}
+
+function abrirMenuMovil(){
+  if (!sidebarMovil) return;
+  sidebarMovil.classList.add("menu-abierto");
+  sidebarBackdrop?.classList.add("show");
+  btnMenuMovil?.classList.add("is-open");
+  btnMenuMovil?.setAttribute("aria-expanded","true");
+  sidebarBackdrop?.setAttribute("aria-hidden","false");
+  document.body.classList.add("menu-movil-abierto");
+}
+
+function toggleMenuMovil(){
+  if (sidebarMovil?.classList.contains("menu-abierto")) cerrarMenuMovil();
+  else abrirMenuMovil();
+}
+
+btnMenuMovil?.addEventListener("click", toggleMenuMovil);
+sidebarBackdrop?.addEventListener("click", cerrarMenuMovil);
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") cerrarMenuMovil();
+});
+
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    mostrarPagina(btn.dataset.page);
+    if (window.matchMedia("(max-width: 800px)").matches) cerrarMenuMovil();
+  });
+});
+
+document.querySelectorAll("[data-go]").forEach(btn => {
+  btn.addEventListener("click", () => mostrarPagina(btn.dataset.go));
+});
+
+$("btnActualizarHistorial").addEventListener("click", cargarHistorial);
+
+$("btnCrearBackup").addEventListener("click", crearBackupAdmin);
+$("btnEliminarSeleccionados").addEventListener("click", eliminarSeleccionadosAdmin);
+$("btnSeleccionarTodosAdmin").addEventListener("click", () => seleccionarTodosAdmin(true));
+$("btnDeseleccionarTodosAdmin").addEventListener("click", () => seleccionarTodosAdmin(false));
+
+async function cargarPerfil(user) {
+  const autorizado = obtenerUsuarioAutorizado(user);
+  const esAdmin = user.uid === ADMIN_UID;
+
+  const esMesa = esUsuarioMesaPartes(user);
+
+  if (!autorizado && !esAdmin && !esMesa) {
+    throw new Error("Esta cuenta no está autorizada para utilizar SAMICERT.");
+  }
+
+  if (autorizado && user.email?.toLowerCase() !== autorizado.correo.toLowerCase()) {
+    throw new Error("La cuenta no coincide con el certificador autorizado.");
+  }
+
+  const snap = await getDoc(doc(db,"usuarios",user.uid));
+
+  if (!snap.exists()) {
+    const perfilNuevo = {
+      uid:user.uid,
+      nombre:autorizado?.nombre || user.displayName || (esAdmin ? "Administrador" : (esMesa ? "Mesa de Partes" : "Usuario autorizado")),
+      correo:autorizado?.correo || user.email || "",
+      rol:esAdmin ? "administrador" : (esMesa ? "mesa_partes" : "certificador"),
+      creadoEn:serverTimestamp()
+    };
+    await setDoc(doc(db,"usuarios",user.uid), perfilNuevo);
+    perfilActual = {...perfilNuevo, uid:user.uid};
+  } else {
+    perfilActual = {
+      ...snap.data(),
+      uid:user.uid,
+      rol:esAdmin ? "administrador" : (esMesa ? "mesa_partes" : (snap.data().rol || "certificador"))
+    };
+
+    // Autocorrección: cuentas antiguas de Mesa de Partes que quedaron
+    // guardadas con el nombre por defecto "Administrador" (bug ya
+    // corregido) se actualizan aquí para mostrar "Mesa de Partes".
+    if (esMesa && (!perfilActual.nombre || perfilActual.nombre === "Administrador")) {
+      perfilActual.nombre = "Mesa de Partes";
+      try {
+        await setDoc(doc(db,"usuarios",user.uid), { nombre:"Mesa de Partes" }, { merge:true });
+      } catch (err) {
+        console.warn("No se pudo corregir el nombre guardado de Mesa de Partes:", err);
+      }
+    }
+  }
+
+  esAdministradorActual = esAdmin;
+  $("usuarioNombre").textContent = perfilActual.nombre || (esAdmin ? "Administrador" : (esMesa ? "Mesa de Partes" : "Usuario autorizado"));
+  $("usuarioEmail").textContent = perfilActual.correo || user.email || "";
+  actualizarAccesoAdministrador();
+}
+
+function mostrarMensajePassword(tipo, mensaje) {
+  passwordMessage.textContent = mensaje;
+  passwordMessage.className = `password-message ${tipo}`;
+}
+
+function limpiarFormularioPassword() {
+  passwordForm.reset();
+  passwordMessage.textContent = "";
+  passwordMessage.className = "password-message oculto";
+}
+
+function traducirErrorPassword(error) {
+  const code = error?.code || "";
+  const mensajes = {
+    "auth/wrong-password": "La contraseña actual es incorrecta.",
+    "auth/invalid-credential": "La contraseña actual es incorrecta.",
+    "auth/invalid-login-credentials": "La contraseña actual es incorrecta.",
+    "auth/weak-password": "La nueva contraseña es demasiado débil. Use al menos 8 caracteres.",
+    "auth/requires-recent-login": "Por seguridad, la sesión debe renovarse. Cierre sesión e ingrese nuevamente antes de cambiar la contraseña.",
+    "auth/too-many-requests": "Se han realizado demasiados intentos. Espere unos minutos e inténtelo nuevamente.",
+    "auth/network-request-failed": "No se pudo conectar con Firebase. Verifique su conexión a Internet."
+  };
+  return mensajes[code] || "No se pudo cambiar la contraseña. Inténtelo nuevamente.";
+}
+
+btnCambiarPassword.addEventListener("click", () => {
+  mostrarPagina("seguridad");
+  $("currentPassword").focus();
+});
+
+btnLimpiarPassword.addEventListener("click", limpiarFormularioPassword);
+
+passwordForm.addEventListener("submit", async e => {
+  e.preventDefault();
+
+  if (!usuarioActual || !usuarioActual.email) {
+    mostrarMensajePassword("error", "No hay una sesión activa.");
+    return;
+  }
+
+  const currentPassword = $("currentPassword").value;
+  const newPassword = $("newPassword").value;
+  const confirmPassword = $("confirmPassword").value;
+
+  if (newPassword.length < 8) {
+    mostrarMensajePassword("error", "La nueva contraseña debe tener como mínimo 8 caracteres.");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    mostrarMensajePassword("error", "La confirmación no coincide con la nueva contraseña.");
+    return;
+  }
+
+  if (currentPassword === newPassword) {
+    mostrarMensajePassword("error", "La nueva contraseña debe ser diferente de la contraseña actual.");
+    return;
+  }
+
+  btnGuardarPassword.disabled = true;
+  btnGuardarPassword.textContent = "Actualizando…";
+  passwordMessage.className = "password-message oculto";
+
+  try {
+    const credential = EmailAuthProvider.credential(
+      usuarioActual.email,
+      currentPassword
+    );
+
+    await reauthenticateWithCredential(usuarioActual, credential);
+    await updatePassword(usuarioActual, newPassword);
+
+    limpiarFormularioPassword();
+    mostrarMensajePassword("success", "Contraseña actualizada correctamente. La nueva contraseña ya está activa.");
+
+  } catch (error) {
+    console.error("ERROR CAMBIO DE CONTRASEÑA:", error);
+    mostrarMensajePassword("error", traducirErrorPassword(error));
+  } finally {
+    btnGuardarPassword.disabled = false;
+    btnGuardarPassword.textContent = "Actualizar contraseña";
+  }
+});
+
+loginForm.addEventListener("submit",async e => {
+  e.preventDefault();
+
+  loginError.classList.add("oculto");
+  btnLogin.disabled = true;
+  btnLogin.textContent = "Ingresando…";
+
+  try {
+    await signInWithEmailAndPassword(
+      auth,
+      $("loginEmail").value.trim(),
+      $("loginPassword").value
+    );
+  } catch(err) {
+    console.error(err);
+    loginError.textContent =
+      "Correo o contraseña incorrectos, o cuenta no autorizada.";
+    loginError.classList.remove("oculto");
+  } finally {
+    btnLogin.disabled = false;
+    btnLogin.textContent = "Ingresar";
+  }
+});
+
+btnCerrarSesion.addEventListener("click", async () => {
+  resetearEstadoSesion();
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+onAuthStateChanged(auth,async user => {
+  usuarioActual = user;
+
+  if (!user) {
+    resetearEstadoSesion();
+    loginScreen.classList.remove("oculto");
+    appScreen.classList.add("oculto");
+    return;
+  }
+
+  try {
+    await cargarPerfil(user);
+    await cargarSelloAutomatico();
+
+    loginScreen.classList.add("oculto");
+    appScreen.classList.remove("oculto");
+
+    const idConsultaEnUrl = new URLSearchParams(window.location.search).get("consulta");
+    if (idConsultaEnUrl) {
+      mostrarPagina("verificar");
+      const inputId = $("inputConsultaId");
+      inputId.value = idConsultaEnUrl.trim().toUpperCase();
+      $("btnConsultar").click();
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (esUsuarioMesaPartes()) {
+      mostrarPagina("firmar");
+      await cargarPendientesFirma();
+      cargarMisDocumentosFirmados();
+    } else {
+      mostrarPagina("inicio");
+    }
+  } catch(err) {
+    console.error(err);
+    resetearEstadoSesion();
+    await signOut(auth);
+    loginError.textContent = err.message || "La cuenta no está autorizada.";
+    loginError.classList.remove("oculto");
+  }
+});
+
+renderLista();
